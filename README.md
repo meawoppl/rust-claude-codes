@@ -2,6 +2,63 @@
 
 A tightly typed Rust interface for the Claude Code JSON protocol.
 
+## Development Workflow
+
+This project uses a strict PR-based workflow with automated quality checks:
+
+### Branch Protection & Git Hooks
+
+1. **No direct commits to main** - All changes must go through feature branches and PRs
+2. **Automated pre-commit checks** - Run `./setup_hooks.sh` to install local git hooks that enforce:
+   - Branch protection (prevents commits to main)
+   - Code formatting (`cargo fmt`)
+   - Linting (`cargo clippy`)
+   - JSON test case formatting
+   - All tests passing
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/meawoppl/rust-claude-codes
+cd rust-claude-codes
+
+# Install git hooks (required for all contributors)
+./setup_hooks.sh
+
+# Create a feature branch for your work
+git checkout -b feature/your-feature-name
+
+# Make your changes, then commit
+git add .
+git commit -m "Your descriptive commit message"
+
+# Push to GitHub and create a PR
+git push origin feature/your-feature-name
+```
+
+### Test-Driven Protocol Development
+
+This crate uses a unique test-driven approach for protocol development:
+
+1. **Run the test client**: `cargo run --bin claude-test`
+2. **Failed deserializations are automatically saved** to `test_cases/failed_deserializations/`
+3. **Format test cases**: `./format_test_cases.sh`
+4. **Run tests to see what needs implementing**: `cargo test deserialization`
+5. **Add missing message types** to the `ClaudeOutput` enum
+6. **Tests turn green** as the protocol is implemented
+
+### CI/CD Requirements
+
+All PRs must pass the following GitHub Actions checks:
+
+- ✅ Code formatting (`cargo fmt --all -- --check`)
+- ✅ Clippy linting (`cargo clippy --all-targets --all-features -- -D warnings`)
+- ✅ All tests passing (`cargo test --all-features`)
+- ✅ JSON test cases properly formatted
+- ✅ Documentation builds (`cargo doc --no-deps`)
+- ✅ MSRV compatibility (Rust 1.70+)
+
 ## Features
 
 - Type-safe message encoding/decoding

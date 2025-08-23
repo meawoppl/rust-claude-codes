@@ -1,5 +1,71 @@
 # Claude Code Instructions for rust-claude-codes
 
+## Development Strategy
+
+This project follows a test-driven development approach for implementing the Claude Code JSON protocol:
+
+1. **Discover Protocol Through Usage**: Run `cargo run --bin claude-test` to interact with Claude and discover new message types
+2. **Capture Failed Cases**: Any JSON that fails to deserialize is automatically saved to `test_cases/failed_deserializations/`
+3. **Implement Missing Types**: Add the necessary variants to `ClaudeOutput` enum in `src/io.rs`
+4. **Verify Implementation**: Run `cargo test deserialization` to ensure the new types deserialize correctly
+5. **Lock in Progress**: Successful test cases prove our protocol implementation is correct
+
+## Git Workflow Requirements
+
+**CRITICAL: This repository enforces a strict PR-based workflow**
+
+### Branch Protection
+
+- **NEVER commit directly to main branch**
+- All changes MUST go through feature branches and pull requests
+- The pre-commit hook will block direct commits to main
+
+### Required Workflow
+
+```bash
+# Always work on a feature branch
+git checkout -b feature/description-of-change
+
+# Make changes and commit
+git add .
+git commit -m "Descriptive message"
+
+# Push and create PR
+git push origin feature/description-of-change
+```
+
+### Pre-commit Checks
+
+The repository has git hooks that enforce:
+- No commits to main branch
+- Code formatting with `cargo fmt`
+- All clippy warnings resolved
+- All tests passing
+- JSON test cases properly formatted
+
+If you haven't already, run `./setup_hooks.sh` to install these hooks.
+
+### CI/CD Pipeline
+
+All PRs trigger GitHub Actions that verify:
+- Code formatting is correct
+- No clippy warnings
+- All tests pass
+- JSON test cases are formatted
+- Documentation builds successfully
+- MSRV (1.70) compatibility
+
+## Protocol Implementation Guidelines
+
+When implementing new message types:
+
+1. **Start with the test case** - Look at the failed JSON in `test_cases/`
+2. **Identify the structure** - Note field names, types, and nesting
+3. **Add to ClaudeOutput enum** - Create a new variant with appropriate struct
+4. **Follow existing patterns** - Use `#[serde(skip_serializing_if = "Option::is_none")]` for optional fields
+5. **Test immediately** - Run `cargo test deserialization` to verify
+6. **Document the type** - Add doc comments explaining when this message appears
+
 ## Code Quality Standards
 
 **IMPORTANT: Before every commit, you MUST:**
