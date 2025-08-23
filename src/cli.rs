@@ -226,8 +226,10 @@ impl ClaudeCliBuilder {
     /// Build the command arguments (always includes JSON streaming flags)
     fn build_args(&self) -> Vec<String> {
         // Always add JSON streaming mode flags
+        // Note: --print with stream-json requires --verbose
         let mut args = vec![
             "--print".to_string(),
+            "--verbose".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
             "--input-format".to_string(),
@@ -240,10 +242,6 @@ impl ClaudeCliBuilder {
             if !debug.is_empty() {
                 args.push(debug.clone());
             }
-        }
-
-        if self.verbose {
-            args.push("--verbose".to_string());
         }
 
         if self.dangerously_skip_permissions {
