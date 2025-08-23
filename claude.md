@@ -53,7 +53,7 @@ All PRs trigger GitHub Actions that verify:
 - All tests pass
 - JSON test cases are formatted
 - Documentation builds successfully
-- MSRV (1.70) compatibility
+- MSRV (1.85) compatibility
 
 ## Protocol Implementation Guidelines
 

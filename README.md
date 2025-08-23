@@ -57,7 +57,7 @@ All PRs must pass the following GitHub Actions checks:
 - ✅ All tests passing (`cargo test --all-features`)
 - ✅ JSON test cases properly formatted
 - ✅ Documentation builds (`cargo doc --no-deps`)
-- ✅ MSRV compatibility (Rust 1.70+)
+- ✅ MSRV compatibility (Rust 1.85+)
 
 ## Features
 
