@@ -31,7 +31,28 @@ async fn main() -> Result<()> {
     info!("Starting Claude test client with model: {}", model);
 
     // Start Claude in JSON streaming mode
-    let mut claude = start_claude(&model).await?;
+    let (mut claude, stderr) = start_claude(&model).await?;
+
+    // Spawn a task to monitor stderr
+    tokio::spawn(async move {
+        let mut stderr = stderr;
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match stderr.read_line(&mut line).await {
+                Ok(0) => break, // EOF
+                Ok(_) => {
+                    if !line.trim().is_empty() {
+                        error!("Claude stderr: {}", line.trim());
+                    }
+                }
+                Err(e) => {
+                    error!("Error reading stderr: {}", e);
+                    break;
+                }
+            }
+        }
+    });
 
     info!("Claude process started successfully");
     println!("Claude Test Client");
@@ -99,7 +120,9 @@ struct ClaudeProcess {
 }
 
 /// Start the Claude process
-async fn start_claude(model: &str) -> Result<ClaudeProcess> {
+async fn start_claude(
+    model: &str,
+) -> Result<(ClaudeProcess, BufReader<tokio::process::ChildStderr>)> {
     let mut child = ClaudeCliBuilder::new()
         .model(model)
         .spawn()
@@ -107,14 +130,17 @@ async fn start_claude(model: &str) -> Result<ClaudeProcess> {
         .context("Failed to spawn Claude process")?;
 
     let stdin = child.stdin.take().context("Failed to get stdin handle")?;
-
     let stdout = BufReader::new(child.stdout.take().context("Failed to get stdout handle")?);
+    let stderr = BufReader::new(child.stderr.take().context("Failed to get stderr handle")?);
 
-    Ok(ClaudeProcess {
-        child,
-        stdin,
-        stdout,
-    })
+    Ok((
+        ClaudeProcess {
+            child,
+            stdin,
+            stdout,
+        },
+        stderr,
+    ))
 }
 
 /// Send a query to Claude
@@ -130,11 +156,23 @@ async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
     debug!("Sending JSON: {}", json_line.trim());
 
     // Send to Claude
-    claude
-        .stdin
-        .write_all(json_line.as_bytes())
-        .await
-        .context("Failed to write to stdin")?;
+    if let Err(e) = claude.stdin.write_all(json_line.as_bytes()).await {
+        error!("Failed to write to stdin: {}", e);
+
+        // Try to read any stdout that might have been produced
+        let mut out_line = String::new();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            claude.stdout.read_line(&mut out_line),
+        )
+        .await;
+
+        if !out_line.trim().is_empty() {
+            error!("Claude stdout before failure: {}", out_line.trim());
+        }
+
+        return Err(anyhow::anyhow!("Failed to write to stdin: {}", e));
+    }
 
     claude
         .stdin
@@ -319,6 +357,20 @@ fn handle_output(output: ClaudeOutput) {
             warn!("Received raw/untyped output");
             println!("\n[Raw Output]");
             println!("{}", serde_json::to_string_pretty(&value).unwrap());
+            println!();
+        }
+        ClaudeOutput::Result(result) => {
+            println!("\n[Query Complete]");
+            println!("Result: {}", result.result);
+            println!(
+                "Duration: {}ms (API: {}ms)",
+                result.duration_ms, result.duration_api_ms
+            );
+            println!(
+                "Tokens: {} in, {} out",
+                result.usage.input_tokens, result.usage.output_tokens
+            );
+            println!("Cost: ${:.6}", result.total_cost_usd);
             println!();
         }
     }

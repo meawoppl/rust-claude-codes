@@ -51,6 +51,9 @@ pub enum ClaudeOutput {
     /// Session info
     SessionInfo(SessionInfoOutput),
 
+    /// Result message (completion of a query)
+    Result(ResultOutput),
+
     /// Raw JSON for untyped messages
     Raw(Value),
 }
@@ -197,6 +200,39 @@ pub struct SessionInfoOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
+}
+
+/// Result output for completed queries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResultOutput {
+    pub subtype: String,
+    pub is_error: bool,
+    pub duration_ms: u64,
+    pub duration_api_ms: u64,
+    pub num_turns: u32,
+    pub result: String,
+    pub session_id: String,
+    pub total_cost_usd: f64,
+    pub usage: UsageInfo,
+    pub permission_denials: Vec<Value>,
+    pub uuid: String,
+}
+
+/// Usage information for the request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageInfo {
+    pub input_tokens: u32,
+    pub cache_creation_input_tokens: u32,
+    pub cache_read_input_tokens: u32,
+    pub output_tokens: u32,
+    pub server_tool_use: ServerToolUse,
+    pub service_tier: String,
+}
+
+/// Server tool usage information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerToolUse {
+    pub web_search_requests: u32,
 }
 
 /// Attachment for messages
