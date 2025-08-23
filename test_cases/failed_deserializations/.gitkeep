@@ -1,0 +1,2 @@
+# This directory holds test cases for failed deserializations
+# JSON files in this directory are automatically tested by the test suite

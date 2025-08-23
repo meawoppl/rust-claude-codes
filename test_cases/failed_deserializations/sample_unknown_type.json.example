@@ -1,0 +1,6 @@
+{
+  "timestamp": "2024-01-01T00:00:00Z",
+  "error": "unknown variant `unknown_message_type`, expected one of ...",
+  "raw_json": "{\"type\":\"unknown_message_type\",\"content\":\"This is a message type we haven't implemented yet\",\"metadata\":{\"version\":\"1.0\"}}",
+  "pretty_json": "{\n  \"type\": \"unknown_message_type\",\n  \"content\": \"This is a message type we haven't implemented yet\",\n  \"metadata\": {\n    \"version\": \"1.0\"\n  }\n}"
+}

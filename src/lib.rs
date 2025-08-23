@@ -3,12 +3,16 @@
 //! This crate provides type-safe encoding and decoding for the JSON lines
 //! protocol used by Claude Code for communication.
 
+pub mod cli;
 pub mod error;
+pub mod io;
 pub mod messages;
 pub mod protocol;
 pub mod types;
 
+pub use cli::{ClaudeCliBuilder, PermissionMode};
 pub use error::{Error, Result};
+pub use io::{ClaudeInput, ClaudeOutput};
 pub use messages::*;
 pub use protocol::Protocol;
 pub use types::*;
