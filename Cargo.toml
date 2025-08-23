@@ -2,6 +2,7 @@
 name = "claude-codes"
 version = "0.0.1"
 edition = "2021"
+rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
 description = "A tightly typed Rust interface for the Claude Code JSON protocol"
 documentation = "https://docs.rs/claude-codes"
