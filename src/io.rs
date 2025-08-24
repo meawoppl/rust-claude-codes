@@ -39,16 +39,16 @@ pub enum ClaudeOutput {
 /// User message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
-    pub content: ContentType, // Can be string or list of content blocks
-    pub session_id: String,
+    pub message: MessageContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
-/// Content type for user messages
+/// Message content with role
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ContentType {
-    Text(String),
-    Blocks(Vec<ContentBlock>),
+pub struct MessageContent {
+    pub role: String,
+    pub content: Vec<ContentBlock>,
 }
 
 /// System message with metadata
@@ -213,18 +213,24 @@ pub struct ServerToolUse {
 
 impl ClaudeInput {
     /// Create a simple text user message
-    pub fn user_message(message: impl Into<String>, session_id: impl Into<String>) -> Self {
+    pub fn user_message(text: impl Into<String>, session_id: impl Into<String>) -> Self {
         ClaudeInput::User(UserMessage {
-            content: ContentType::Text(message.into()),
-            session_id: session_id.into(),
+            message: MessageContent {
+                role: "user".to_string(),
+                content: vec![ContentBlock::Text(TextBlock { text: text.into() })],
+            },
+            session_id: Some(session_id.into()),
         })
     }
 
     /// Create a user message with content blocks
     pub fn user_message_blocks(blocks: Vec<ContentBlock>, session_id: impl Into<String>) -> Self {
         ClaudeInput::User(UserMessage {
-            content: ContentType::Blocks(blocks),
-            session_id: session_id.into(),
+            message: MessageContent {
+                role: "user".to_string(),
+                content: blocks,
+            },
+            session_id: Some(session_id.into()),
         })
     }
 }
@@ -254,8 +260,9 @@ mod tests {
     fn test_serialize_user_message() {
         let input = ClaudeInput::user_message("Hello, Claude!", "session-123");
         let json = serde_json::to_string(&input).unwrap();
-        assert!(json.contains("user"));
-        assert!(json.contains("Hello, Claude!"));
+        assert!(json.contains("\"type\":\"user\""));
+        assert!(json.contains("\"role\":\"user\""));
+        assert!(json.contains("\"text\":\"Hello, Claude!\""));
         assert!(json.contains("session-123"));
     }
 

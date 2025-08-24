@@ -111,17 +111,69 @@ async fn main() -> Result<()> {
         // Send the query to Claude
         match send_query(&mut claude, input).await {
             Ok(()) => {
-                // Read and process the response
-                match read_response(&mut claude).await {
-                    Ok(output) => {
-                        handle_output(output);
-                    }
-                    Err(e) => {
-                        error!("Failed to read response: {}", e);
-                        eprintln!("Error reading response: {}", e);
-                        return Err(e);
+                // Expected flow after sending a message:
+                // 1. System message (acknowledging the user message)
+                // 2. Zero or more Assistant messages (the actual response)
+                // 3. Result message (completion with metrics)
+
+                println!("\n--- Waiting for response ---");
+
+                let mut received_result = false;
+                let mut received_system = false;
+                let mut assistant_count = 0;
+
+                while !received_result {
+                    match read_response(&mut claude).await {
+                        Ok(output) => {
+                            match &output {
+                                ClaudeOutput::System(_) => {
+                                    if received_system {
+                                        warn!("Received multiple System messages in one response cycle");
+                                    }
+                                    received_system = true;
+                                    debug!("Received System message");
+                                }
+                                ClaudeOutput::Assistant(_) => {
+                                    assistant_count += 1;
+                                    debug!("Received Assistant message #{}", assistant_count);
+                                }
+                                ClaudeOutput::Result(_) => {
+                                    received_result = true;
+                                    debug!("Received Result message - response complete");
+                                }
+                                ClaudeOutput::User(_) => {
+                                    // This is just our message being echoed back
+                                    debug!("Received User message echo");
+                                }
+                                _ => {
+                                    warn!("Unexpected message type in response flow");
+                                }
+                            }
+
+                            handle_output(output);
+                        }
+                        Err(e) => {
+                            error!("Failed to read response: {}", e);
+                            eprintln!("Error reading response: {}", e);
+
+                            // If we've received at least some response, continue
+                            if received_system || assistant_count > 0 {
+                                eprintln!("Partial response received before error");
+                                break;
+                            }
+                            return Err(e);
+                        }
                     }
                 }
+
+                if !received_system {
+                    warn!("Never received System message in response");
+                }
+
+                println!(
+                    "--- Response complete (received {} assistant messages) ---\n",
+                    assistant_count
+                );
             }
             Err(e) => {
                 error!("Failed to send query: {}", e);
@@ -363,16 +415,23 @@ fn save_test_case(json: &str, error: &serde_json::Error) -> Result<()> {
 fn handle_output(output: ClaudeOutput) {
     match output {
         ClaudeOutput::System(sys) => {
-            println!("\n[System Init]");
-            println!("Subtype: {}", sys.subtype);
-            println!("Data: {}", serde_json::to_string_pretty(&sys.data).unwrap());
-            println!();
+            println!("\n[System Message - {}]", sys.subtype);
+            if sys.subtype == "confirmation" {
+                // Don't print full data for simple confirmations
+                debug!(
+                    "System data: {}",
+                    serde_json::to_string_pretty(&sys.data).unwrap()
+                );
+            } else {
+                println!("Data: {}", serde_json::to_string_pretty(&sys.data).unwrap());
+            }
         }
         ClaudeOutput::User(msg) => {
-            debug!("User message echoed: session={}", msg.session_id);
+            // Usually just an echo of what we sent
+            debug!("User message echoed: session={:?}", msg.session_id);
         }
         ClaudeOutput::Assistant(msg) => {
-            println!("\nClaude: ");
+            println!("\n[Assistant Response]");
             // Process content blocks
             for block in &msg.content {
                 match block {
@@ -408,30 +467,30 @@ fn handle_output(output: ClaudeOutput) {
                     }
                 }
             }
-            println!("\nModel: {}", msg.model);
-            println!();
+            debug!("Model: {}", msg.model);
         }
         ClaudeOutput::Result(result) => {
-            println!("\n[Query Complete]");
-            if let Some(ref res) = result.result {
-                println!("Result: {}", res);
-            }
-            println!("Status: {:?}", result.subtype);
+            println!("\n[Result - Query Complete]");
+            println!("├─ Status: {:?}", result.subtype);
             println!(
-                "Duration: {}ms (API: {}ms)",
+                "├─ Duration: {}ms (API: {}ms)",
                 result.duration_ms, result.duration_api_ms
             );
             if let Some(ref usage) = result.usage {
                 println!(
-                    "Tokens: {} in, {} out",
+                    "├─ Tokens: {} in, {} out",
                     usage.input_tokens, usage.output_tokens
                 );
             }
-            println!("Cost: ${:.6}", result.total_cost_usd);
+            println!("├─ Cost: ${:.6}", result.total_cost_usd);
+            println!("└─ Session: {}", result.session_id);
+
             if result.is_error {
-                eprintln!("ERROR: Query resulted in error state");
+                eprintln!("\n⚠️  ERROR: Query resulted in error state");
+                if let Some(ref res) = result.result {
+                    eprintln!("   Error details: {}", res);
+                }
             }
-            println!();
         }
         ClaudeOutput::Raw(value) => {
             warn!("Received raw/untyped output");
