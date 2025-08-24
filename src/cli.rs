@@ -358,6 +358,26 @@ impl ClaudeCliBuilder {
             .stderr(Stdio::piped());
         cmd
     }
+
+    /// Spawn the Claude process using synchronous std::process
+    pub fn spawn_sync(self) -> std::io::Result<std::process::Child> {
+        let args = self.build_args();
+
+        // Log the full command being executed
+        debug!(
+            "[CLI] Executing sync command: {} {}",
+            self.command.display(),
+            args.join(" ")
+        );
+        eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
+
+        std::process::Command::new(&self.command)
+            .args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+    }
 }
 
 #[cfg(test)]
