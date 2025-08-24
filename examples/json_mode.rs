@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = BufReader::new(child.stdout.take().expect("Failed to get stdout"));
 
     // Send a message to Claude
-    let input = ClaudeInput::user_message("What is 2 + 2?");
+    let input = ClaudeInput::user_message("What is 2 + 2?", "example-session");
     let json_line = Protocol::serialize(&input)?;
     stdin.write_all(json_line.as_bytes()).await?;
     stdin.flush().await?;
@@ -24,14 +24,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Try to parse as ClaudeOutput
         match serde_json::from_str::<ClaudeOutput>(&line) {
             Ok(output) => match output {
-                ClaudeOutput::AssistantMessage(msg) => {
-                    println!("Claude says: {}", msg.content);
+                ClaudeOutput::System(sys) => {
+                    println!(
+                        "System initialized: model={}, session={}",
+                        sys.model, sys.session_id
+                    );
                 }
-                ClaudeOutput::ToolUse(tool) => {
-                    println!("Claude wants to use tool: {}", tool.tool_name);
+                ClaudeOutput::Assistant(msg) => {
+                    if let Some(content) = msg.message.get("content").and_then(|v| v.as_str()) {
+                        println!("Claude says: {}", content);
+                    }
                 }
-                ClaudeOutput::Error(err) => {
-                    eprintln!("Error: {}", err.message);
+                ClaudeOutput::Result(result) => {
+                    if let Some(ref res) = result.result {
+                        println!("Result: {}", res);
+                    }
+                    println!("Cost: ${:.6}", result.total_cost_usd);
                 }
                 _ => {
                     println!("Other output: {:?}", output);

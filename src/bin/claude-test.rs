@@ -147,8 +147,8 @@ async fn start_claude(
 async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
     info!("Sending query: {}", query);
 
-    // Create the input message
-    let input = ClaudeInput::user_message(query);
+    // Create the input message with a dummy session ID for now
+    let input = ClaudeInput::user_message(query, "test-session");
 
     // Serialize to JSON
     let json_line = Protocol::serialize(&input).context("Failed to serialize input")?;
@@ -185,7 +185,6 @@ async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
 
 /// Read a response from Claude
 async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
-    let mut accumulated_response = String::new();
     let mut line = String::new();
 
     info!("Reading response from Claude...");
@@ -216,26 +215,8 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
             Ok(output) => {
                 info!("Successfully parsed ClaudeOutput");
 
-                // Check if this is a streaming chunk
-                if let ClaudeOutput::StreamChunk(ref chunk) = output {
-                    accumulated_response.push_str(&chunk.delta);
-
-                    // If it's the final chunk, create an assistant message
-                    if chunk.is_final.unwrap_or(false) {
-                        return Ok(ClaudeOutput::AssistantMessage(
-                            claude_codes::io::AssistantMessageOutput {
-                                content: accumulated_response,
-                                conversation_id: None,
-                                thinking: None,
-                                metadata: None,
-                            },
-                        ));
-                    }
-                    // Otherwise, continue accumulating
-                } else {
-                    // Non-streaming response, return immediately
-                    return Ok(output);
-                }
+                // Non-streaming response, return immediately
+                return Ok(output);
             }
             Err(e) => {
                 // Save failed test case
@@ -304,52 +285,46 @@ fn save_test_case(json: &str, error: &serde_json::Error) -> Result<()> {
 /// Handle the output from Claude
 fn handle_output(output: ClaudeOutput) {
     match output {
-        ClaudeOutput::AssistantMessage(msg) => {
-            println!("\nClaude: {}\n", msg.content);
-            if let Some(thinking) = msg.thinking {
-                debug!("Claude's thinking: {}", thinking);
-            }
+        ClaudeOutput::System(sys) => {
+            println!("\n[System Init]");
+            println!("Model: {}", sys.model);
+            println!("Session: {}", sys.session_id);
+            println!("Permission Mode: {:?}", sys.permission_mode);
+            println!("Tools: {} available", sys.tools.len());
+            println!();
         }
-        ClaudeOutput::ToolUse(tool) => {
-            println!("\n[Tool Request: {}]", tool.tool_name);
-            println!(
-                "Parameters: {}",
-                serde_json::to_string_pretty(&tool.parameters).unwrap()
-            );
-            if let Some(desc) = tool.description {
-                println!("Description: {}", desc);
+        ClaudeOutput::User(msg) => {
+            debug!("User message echoed: session={}", msg.session_id);
+        }
+        ClaudeOutput::Assistant(msg) => {
+            println!("\nClaude: ");
+            // The message field is a JSON Value, extract content if possible
+            if let Some(content) = msg.message.get("content").and_then(|v| v.as_str()) {
+                println!("{}", content);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&msg.message).unwrap());
             }
             println!();
         }
-        ClaudeOutput::Error(err) => {
-            eprintln!("\n[Error from Claude]");
-            eprintln!("Type: {}", err.error_type);
-            eprintln!("Message: {}", err.message);
-            if let Some(code) = err.code {
-                eprintln!("Code: {}", code);
+        ClaudeOutput::Result(result) => {
+            println!("\n[Query Complete]");
+            if let Some(ref res) = result.result {
+                println!("Result: {}", res);
             }
-            eprintln!();
-        }
-        ClaudeOutput::StatusUpdate(status) => {
-            info!("Status: {:?}", status.status);
-            if let Some(msg) = status.message {
-                println!("[Status] {}", msg);
+            println!("Status: {:?}", result.subtype);
+            println!(
+                "Duration: {}ms (API: {}ms)",
+                result.duration_ms, result.duration_api_ms
+            );
+            if let Some(ref usage) = result.usage {
+                println!(
+                    "Tokens: {} in, {} out",
+                    usage.input_tokens, usage.output_tokens
+                );
             }
-        }
-        ClaudeOutput::StreamChunk(chunk) => {
-            // This is handled in read_response for accumulation
-            print!("{}", chunk.delta);
-            io::stdout().flush().unwrap();
-        }
-        ClaudeOutput::Metadata(meta) => {
-            debug!("Metadata: {} = {:?}", meta.key, meta.value);
-        }
-        ClaudeOutput::SessionInfo(info) => {
-            println!("\n[Session Info]");
-            println!("ID: {}", info.session_id);
-            println!("Status: {:?}", info.status);
-            if let Some(model) = info.model {
-                println!("Model: {}", model);
+            println!("Cost: ${:.6}", result.total_cost_usd);
+            if result.is_error {
+                eprintln!("ERROR: Query resulted in error state");
             }
             println!();
         }
@@ -357,20 +332,6 @@ fn handle_output(output: ClaudeOutput) {
             warn!("Received raw/untyped output");
             println!("\n[Raw Output]");
             println!("{}", serde_json::to_string_pretty(&value).unwrap());
-            println!();
-        }
-        ClaudeOutput::Result(result) => {
-            println!("\n[Query Complete]");
-            println!("Result: {}", result.result);
-            println!(
-                "Duration: {}ms (API: {}ms)",
-                result.duration_ms, result.duration_api_ms
-            );
-            println!(
-                "Tokens: {} in, {} out",
-                result.usage.input_tokens, result.usage.output_tokens
-            );
-            println!("Cost: ${:.6}", result.total_cost_usd);
             println!();
         }
     }
