@@ -2,6 +2,34 @@
 
 A tightly typed Rust interface for the Claude Code JSON protocol.
 
+## Features
+
+- Type-safe message encoding/decoding
+- JSON Lines protocol support
+- Async and sync I/O support
+- Comprehensive error handling
+- Stream processing utilities
+- Automatic Claude CLI version compatibility checking
+- Test-driven protocol discovery for handling new message types
+
+## ⚠️ Important Notice: Unstable Interface
+
+This crate provides bindings for the **Claude Code CLI**, which is currently an **unstable and rapidly evolving interface**. The underlying protocol and message formats may change without notice between Claude CLI versions.
+
+### Compatibility Reporting
+
+- **Current tested version**: Claude CLI 1.0.89
+- **Compatibility reports needed**: If you're using this crate with a different version of Claude CLI (whether it works or fails), please report your experience at:
+  
+  **https://github.com/meawoppl/rust-claude-codes/pulls**
+
+When creating a compatibility report, please include:
+- Your Claude CLI version (run `claude --version`)
+- Whether the crate worked correctly or what errors you encountered
+- Any message types that failed to deserialize
+
+The crate will automatically warn you if you're using a newer Claude CLI version than what has been tested. You can work around version checks if needed (see documentation), but please report your results to help the community!
+
 ## Development Workflow
 
 This project uses a strict PR-based workflow with automated quality checks:
@@ -59,34 +87,71 @@ All PRs must pass the following GitHub Actions checks:
 - ✅ Documentation builds (`cargo doc --no-deps`)
 - ✅ MSRV compatibility (Rust 1.85+)
 
-## Features
-
-- Type-safe message encoding/decoding
-- JSON Lines protocol support
-- Async and sync I/O support
-- Comprehensive error handling
-- Stream processing utilities
-
 ## Installation
 
 ```toml
 [dependencies]
-claude-codes = "0.0.1"
+claude-codes = "0.0.5"
 ```
 
 ## Usage
 
+### Async Client (Recommended)
+
 ```rust
-use claude_codes::{Protocol, Request, Response};
+use claude_codes::AsyncClient;
 
-// Serialize a request
-let request = Request {
-    // ... request fields
-};
-let json_line = Protocol::serialize(&request)?;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create client (checks Claude CLI compatibility)
+    let mut client = AsyncClient::with_defaults().await?;
+    
+    // Send a query and stream responses
+    let mut stream = client.query_stream("What is 2 + 2?").await?;
+    
+    while let Some(response) = stream.next().await {
+        match response {
+            Ok(output) => println!("Got: {}", output.message_type()),
+            Err(e) => eprintln!("Error: {}", e),
+        }
+    }
+    
+    Ok(())
+}
+```
 
-// Deserialize a response
-let response: Response = Protocol::deserialize(&json_line)?;
+### Sync Client
+
+```rust
+use claude_codes::{SyncClient, ClaudeInput};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create client (checks Claude CLI compatibility)
+    let mut client = SyncClient::with_defaults()?;
+    
+    // Send a query
+    let input = ClaudeInput::user_message("What is 2 + 2?", "session-1");
+    let responses = client.query(input)?;
+    
+    for response in responses {
+        println!("Got: {}", response.message_type());
+    }
+    
+    Ok(())
+}
+```
+
+### Working with Raw Protocol
+
+```rust
+use claude_codes::{Protocol, ClaudeOutput};
+
+// Deserialize a JSON Lines message
+let json_line = r#"{"type":"assistant","message":{...}}"#;
+let output: ClaudeOutput = Protocol::deserialize(json_line)?;
+
+// Serialize for sending
+let serialized = Protocol::serialize(&output)?;
 ```
 
 ## License
