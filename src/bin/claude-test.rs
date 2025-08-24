@@ -58,9 +58,11 @@ async fn main() -> Result<()> {
 
     // Read any initial messages from Claude (e.g., System init message)
     println!("Waiting for Claude initialization...");
+    let mut received_init = false;
     loop {
         match read_initial_message(&mut claude).await {
             Ok(Some(output)) => {
+                received_init = true;
                 handle_output(output);
             }
             Ok(None) => {
@@ -72,6 +74,11 @@ async fn main() -> Result<()> {
                 break;
             }
         }
+    }
+
+    if !received_init {
+        eprintln!("⚠️  Warning: No initialization message received from Claude");
+        eprintln!("   The CLI may not be responding correctly");
     }
 
     println!("\nClaude Test Client");
@@ -208,7 +215,7 @@ async fn read_initial_message(claude: &mut ClaudeProcess) -> Result<Option<Claud
 
     // Use a short timeout for initial messages
     match tokio::time::timeout(
-        std::time::Duration::from_millis(100),
+        std::time::Duration::from_millis(1000),
         claude.stdout.read_line(&mut line),
     )
     .await
