@@ -2,6 +2,10 @@
 
 A tightly typed Rust interface for the Claude Code JSON protocol.
 
+## ⚠️ Important Notice: Unstable Interface
+
+This crate provides bindings for the **Claude Code CLI**, which is currently an **unstable and rapidly evolving interface**. The underlying protocol and message formats may change without notice between Claude CLI versions.
+
 ## Features
 
 - Type-safe message encoding/decoding
@@ -11,10 +15,6 @@ A tightly typed Rust interface for the Claude Code JSON protocol.
 - Stream processing utilities
 - Automatic Claude CLI version compatibility checking
 - Test-driven protocol discovery for handling new message types
-
-## ⚠️ Important Notice: Unstable Interface
-
-This crate provides bindings for the **Claude Code CLI**, which is currently an **unstable and rapidly evolving interface**. The underlying protocol and message formats may change without notice between Claude CLI versions.
 
 ### Compatibility Reporting
 
@@ -30,63 +30,6 @@ When creating a compatibility report, please include:
 
 The crate will automatically warn you if you're using a newer Claude CLI version than what has been tested. You can work around version checks if needed (see documentation), but please report your results to help the community!
 
-## Development Workflow
-
-This project uses a strict PR-based workflow with automated quality checks:
-
-### Branch Protection & Git Hooks
-
-1. **No direct commits to main** - All changes must go through feature branches and PRs
-2. **Automated pre-commit checks** - Run `./setup_hooks.sh` to install local git hooks that enforce:
-   - Branch protection (prevents commits to main)
-   - Code formatting (`cargo fmt`)
-   - Linting (`cargo clippy`)
-   - JSON test case formatting
-   - All tests passing
-
-### Getting Started
-
-```bash
-# Clone the repository
-git clone https://github.com/meawoppl/rust-claude-codes
-cd rust-claude-codes
-
-# Install git hooks (required for all contributors)
-./setup_hooks.sh
-
-# Create a feature branch for your work
-git checkout -b feature/your-feature-name
-
-# Make your changes, then commit
-git add .
-git commit -m "Your descriptive commit message"
-
-# Push to GitHub and create a PR
-git push origin feature/your-feature-name
-```
-
-### Test-Driven Protocol Development
-
-This crate uses a unique test-driven approach for protocol development:
-
-1. **Run the test client**: `cargo run --bin claude-test`
-2. **Failed deserializations are automatically saved** to `test_cases/failed_deserializations/`
-3. **Format test cases**: `./format_test_cases.sh`
-4. **Run tests to see what needs implementing**: `cargo test deserialization`
-5. **Add missing message types** to the `ClaudeOutput` enum
-6. **Tests turn green** as the protocol is implemented
-
-### CI/CD Requirements
-
-All PRs must pass the following GitHub Actions checks:
-
-- ✅ Code formatting (`cargo fmt --all -- --check`)
-- ✅ Clippy linting (`cargo clippy --all-targets --all-features -- -D warnings`)
-- ✅ All tests passing (`cargo test --all-features`)
-- ✅ JSON test cases properly formatted
-- ✅ Documentation builds (`cargo doc --no-deps`)
-- ✅ MSRV compatibility (Rust 1.85+)
-
 ## Installation
 
 ```bash
@@ -95,7 +38,7 @@ cargo add claude-codes
 
 ## Usage
 
-### Async Client (Recommended)
+### Async Client
 
 ```rust
 use claude_codes::AsyncClient;

@@ -2,37 +2,47 @@
 
 ## Development Strategy
 
+### Test-Driven Protocol Development
+
 This project follows a test-driven development approach for implementing the Claude Code JSON protocol:
 
-1. **Discover Protocol Through Usage**: Run `cargo run --bin claude-test` to interact with Claude and discover new message types
+1. **Discover Protocol Through Usage**: Run examples to interact with Claude and discover new message types
 2. **Capture Failed Cases**: Any JSON that fails to deserialize is automatically saved to `test_cases/failed_deserializations/`
-3. **Implement Missing Types**: Add the necessary variants to `ClaudeOutput` enum in `src/io.rs`
-4. **Verify Implementation**: Run `cargo test deserialization` to ensure the new types deserialize correctly
-5. **Lock in Progress**: Successful test cases prove our protocol implementation is correct
+3. **Format Test Cases**: Run `./format_test_cases.sh` to ensure JSON formatting
+4. **Implement Missing Types**: Add the necessary variants to `ClaudeOutput` enum in `src/io.rs`
+5. **Verify Implementation**: Run `cargo test deserialization` to ensure the new types deserialize correctly
+6. **Lock in Progress**: Successful test cases prove our protocol implementation is correct
 
 ## Git Workflow Requirements
 
 **CRITICAL: This repository enforces a strict PR-based workflow**
 
-### Branch Protection
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/meawoppl/rust-claude-codes
+cd rust-claude-codes
+
+# Install git hooks (required for all contributors)
+./setup_hooks.sh
+
+# Create a feature branch for your work
+git checkout -b feature/your-feature-name
+
+# Make your changes, then commit (avoid git add -A!)
+git add -u  # Stage modified files only
+git commit -m "Your descriptive commit message"
+
+# Push to GitHub and create a PR
+git push origin feature/your-feature-name
+```
+
+### Branch Protection & Git Hooks
 
 - **NEVER commit directly to main branch**
 - All changes MUST go through feature branches and pull requests
 - The pre-commit hook will block direct commits to main
-
-### Required Workflow
-
-```bash
-# Always work on a feature branch
-git checkout -b feature/description-of-change
-
-# Make changes and commit
-git add .
-git commit -m "Descriptive message"
-
-# Push and create PR
-git push origin feature/description-of-change
-```
 
 ### Pre-commit Checks
 
@@ -45,15 +55,17 @@ The repository has git hooks that enforce:
 
 If you haven't already, run `./setup_hooks.sh` to install these hooks.
 
-### CI/CD Pipeline
+### CI/CD Requirements
 
-All PRs trigger GitHub Actions that verify:
-- Code formatting is correct
-- No clippy warnings
-- All tests pass
-- JSON test cases are formatted
-- Documentation builds successfully
-- MSRV (1.85) compatibility
+All PRs must pass the following GitHub Actions checks:
+
+- ✅ Code formatting (`cargo fmt --all -- --check`)
+- ✅ Clippy linting (`cargo clippy --all-targets --all-features -- -D warnings`)
+- ✅ All tests passing (`cargo test --all-features`)
+- ✅ JSON test cases properly formatted
+- ✅ All examples compile (`./build_examples.sh`)
+- ✅ Documentation builds (`cargo doc --no-deps`)
+- ✅ MSRV compatibility (Rust 1.85+)
 
 ## Protocol Implementation Guidelines
 
