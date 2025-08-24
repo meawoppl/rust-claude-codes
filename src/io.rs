@@ -39,40 +39,80 @@ pub enum ClaudeOutput {
 /// User message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
-    pub message: Value, // MessageParam in SDK
+    pub content: ContentType, // Can be string or list of content blocks
     pub session_id: String,
 }
 
-/// System initialization message
+/// Content type for user messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ContentType {
+    Text(String),
+    Blocks(Vec<ContentBlock>),
+}
+
+/// System message with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMessage {
-    pub subtype: String, // "init"
-
-    #[serde(rename = "apiKeySource")]
-    pub api_key_source: String,
-
-    pub cwd: String,
-    pub session_id: String,
-    pub tools: Vec<String>,
-    pub mcp_servers: Vec<McpServer>,
-    pub model: String,
-
-    #[serde(rename = "permissionMode")]
-    pub permission_mode: PermissionMode,
-}
-
-/// MCP Server info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct McpServer {
-    pub name: String,
-    pub status: String,
+    pub subtype: String,
+    pub data: Value, // Generic data field for flexibility
 }
 
 /// Assistant message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantMessage {
-    pub message: Value, // Message type in SDK
+    pub content: Vec<ContentBlock>,
+    pub model: String,
     pub session_id: String,
+}
+
+/// Content blocks for messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ContentBlock {
+    Text(TextBlock),
+    Thinking(ThinkingBlock),
+    ToolUse(ToolUseBlock),
+    ToolResult(ToolResultBlock),
+}
+
+/// Text content block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextBlock {
+    pub text: String,
+}
+
+/// Thinking content block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThinkingBlock {
+    pub thinking: String,
+    pub signature: String,
+}
+
+/// Tool use content block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolUseBlock {
+    pub id: String,
+    pub name: String,
+    pub input: Value,
+}
+
+/// Tool result content block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolResultBlock {
+    pub tool_use_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<ToolResultContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_error: Option<bool>,
+}
+
+/// Tool result content type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ToolResultContent {
+    Text(String),
+    Structured(Vec<Value>),
 }
 
 /// Result message for completed queries
@@ -109,6 +149,41 @@ pub enum ResultSubtype {
     ErrorDuringExecution,
 }
 
+/// MCP Server configuration types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum McpServerConfig {
+    Stdio(McpStdioServerConfig),
+    Sse(McpSseServerConfig),
+    Http(McpHttpServerConfig),
+}
+
+/// MCP stdio server configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpStdioServerConfig {
+    pub command: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<std::collections::HashMap<String, String>>,
+}
+
+/// MCP SSE server configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpSseServerConfig {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+/// MCP HTTP server configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpHttpServerConfig {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
 /// Permission mode for Claude operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -137,10 +212,18 @@ pub struct ServerToolUse {
 }
 
 impl ClaudeInput {
-    /// Create a simple user message input
+    /// Create a simple text user message
     pub fn user_message(message: impl Into<String>, session_id: impl Into<String>) -> Self {
         ClaudeInput::User(UserMessage {
-            message: Value::String(message.into()),
+            content: ContentType::Text(message.into()),
+            session_id: session_id.into(),
+        })
+    }
+
+    /// Create a user message with content blocks
+    pub fn user_message_blocks(blocks: Vec<ContentBlock>, session_id: impl Into<String>) -> Self {
+        ClaudeInput::User(UserMessage {
+            content: ContentType::Blocks(blocks),
             session_id: session_id.into(),
         })
     }
@@ -180,7 +263,8 @@ mod tests {
     fn test_deserialize_assistant_message() {
         let json = r#"{
             "type": "assistant",
-            "message": {"content": "Hello! How can I help you?"},
+            "content": [{"type": "text", "text": "Hello! How can I help you?"}],
+            "model": "claude-3-sonnet",
             "session_id": "123"
         }"#;
 

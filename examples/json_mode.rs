@@ -25,14 +25,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match serde_json::from_str::<ClaudeOutput>(&line) {
             Ok(output) => match output {
                 ClaudeOutput::System(sys) => {
-                    println!(
-                        "System initialized: model={}, session={}",
-                        sys.model, sys.session_id
-                    );
+                    println!("System message: subtype={}", sys.subtype);
                 }
                 ClaudeOutput::Assistant(msg) => {
-                    if let Some(content) = msg.message.get("content").and_then(|v| v.as_str()) {
-                        println!("Claude says: {}", content);
+                    for block in &msg.content {
+                        if let claude_codes::io::ContentBlock::Text(text) = block {
+                            println!("Claude says: {}", text.text);
+                        }
                     }
                 }
                 ClaudeOutput::Result(result) => {

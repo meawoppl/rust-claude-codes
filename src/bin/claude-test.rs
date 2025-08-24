@@ -287,10 +287,8 @@ fn handle_output(output: ClaudeOutput) {
     match output {
         ClaudeOutput::System(sys) => {
             println!("\n[System Init]");
-            println!("Model: {}", sys.model);
-            println!("Session: {}", sys.session_id);
-            println!("Permission Mode: {:?}", sys.permission_mode);
-            println!("Tools: {} available", sys.tools.len());
+            println!("Subtype: {}", sys.subtype);
+            println!("Data: {}", serde_json::to_string_pretty(&sys.data).unwrap());
             println!();
         }
         ClaudeOutput::User(msg) => {
@@ -298,12 +296,42 @@ fn handle_output(output: ClaudeOutput) {
         }
         ClaudeOutput::Assistant(msg) => {
             println!("\nClaude: ");
-            // The message field is a JSON Value, extract content if possible
-            if let Some(content) = msg.message.get("content").and_then(|v| v.as_str()) {
-                println!("{}", content);
-            } else {
-                println!("{}", serde_json::to_string_pretty(&msg.message).unwrap());
+            // Process content blocks
+            for block in &msg.content {
+                match block {
+                    claude_codes::io::ContentBlock::Text(text) => {
+                        println!("{}", text.text);
+                    }
+                    claude_codes::io::ContentBlock::Thinking(thinking) => {
+                        debug!("Claude's thinking: {}", thinking.thinking);
+                    }
+                    claude_codes::io::ContentBlock::ToolUse(tool) => {
+                        println!("[Tool Request: {}]", tool.name);
+                        println!("ID: {}", tool.id);
+                        println!(
+                            "Input: {}",
+                            serde_json::to_string_pretty(&tool.input).unwrap()
+                        );
+                    }
+                    claude_codes::io::ContentBlock::ToolResult(result) => {
+                        println!("[Tool Result for {}]", result.tool_use_id);
+                        if let Some(ref content) = result.content {
+                            match content {
+                                claude_codes::io::ToolResultContent::Text(text) => {
+                                    println!("Result: {}", text);
+                                }
+                                claude_codes::io::ToolResultContent::Structured(data) => {
+                                    println!(
+                                        "Result: {}",
+                                        serde_json::to_string_pretty(&data).unwrap()
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
             }
+            println!("\nModel: {}", msg.model);
             println!();
         }
         ClaudeOutput::Result(result) => {
