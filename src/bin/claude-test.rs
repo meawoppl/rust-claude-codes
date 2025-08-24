@@ -146,9 +146,6 @@ async fn main() -> Result<()> {
                                     // This is just our message being echoed back
                                     debug!("Received User message echo");
                                 }
-                                _ => {
-                                    warn!("Unexpected message type in response flow");
-                                }
                             }
 
                             handle_output(output);
@@ -286,24 +283,24 @@ async fn read_initial_message(claude: &mut ClaudeProcess) -> Result<Option<Claud
             debug!("Received initial line: {}", trimmed);
 
             // Try to parse as ClaudeOutput
-            match serde_json::from_str::<ClaudeOutput>(trimmed) {
+            match ClaudeOutput::parse_json(trimmed) {
                 Ok(output) => {
                     info!("Successfully parsed initial ClaudeOutput");
                     Ok(Some(output))
                 }
-                Err(e) => {
-                    // Not a valid ClaudeOutput, save as test case if it's JSON
-                    if let Ok(_json_value) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                        match save_test_case(trimmed, &e) {
-                            Ok(filename) => {
-                                info!("Saved failed deserialization to test_cases/failed_deserializations/{}", filename);
-                            }
-                            Err(save_err) => {
-                                error!("Failed to save test case: {}", save_err);
-                            }
+                Err(parse_error) => {
+                    // Save as test case
+                    let error_msg = format!("{}", parse_error);
+                    let fake_serde_error = serde_json::Error::custom(&error_msg);
+                    match save_test_case(trimmed, &fake_serde_error) {
+                        Ok(filename) => {
+                            info!("Saved failed deserialization to test_cases/failed_deserializations/{}", filename);
+                        }
+                        Err(save_err) => {
+                            error!("Failed to save test case: {}", save_err);
                         }
                     }
-                    warn!("Failed to parse initial message: {}", e);
+                    warn!("Failed to parse initial message: {}", parse_error);
                     Ok(None)
                 }
             }
@@ -348,24 +345,30 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
         debug!("Received line: {}", trimmed);
 
         // Try to parse as ClaudeOutput
-        match serde_json::from_str::<ClaudeOutput>(trimmed) {
+        match ClaudeOutput::parse_json(trimmed) {
             Ok(output) => {
                 info!("Successfully parsed ClaudeOutput");
 
                 // Non-streaming response, return immediately
                 return Ok(output);
             }
-            Err(e) => {
+            Err(parse_error) => {
                 // Save failed test case with timestamp filename
-                let saved_file = save_test_case(trimmed, &e);
+                let error_msg = format!("{}", parse_error);
+                let fake_serde_error = serde_json::Error::custom(&error_msg);
+                let saved_file = save_test_case(trimmed, &fake_serde_error);
 
                 // Print the raw JSON that failed to parse
-                error!("Failed to deserialize response: {}", e);
+                error!("Failed to deserialize response: {}", parse_error);
                 eprintln!("\n=== DESERIALIZATION ERROR ===");
                 eprintln!("Failed to parse response as ClaudeOutput");
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {}", parse_error.error_message);
                 eprintln!("\nRaw JSON received:");
-                eprintln!("{}", trimmed);
+                eprintln!(
+                    "{}",
+                    serde_json::to_string_pretty(&parse_error.raw_json)
+                        .unwrap_or_else(|_| trimmed.to_string())
+                );
                 eprintln!("=============================\n");
 
                 match saved_file {
@@ -377,7 +380,10 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
                 }
 
                 // Return an error
-                return Err(anyhow::anyhow!("Failed to deserialize response: {}", e));
+                return Err(anyhow::anyhow!(
+                    "Failed to deserialize response: {}",
+                    parse_error
+                ));
             }
         }
     }
@@ -508,30 +514,6 @@ fn handle_output(output: ClaudeOutput) {
                     eprintln!("   Error details: {}", res);
                 }
             }
-        }
-        ClaudeOutput::Raw(value) => {
-            warn!("Received raw/untyped output - saving as failed deserialization");
-
-            // Save as test case since Raw means it didn't match our expected types
-            let json_str = serde_json::to_string(&value).unwrap_or_else(|_| value.to_string());
-            let error_msg = "Failed to match any specific ClaudeOutput variant";
-            let fake_error = serde_json::Error::custom(error_msg);
-
-            match save_test_case(&json_str, &fake_error) {
-                Ok(filename) => {
-                    eprintln!(
-                        "✓ Test case saved: test_cases/failed_deserializations/{}",
-                        filename
-                    );
-                }
-                Err(save_err) => {
-                    eprintln!("✗ Failed to save test case: {}", save_err);
-                }
-            }
-
-            println!("\n[Raw Output]");
-            println!("{}", serde_json::to_string_pretty(&value).unwrap());
-            println!();
         }
     }
 }

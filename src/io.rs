@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 
 /// Top-level enum for all possible Claude input messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +15,23 @@ pub enum ClaudeInput {
     #[serde(untagged)]
     Raw(Value),
 }
+
+/// Error type for parsing failures that preserves the raw JSON
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    /// The raw JSON value that failed to parse
+    pub raw_json: Value,
+    /// The underlying serde error message
+    pub error_message: String,
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Failed to parse ClaudeOutput: {}", self.error_message)
+    }
+}
+
+impl std::error::Error for ParseError {}
 
 /// Top-level enum for all possible Claude output messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,10 +48,6 @@ pub enum ClaudeOutput {
 
     /// Result message (completion of a query)
     Result(ResultMessage),
-
-    /// Raw JSON for untyped messages
-    #[serde(untagged)]
-    Raw(Value),
 }
 
 /// User message
@@ -249,6 +263,21 @@ impl ClaudeOutput {
     /// Check if this is a system message
     pub fn is_system_message(&self) -> bool {
         matches!(self, ClaudeOutput::System(_))
+    }
+
+    /// Parse a JSON string, returning ParseError with raw JSON if it doesn't match our types
+    pub fn parse_json(s: &str) -> Result<ClaudeOutput, ParseError> {
+        // First try to parse as a Value
+        let value: Value = serde_json::from_str(s).map_err(|e| ParseError {
+            raw_json: Value::String(s.to_string()),
+            error_message: format!("Invalid JSON: {}", e),
+        })?;
+
+        // Then try to parse that Value as ClaudeOutput
+        serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| ParseError {
+            raw_json: value,
+            error_message: e.to_string(),
+        })
     }
 }
 
