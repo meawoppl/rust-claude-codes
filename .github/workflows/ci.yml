@@ -54,6 +54,9 @@ jobs:
       - name: Run tests
         run: cargo test --all-features --verbose
       
+      - name: Build all examples
+        run: ./build_examples.sh
+      
       - name: Build documentation
         run: cargo doc --no-deps --all-features
 

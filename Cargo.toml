@@ -13,10 +13,6 @@ readme = "README.md"
 keywords = ["claude", "ai", "json", "protocol", "api"]
 categories = ["api-bindings", "encoding", "parsing"]
 
-[[bin]]
-name = "claude-test"
-path = "src/bin/claude-test.rs"
-
 [dependencies]
 anyhow = "1.0.99"
 chrono = { version = "0.4.41", features = ["serde"] }
