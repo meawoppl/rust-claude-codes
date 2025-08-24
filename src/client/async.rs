@@ -42,7 +42,7 @@ impl AsyncClient {
     }
 
     /// Create a client with default settings (using logic from start_claude)
-    pub async fn default() -> Result<Self> {
+    pub async fn with_defaults() -> Result<Self> {
         Self::with_model("sonnet").await
     }
 
