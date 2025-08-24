@@ -56,7 +56,7 @@ impl SyncClient {
     }
 
     /// Send a query and return an iterator over responses
-    pub fn query_stream(&mut self, input: ClaudeInput) -> Result<ResponseIterator> {
+    pub fn query_stream(&mut self, input: ClaudeInput) -> Result<ResponseIterator<'_>> {
         // Send the input
         Protocol::write_sync(&mut self.stdin, &input)?;
 
