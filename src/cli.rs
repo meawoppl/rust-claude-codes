@@ -1,7 +1,31 @@
-//! Builder pattern for Claude CLI invocation
+//! Builder pattern for configuring and launching the Claude CLI process.
 //!
-//! This builder is configured to only support JSON streaming mode,
-//! which provides the most control and visibility into Claude's responses.
+//! This module provides [`ClaudeCliBuilder`] for constructing Claude CLI commands
+//! with the correct flags for JSON streaming mode. The builder automatically configures:
+//!
+//! - JSON streaming input/output formats
+//! - Non-interactive print mode
+//! - Verbose output for proper streaming
+//!
+//! # Example
+//!
+//! ```no_run
+//! use claude_codes::ClaudeCliBuilder;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build and spawn an async Claude process
+//! let child = ClaudeCliBuilder::new()
+//!     .model("sonnet")
+//!     .session_id("my-session")
+//!     .spawn().await?;
+//!     
+//! // Or for synchronous usage
+//! let child = ClaudeCliBuilder::new()
+//!     .model("opus")
+//!     .spawn_sync()?;
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::error::{Error, Result};
 use std::path::PathBuf;
