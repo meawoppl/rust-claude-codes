@@ -7,6 +7,7 @@ use crate::error::{Error, Result};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::{Child, Command};
+use tracing::debug;
 
 /// Permission mode for Claude CLI
 #[derive(Debug, Clone, Copy)]
@@ -329,6 +330,11 @@ impl ClaudeCliBuilder {
         let args = self.build_args();
 
         // Log the full command being executed
+        debug!(
+            "[CLI] Executing command: {} {}",
+            self.command.display(),
+            args.join(" ")
+        );
         eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
         let child = Command::new(&self.command)

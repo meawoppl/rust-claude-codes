@@ -216,7 +216,7 @@ async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
     // Serialize to JSON
     let json_line = Protocol::serialize(&input).context("Failed to serialize input")?;
 
-    debug!("Sending JSON: {}", json_line.trim());
+    debug!("[OUTGOING] Sending JSON to Claude: {}", json_line.trim());
 
     // Send to Claude
     if let Err(e) = claude.stdin.write_all(json_line.as_bytes()).await {
@@ -271,12 +271,16 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
             continue;
         }
 
-        debug!("Received line: {}", trimmed);
+        debug!("[INCOMING] Received JSON from Claude: {}", trimmed);
 
         // Try to parse as ClaudeOutput
         match ClaudeOutput::parse_json(trimmed) {
             Ok(output) => {
                 info!("Successfully parsed ClaudeOutput");
+                debug!(
+                    "[INCOMING] Parsed output type: {:?}",
+                    std::mem::discriminant(&output)
+                );
 
                 // Non-streaming response, return immediately
                 return Ok(output);
@@ -288,7 +292,8 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
                 let saved_file = save_test_case(trimmed, &fake_serde_error);
 
                 // Print the raw JSON that failed to parse
-                error!("Failed to deserialize response: {}", parse_error);
+                error!("[INCOMING] Failed to deserialize response: {}", parse_error);
+                debug!("[INCOMING] Raw JSON that failed: {}", trimmed);
                 eprintln!("\n=== DESERIALIZATION ERROR ===");
                 eprintln!("Failed to parse response as ClaudeOutput");
                 eprintln!("Error: {}", parse_error.error_message);

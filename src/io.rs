@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt;
+use tracing::debug;
 
 /// Top-level enum for all possible Claude input messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -286,17 +287,34 @@ impl ClaudeOutput {
 
     /// Parse a JSON string, returning ParseError with raw JSON if it doesn't match our types
     pub fn parse_json(s: &str) -> Result<ClaudeOutput, ParseError> {
+        debug!("[IO] Attempting to parse JSON: {}", s);
+
         // First try to parse as a Value
-        let value: Value = serde_json::from_str(s).map_err(|e| ParseError {
-            raw_json: Value::String(s.to_string()),
-            error_message: format!("Invalid JSON: {}", e),
+        let value: Value = serde_json::from_str(s).map_err(|e| {
+            debug!("[IO] Failed to parse as JSON Value: {}", e);
+            ParseError {
+                raw_json: Value::String(s.to_string()),
+                error_message: format!("Invalid JSON: {}", e),
+            }
         })?;
 
+        debug!("[IO] Successfully parsed as JSON Value, attempting to deserialize as ClaudeOutput");
+
         // Then try to parse that Value as ClaudeOutput
-        serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| ParseError {
-            raw_json: value,
-            error_message: e.to_string(),
-        })
+        serde_json::from_value::<ClaudeOutput>(value.clone())
+            .map_err(|e| {
+                debug!("[IO] Failed to deserialize as ClaudeOutput: {}", e);
+                ParseError {
+                    raw_json: value,
+                    error_message: e.to_string(),
+                }
+            })
+            .inspect(|output| {
+                debug!(
+                    "[IO] Successfully deserialized as ClaudeOutput type: {:?}",
+                    std::mem::discriminant(output)
+                );
+            })
     }
 }
 
@@ -318,8 +336,12 @@ mod tests {
     fn test_deserialize_assistant_message() {
         let json = r#"{
             "type": "assistant",
-            "content": [{"type": "text", "text": "Hello! How can I help you?"}],
-            "model": "claude-3-sonnet",
+            "message": {
+                "id": "msg_123",
+                "role": "assistant",
+                "model": "claude-3-sonnet",
+                "content": [{"type": "text", "text": "Hello! How can I help you?"}]
+            },
             "session_id": "123"
         }"#;
 
