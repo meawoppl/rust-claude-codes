@@ -5,6 +5,7 @@ use crate::messages::{Event, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader};
+use tracing::debug;
 
 /// Protocol handler for Claude Code JSON lines communication
 pub struct Protocol;
@@ -28,6 +29,7 @@ impl Protocol {
     /// Write a message to a synchronous writer
     pub fn write_sync<W: Write, T: Serialize>(writer: &mut W, message: &T) -> Result<()> {
         let line = Self::serialize(message)?;
+        debug!("[PROTOCOL] Sending: {}", line.trim());
         writer.write_all(line.as_bytes())?;
         writer.flush()?;
         Ok(())
@@ -40,6 +42,7 @@ impl Protocol {
         if bytes_read == 0 {
             return Err(Error::ConnectionClosed);
         }
+        debug!("[PROTOCOL] Received: {}", line.trim());
         Self::deserialize(&line)
     }
 
@@ -49,6 +52,7 @@ impl Protocol {
         message: &T,
     ) -> Result<()> {
         let line = Self::serialize(message)?;
+        debug!("[PROTOCOL] Sending async: {}", line.trim());
         writer.write_all(line.as_bytes()).await?;
         writer.flush().await?;
         Ok(())
@@ -63,6 +67,7 @@ impl Protocol {
         if bytes_read == 0 {
             return Err(Error::ConnectionClosed);
         }
+        debug!("[PROTOCOL] Received async: {}", line.trim());
         Self::deserialize(&line)
     }
 }

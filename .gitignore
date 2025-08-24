@@ -24,3 +24,6 @@ target
 # Added by cargo
 
 /target
+
+# Cloned repositories
+claude-code-sdk-python/

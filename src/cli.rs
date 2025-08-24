@@ -7,6 +7,7 @@ use crate::error::{Error, Result};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::{Child, Command};
+use tracing::debug;
 
 /// Permission mode for Claude CLI
 #[derive(Debug, Clone, Copy)]
@@ -226,13 +227,14 @@ impl ClaudeCliBuilder {
     /// Build the command arguments (always includes JSON streaming flags)
     fn build_args(&self) -> Vec<String> {
         // Always add JSON streaming mode flags
+        // Note: --print with stream-json requires --verbose
         let mut args = vec![
             "--print".to_string(),
+            "--verbose".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
             "--input-format".to_string(),
             "stream-json".to_string(),
-            "--replay-user-messages".to_string(),
         ];
 
         if let Some(ref debug) = self.debug {
@@ -240,10 +242,6 @@ impl ClaudeCliBuilder {
             if !debug.is_empty() {
                 args.push(debug.clone());
             }
-        }
-
-        if self.verbose {
-            args.push("--verbose".to_string());
         }
 
         if self.dangerously_skip_permissions {
@@ -331,6 +329,14 @@ impl ClaudeCliBuilder {
     pub async fn spawn(self) -> Result<Child> {
         let args = self.build_args();
 
+        // Log the full command being executed
+        debug!(
+            "[CLI] Executing command: {} {}",
+            self.command.display(),
+            args.join(" ")
+        );
+        eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
+
         let child = Command::new(&self.command)
             .args(&args)
             .stdin(Stdio::piped())
@@ -365,10 +371,10 @@ mod tests {
 
         // Verify all streaming flags are present by default
         assert!(args.contains(&"--print".to_string()));
+        assert!(args.contains(&"--verbose".to_string())); // Required for --print with stream-json
         assert!(args.contains(&"--output-format".to_string()));
         assert!(args.contains(&"stream-json".to_string()));
         assert!(args.contains(&"--input-format".to_string()));
-        assert!(args.contains(&"--replay-user-messages".to_string()));
     }
 
     #[test]

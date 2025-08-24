@@ -1,0 +1,6 @@
+{
+  "error": "Failed to parse ClaudeOutput: invalid value: integer `-1`, expected u32",
+  "pretty_json": "{\n  \"duration_api_ms\": 3147,\n  \"duration_ms\": 8,\n  \"is_error\": false,\n  \"num_turns\": -1,\n  \"permission_denials\": [],\n  \"result\": \"\",\n  \"session_id\": \"aa276296-4409-42ca-9ac0-b0ae4e6cad19\",\n  \"subtype\": \"success\",\n  \"total_cost_usd\": 0.0003912,\n  \"type\": \"result\",\n  \"usage\": {\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"input_tokens\": 0,\n    \"output_tokens\": 0,\n    \"server_tool_use\": {\n      \"web_search_requests\": 0\n    },\n    \"service_tier\": \"standard\"\n  },\n  \"uuid\": \"d24a4e1d-4dfa-490c-a7d2-e94c24d5c822\"\n}",
+  "raw_json": "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"duration_ms\":8,\"duration_api_ms\":3147,\"num_turns\":-1,\"result\":\"\",\"session_id\":\"aa276296-4409-42ca-9ac0-b0ae4e6cad19\",\"total_cost_usd\":0.0003912,\"usage\":{\"input_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":0,\"server_tool_use\":{\"web_search_requests\":0},\"service_tier\":\"standard\"},\"permission_denials\":[],\"uuid\":\"d24a4e1d-4dfa-490c-a7d2-e94c24d5c822\"}",
+  "timestamp": "2025-08-24T03:19:57.107603877+00:00"
+}

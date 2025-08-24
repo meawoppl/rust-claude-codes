@@ -12,7 +12,7 @@ pub mod types;
 
 pub use cli::{ClaudeCliBuilder, PermissionMode};
 pub use error::{Error, Result};
-pub use io::{ClaudeInput, ClaudeOutput};
+pub use io::{AssistantMessageContent, ClaudeInput, ClaudeOutput, ParseError};
 pub use messages::*;
 pub use protocol::Protocol;
 pub use types::*;
