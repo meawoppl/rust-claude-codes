@@ -293,7 +293,14 @@ async fn read_initial_message(claude: &mut ClaudeProcess) -> Result<Option<Claud
                 Err(e) => {
                     // Not a valid ClaudeOutput, save as test case if it's JSON
                     if let Ok(_json_value) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                        let _ = save_test_case(trimmed, &e);
+                        match save_test_case(trimmed, &e) {
+                            Ok(filename) => {
+                                info!("Saved failed deserialization to test_cases/failed_deserializations/{}", filename);
+                            }
+                            Err(save_err) => {
+                                error!("Failed to save test case: {}", save_err);
+                            }
+                        }
                     }
                     warn!("Failed to parse initial message: {}", e);
                     Ok(None)
@@ -348,8 +355,8 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
                 return Ok(output);
             }
             Err(e) => {
-                // Save failed test case
-                save_test_case(trimmed, &e)?;
+                // Save failed test case with timestamp filename
+                let saved_file = save_test_case(trimmed, &e);
 
                 // Print the raw JSON that failed to parse
                 error!("Failed to deserialize response: {}", e);
@@ -359,37 +366,46 @@ async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
                 eprintln!("\nRaw JSON received:");
                 eprintln!("{}", trimmed);
                 eprintln!("=============================\n");
-                eprintln!("Test case saved to test_cases/failed_deserializations/");
+
+                match saved_file {
+                    Ok(filename) => eprintln!(
+                        "✓ Test case saved: test_cases/failed_deserializations/{}",
+                        filename
+                    ),
+                    Err(save_err) => eprintln!("✗ Failed to save test case: {}", save_err),
+                }
 
                 // Return an error
-                return Err(anyhow::anyhow!(
-                    "Failed to deserialize response: {}. Raw JSON: {}",
-                    e,
-                    trimmed
-                ));
+                return Err(anyhow::anyhow!("Failed to deserialize response: {}", e));
             }
         }
     }
 }
 
 /// Save a failed deserialization as a test case
-fn save_test_case(json: &str, error: &serde_json::Error) -> Result<()> {
+fn save_test_case(json: &str, error: &serde_json::Error) -> Result<String> {
     // Create test cases directory if it doesn't exist
     let test_dir = PathBuf::from("test_cases/failed_deserializations");
     fs::create_dir_all(&test_dir).context("Failed to create test_cases directory")?;
 
-    // Generate a unique filename based on timestamp and hash
-    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S_%f");
-    let hash = {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        json.hash(&mut hasher);
-        hasher.finish()
-    };
+    // Generate a unique filename based on timestamp (YYMMDD_HHMMSS format)
+    let mut filepath: PathBuf;
+    let mut filename: String;
 
-    let filename = format!("case_{}_{:016x}.json", timestamp, hash);
-    let filepath = test_dir.join(&filename);
+    loop {
+        let timestamp = chrono::Local::now().format("%y%m%d_%H%M%S");
+        let millis = chrono::Local::now().timestamp_subsec_millis();
+        filename = format!("failed_{}_{:03}.json", timestamp, millis);
+        filepath = test_dir.join(&filename);
+
+        // If file doesn't exist, we can use this name
+        if !filepath.exists() {
+            break;
+        }
+
+        // Wait for a second to avoid collision
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 
     // Create a test case with metadata
     let test_case = serde_json::json!({
@@ -408,7 +424,7 @@ fn save_test_case(json: &str, error: &serde_json::Error) -> Result<()> {
         .with_context(|| format!("Failed to write test case to {:?}", filepath))?;
 
     info!("Saved test case to {:?}", filepath);
-    Ok(())
+    Ok(filename)
 }
 
 /// Handle the output from Claude
