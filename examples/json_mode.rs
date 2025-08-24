@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("System message: subtype={}", sys.subtype);
                 }
                 ClaudeOutput::Assistant(msg) => {
-                    for block in &msg.content {
+                    for block in &msg.message.content {
                         if let claude_codes::io::ContentBlock::Text(text) = block {
                             println!("Claude says: {}", text.text);
                         }

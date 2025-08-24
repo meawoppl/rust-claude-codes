@@ -65,15 +65,15 @@ fn test_all_failed_deserializations() {
         let case = load_test_case(test_path);
         let filename = test_path.file_name().unwrap().to_string_lossy();
 
-        // Try to deserialize the raw JSON
-        match serde_json::from_str::<ClaudeOutput>(&case.raw_json) {
+        // Try to deserialize the raw JSON using our parse_json method
+        match ClaudeOutput::parse_json(&case.raw_json) {
             Ok(_) => {
                 println!("✓ {} - Successfully deserialized!", filename);
                 passed += 1;
             }
             Err(e) => {
-                println!("✗ {} - Still failing: {}", filename, e);
-                errors.push((filename.to_string(), e.to_string()));
+                println!("✗ {} - Still failing: {}", filename, e.error_message);
+                errors.push((filename.to_string(), e.error_message));
                 failed += 1;
             }
         }

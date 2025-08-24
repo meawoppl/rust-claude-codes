@@ -57,30 +57,8 @@ async fn main() -> Result<()> {
 
     info!("Claude process started successfully");
 
-    // Read any initial messages from Claude (e.g., System init message)
-    println!("Waiting for Claude initialization...");
-    let mut received_init = false;
-    loop {
-        match read_initial_message(&mut claude).await {
-            Ok(Some(output)) => {
-                received_init = true;
-                handle_output(output);
-            }
-            Ok(None) => {
-                // No more initial messages
-                break;
-            }
-            Err(e) => {
-                warn!("Error reading initial message: {}", e);
-                break;
-            }
-        }
-    }
-
-    if !received_init {
-        eprintln!("⚠️  Warning: No initialization message received from Claude");
-        eprintln!("   The CLI may not be responding correctly");
-    }
+    // Note: Claude doesn't send any messages before the first user input
+    debug!("Ready to accept user input");
 
     println!("\nClaude Test Client");
     println!("=================");
@@ -113,9 +91,10 @@ async fn main() -> Result<()> {
         match send_query(&mut claude, input).await {
             Ok(()) => {
                 // Expected flow after sending a message:
-                // 1. System message (acknowledging the user message)
-                // 2. Zero or more Assistant messages (the actual response)
-                // 3. Result message (completion with metrics)
+                // 1. System message (init on first message, or confirmation)
+                // 2. User message echo (our message echoed back)
+                // 3. Zero or more Assistant messages (the actual response)
+                // 4. Result message (completion with metrics)
 
                 println!("\n--- Waiting for response ---");
 
@@ -259,64 +238,6 @@ async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
     Ok(())
 }
 
-/// Read an initial message from Claude with timeout (non-blocking)
-async fn read_initial_message(claude: &mut ClaudeProcess) -> Result<Option<ClaudeOutput>> {
-    let mut line = String::new();
-
-    // Use a short timeout for initial messages
-    match tokio::time::timeout(
-        std::time::Duration::from_millis(1000),
-        claude.stdout.read_line(&mut line),
-    )
-    .await
-    {
-        Ok(Ok(bytes_read)) => {
-            if bytes_read == 0 {
-                return Ok(None); // EOF
-            }
-
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return Ok(None);
-            }
-
-            debug!("Received initial line: {}", trimmed);
-
-            // Try to parse as ClaudeOutput
-            match ClaudeOutput::parse_json(trimmed) {
-                Ok(output) => {
-                    info!("Successfully parsed initial ClaudeOutput");
-                    Ok(Some(output))
-                }
-                Err(parse_error) => {
-                    // Save as test case
-                    let error_msg = format!("{}", parse_error);
-                    let fake_serde_error = serde_json::Error::custom(&error_msg);
-                    match save_test_case(trimmed, &fake_serde_error) {
-                        Ok(filename) => {
-                            info!("Saved failed deserialization to test_cases/failed_deserializations/{}", filename);
-                        }
-                        Err(save_err) => {
-                            error!("Failed to save test case: {}", save_err);
-                        }
-                    }
-                    warn!("Failed to parse initial message: {}", parse_error);
-                    Ok(None)
-                }
-            }
-        }
-        Ok(Err(e)) => {
-            debug!("Error reading initial message: {}", e);
-            Ok(None)
-        }
-        Err(_) => {
-            // Timeout - no initial message available
-            debug!("No initial message available (timeout)");
-            Ok(None)
-        }
-    }
-}
-
 /// Read a response from Claude
 async fn read_response(claude: &mut ClaudeProcess) -> Result<ClaudeOutput> {
     let mut line = String::new();
@@ -455,8 +376,8 @@ fn handle_output(output: ClaudeOutput) {
         }
         ClaudeOutput::Assistant(msg) => {
             println!("\n[Assistant Response]");
-            // Process content blocks
-            for block in &msg.content {
+            // Process content blocks from the nested message
+            for block in &msg.message.content {
                 match block {
                     claude_codes::io::ContentBlock::Text(text) => {
                         println!("{}", text.text);
@@ -490,7 +411,7 @@ fn handle_output(output: ClaudeOutput) {
                     }
                 }
             }
-            debug!("Model: {}", msg.model);
+            debug!("Model: {}", msg.message.model);
         }
         ClaudeOutput::Result(result) => {
             println!("\n[Result - Query Complete]");

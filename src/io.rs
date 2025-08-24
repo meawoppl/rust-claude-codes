@@ -69,15 +69,34 @@ pub struct MessageContent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMessage {
     pub subtype: String,
-    pub data: Value, // Generic data field for flexibility
+    #[serde(flatten)]
+    pub data: Value, // Captures all other fields
 }
 
 /// Assistant message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantMessage {
-    pub content: Vec<ContentBlock>,
-    pub model: String,
+    pub message: AssistantMessageContent,
     pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_tool_use_id: Option<String>,
+}
+
+/// Nested message content for assistant messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantMessageContent {
+    pub id: String,
+    pub role: String,
+    pub model: String,
+    pub content: Vec<ContentBlock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequence: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<serde_json::Value>,
 }
 
 /// Content blocks for messages
