@@ -19,19 +19,17 @@ pub struct AsyncClient {
 impl AsyncClient {
     /// Create a new async client from a tokio Child process
     pub fn new(mut child: Child) -> Result<Self> {
-        let stdin = child.stdin.take().ok_or_else(|| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to get stdin handle",
-            ))
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| Error::Io(std::io::Error::other("Failed to get stdin handle")))?;
 
-        let stdout = BufReader::new(child.stdout.take().ok_or_else(|| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to get stdout handle",
-            ))
-        })?);
+        let stdout = BufReader::new(
+            child
+                .stdout
+                .take()
+                .ok_or_else(|| Error::Io(std::io::Error::other("Failed to get stdout handle")))?,
+        );
 
         let stderr = child.stderr.take().map(BufReader::new);
 
