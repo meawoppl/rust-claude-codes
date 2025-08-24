@@ -16,20 +16,6 @@ This crate provides bindings for the **Claude Code CLI**, which is currently an 
 - Automatic Claude CLI version compatibility checking
 - Test-driven protocol discovery for handling new message types
 
-### Compatibility Reporting
-
-- **Current tested version**: Claude CLI 1.0.89
-- **Compatibility reports needed**: If you're using this crate with a different version of Claude CLI (whether it works or fails), please report your experience at:
-  
-  **https://github.com/meawoppl/rust-claude-codes/pulls**
-
-When creating a compatibility report, please include:
-- Your Claude CLI version (run `claude --version`)
-- Whether the crate worked correctly or what errors you encountered
-- Any message types that failed to deserialize
-
-The crate will automatically warn you if you're using a newer Claude CLI version than what has been tested. You can work around version checks if needed (see documentation), but please report your results to help the community!
-
 ## Installation
 
 ```bash
@@ -95,6 +81,20 @@ let output: ClaudeOutput = Protocol::deserialize(json_line)?;
 // Serialize for sending
 let serialized = Protocol::serialize(&output)?;
 ```
+
+### Compatibility Reporting
+
+- **Current tested version**: Claude CLI 1.0.89
+- **Compatibility reports needed**: If you're using this crate with a different version of Claude CLI (whether it works or fails), please report your experience at:
+  
+  **https://github.com/meawoppl/rust-claude-codes/pulls**
+
+When creating a compatibility report, please include:
+- Your Claude CLI version (run `claude --version`)
+- Whether the crate worked correctly or what errors you encountered
+- Any message types that failed to deserialize
+
+The crate will automatically warn you if you're using a newer Claude CLI version than what has been tested. You can work around version checks if needed (see documentation), but please report your results to help the community!
 
 ## License
 
