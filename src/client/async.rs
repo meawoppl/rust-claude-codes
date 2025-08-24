@@ -43,6 +43,12 @@ impl AsyncClient {
 
     /// Create a client with default settings (using logic from start_claude)
     pub async fn with_defaults() -> Result<Self> {
+        // Check Claude version (only warns once per session)
+        // NOTE: The claude-codes API is in high flux. If you wish to work around
+        // this version check, you can use AsyncClient::new() directly with:
+        //   let child = ClaudeCliBuilder::new().model("sonnet").spawn().await?;
+        //   AsyncClient::new(child)
+        crate::version::check_claude_version_async().await?;
         Self::with_model("sonnet").await
     }
 

@@ -36,6 +36,12 @@ impl SyncClient {
 
     /// Create a new synchronous client with default settings
     pub fn with_defaults() -> Result<Self> {
+        // Check Claude version (only warns once per session)
+        // NOTE: The claude-codes API is in high flux. If you wish to work around
+        // this version check, you can use SyncClient::new() directly with:
+        //   let child = ClaudeCliBuilder::new().spawn_sync()?;
+        //   SyncClient::new(child)
+        crate::version::check_claude_version()?;
         let child = ClaudeCliBuilder::new().spawn_sync().map_err(Error::Io)?;
         Self::new(child)
     }

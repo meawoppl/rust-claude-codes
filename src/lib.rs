@@ -10,6 +10,7 @@ pub mod io;
 pub mod messages;
 pub mod protocol;
 pub mod types;
+pub mod version;
 
 pub use cli::{ClaudeCliBuilder, PermissionMode};
 pub use client::{AsyncClient, SyncClient};
