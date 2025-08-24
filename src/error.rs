@@ -28,6 +28,9 @@ pub enum Error {
     #[error("Connection closed")]
     ConnectionClosed,
 
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }
