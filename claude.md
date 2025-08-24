@@ -79,11 +79,36 @@ When implementing new message types:
 
 ## Git Commit Guidelines
 
-**CRITICAL**: NEVER use `git add -A` or `git add .` when committing changes!
-- Always use `git add -u` to stage only modified files, or
-- Use `git add <specific-file>` to stage specific files
-- The `-A` flag can accidentally add unintended files and cause issues
-- Review `git status` before committing to ensure no unwanted files are staged
+### ⚠️ ABSOLUTELY FORBIDDEN: NEVER USE `git add -A` ⚠️
+
+**CRITICAL**: The `git add -A` command is STRICTLY PROHIBITED in this repository!
+
+**WHY THIS MATTERS:**
+- `git add -A` stages ALL files including untracked files, temp files, build artifacts, and other random crap
+- This has repeatedly caused issues with unwanted files being committed
+- It can expose sensitive information, break builds, and pollute the repository
+
+**WHAT TO USE INSTEAD:**
+- `git add -u` - Stages only modified tracked files (PREFERRED)
+- `git add <specific-file>` - Stage specific files by name
+- `git add src/` - Stage specific directories if needed
+- ALWAYS run `git status` first to review what will be staged
+
+**UNACCEPTABLE:**
+```bash
+git add -A          # NEVER DO THIS
+git add --all       # NEVER DO THIS
+git add .           # AVOID THIS TOO
+```
+
+**CORRECT:**
+```bash
+git status          # Review changes first
+git add -u          # Stage modified files only
+git add src/io.rs   # Or stage specific files
+```
+
+Remember: It's better to run `git add` multiple times for specific files than to accidentally commit garbage with `-A`.
 
 ## Rust Development Standards
 
