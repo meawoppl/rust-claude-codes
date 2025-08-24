@@ -270,6 +270,16 @@ impl ClaudeInput {
 }
 
 impl ClaudeOutput {
+    /// Get the message type as a string
+    pub fn message_type(&self) -> String {
+        match self {
+            ClaudeOutput::System(_) => "system".to_string(),
+            ClaudeOutput::User(_) => "user".to_string(),
+            ClaudeOutput::Assistant(_) => "assistant".to_string(),
+            ClaudeOutput::Result(_) => "result".to_string(),
+        }
+    }
+
     /// Check if this is a result with error
     pub fn is_error(&self) -> bool {
         matches!(self, ClaudeOutput::Result(r) if r.is_error)
@@ -301,20 +311,13 @@ impl ClaudeOutput {
         debug!("[IO] Successfully parsed as JSON Value, attempting to deserialize as ClaudeOutput");
 
         // Then try to parse that Value as ClaudeOutput
-        serde_json::from_value::<ClaudeOutput>(value.clone())
-            .map_err(|e| {
-                debug!("[IO] Failed to deserialize as ClaudeOutput: {}", e);
-                ParseError {
-                    raw_json: value,
-                    error_message: e.to_string(),
-                }
-            })
-            .inspect(|output| {
-                debug!(
-                    "[IO] Successfully deserialized as ClaudeOutput type: {:?}",
-                    std::mem::discriminant(output)
-                );
-            })
+        serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| {
+            debug!("[IO] Failed to deserialize as ClaudeOutput: {}", e);
+            ParseError {
+                raw_json: value,
+                error_message: e.to_string(),
+            }
+        })
     }
 }
 

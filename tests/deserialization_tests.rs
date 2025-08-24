@@ -124,7 +124,7 @@ fn test_individual_cases() {
         // Now try to deserialize as ClaudeOutput
         match serde_json::from_str::<ClaudeOutput>(&case.raw_json) {
             Ok(output) => {
-                println!("✓ Successfully deserialized as: {:?}", output);
+                println!("✓ Successfully deserialized as: {}", output.message_type());
             }
             Err(e) => {
                 println!("✗ Failed to deserialize: {}", e);
