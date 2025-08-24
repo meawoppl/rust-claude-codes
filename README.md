@@ -89,9 +89,8 @@ All PRs must pass the following GitHub Actions checks:
 
 ## Installation
 
-```toml
-[dependencies]
-claude-codes = "0.0.5"
+```bash
+cargo add claude-codes
 ```
 
 ## Usage
