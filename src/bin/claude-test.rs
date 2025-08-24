@@ -5,6 +5,7 @@
 
 use anyhow::{Context, Result};
 use claude_codes::{ClaudeCliBuilder, ClaudeInput, ClaudeOutput, Protocol};
+use serde::de::Error as SerdeError;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -509,7 +510,25 @@ fn handle_output(output: ClaudeOutput) {
             }
         }
         ClaudeOutput::Raw(value) => {
-            warn!("Received raw/untyped output");
+            warn!("Received raw/untyped output - saving as failed deserialization");
+
+            // Save as test case since Raw means it didn't match our expected types
+            let json_str = serde_json::to_string(&value).unwrap_or_else(|_| value.to_string());
+            let error_msg = "Failed to match any specific ClaudeOutput variant";
+            let fake_error = serde_json::Error::custom(error_msg);
+
+            match save_test_case(&json_str, &fake_error) {
+                Ok(filename) => {
+                    eprintln!(
+                        "✓ Test case saved: test_cases/failed_deserializations/{}",
+                        filename
+                    );
+                }
+                Err(save_err) => {
+                    eprintln!("✗ Failed to save test case: {}", save_err);
+                }
+            }
+
             println!("\n[Raw Output]");
             println!("{}", serde_json::to_string_pretty(&value).unwrap());
             println!();
