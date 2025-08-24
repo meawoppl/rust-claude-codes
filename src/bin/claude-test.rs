@@ -91,7 +91,7 @@ async fn main() -> Result<()> {
         match send_query(&mut claude, input).await {
             Ok(()) => {
                 // Expected flow after sending a message:
-                // 1. System message (init on first message, or confirmation)
+                // 1. System message (always sent with each response)
                 // 2. User message echo (our message echoed back)
                 // 3. Zero or more Assistant messages (the actual response)
                 // 4. Result message (completion with metrics)
@@ -100,6 +100,7 @@ async fn main() -> Result<()> {
 
                 let mut received_result = false;
                 let mut received_system = false;
+                let mut received_user = false;
                 let mut assistant_count = 0;
 
                 while !received_result {
@@ -113,6 +114,15 @@ async fn main() -> Result<()> {
                                     received_system = true;
                                     debug!("Received System message");
                                 }
+                                ClaudeOutput::User(_) => {
+                                    if received_user {
+                                        warn!(
+                                            "Received multiple User messages in one response cycle"
+                                        );
+                                    }
+                                    received_user = true;
+                                    debug!("Received User message echo");
+                                }
                                 ClaudeOutput::Assistant(_) => {
                                     assistant_count += 1;
                                     debug!("Received Assistant message #{}", assistant_count);
@@ -120,10 +130,6 @@ async fn main() -> Result<()> {
                                 ClaudeOutput::Result(_) => {
                                     received_result = true;
                                     debug!("Received Result message - response complete");
-                                }
-                                ClaudeOutput::User(_) => {
-                                    // This is just our message being echoed back
-                                    debug!("Received User message echo");
                                 }
                             }
 
@@ -143,9 +149,11 @@ async fn main() -> Result<()> {
                     }
                 }
 
-                if !received_system {
-                    warn!("Never received System message in response");
-                }
+                // Log what we received for debugging
+                debug!(
+                    "Response complete - System: {}, User: {}, Assistant: {}, Result: {}",
+                    received_system, received_user, assistant_count, received_result
+                );
 
                 println!(
                     "--- Response complete (received {} assistant messages) ---\n",
@@ -358,18 +366,25 @@ fn save_test_case(json: &str, error: &serde_json::Error) -> Result<String> {
 /// Handle the output from Claude
 fn handle_output(output: ClaudeOutput) {
     match output {
-        ClaudeOutput::System(sys) => {
-            println!("\n[System Message - {}]", sys.subtype);
-            if sys.subtype == "confirmation" {
-                // Don't print full data for simple confirmations
+        ClaudeOutput::System(sys) => match sys.subtype.as_str() {
+            "init" => {
+                println!("\n[System Initialization]");
+                debug!(
+                    "System init data: {}",
+                    serde_json::to_string_pretty(&sys.data).unwrap()
+                );
+            }
+            "confirmation" => {
+                debug!("System confirmation received");
+            }
+            _ => {
+                println!("\n[System Message - {}]", sys.subtype);
                 debug!(
                     "System data: {}",
                     serde_json::to_string_pretty(&sys.data).unwrap()
                 );
-            } else {
-                println!("Data: {}", serde_json::to_string_pretty(&sys.data).unwrap());
             }
-        }
+        },
         ClaudeOutput::User(msg) => {
             // Usually just an echo of what we sent
             debug!("User message echoed: session={:?}", msg.session_id);
