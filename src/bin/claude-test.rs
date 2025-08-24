@@ -55,7 +55,26 @@ async fn main() -> Result<()> {
     });
 
     info!("Claude process started successfully");
-    println!("Claude Test Client");
+
+    // Read any initial messages from Claude (e.g., System init message)
+    println!("Waiting for Claude initialization...");
+    loop {
+        match read_initial_message(&mut claude).await {
+            Ok(Some(output)) => {
+                handle_output(output);
+            }
+            Ok(None) => {
+                // No more initial messages
+                break;
+            }
+            Err(e) => {
+                warn!("Error reading initial message: {}", e);
+                break;
+            }
+        }
+    }
+
+    println!("\nClaude Test Client");
     println!("=================");
     println!("Using model: {}", model);
     println!("Type your queries and press Enter. Type 'exit' to quit.");
@@ -181,6 +200,57 @@ async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
         .context("Failed to flush stdin")?;
 
     Ok(())
+}
+
+/// Read an initial message from Claude with timeout (non-blocking)
+async fn read_initial_message(claude: &mut ClaudeProcess) -> Result<Option<ClaudeOutput>> {
+    let mut line = String::new();
+
+    // Use a short timeout for initial messages
+    match tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        claude.stdout.read_line(&mut line),
+    )
+    .await
+    {
+        Ok(Ok(bytes_read)) => {
+            if bytes_read == 0 {
+                return Ok(None); // EOF
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+
+            debug!("Received initial line: {}", trimmed);
+
+            // Try to parse as ClaudeOutput
+            match serde_json::from_str::<ClaudeOutput>(trimmed) {
+                Ok(output) => {
+                    info!("Successfully parsed initial ClaudeOutput");
+                    Ok(Some(output))
+                }
+                Err(e) => {
+                    // Not a valid ClaudeOutput, save as test case if it's JSON
+                    if let Ok(_json_value) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                        let _ = save_test_case(trimmed, &e);
+                    }
+                    warn!("Failed to parse initial message: {}", e);
+                    Ok(None)
+                }
+            }
+        }
+        Ok(Err(e)) => {
+            debug!("Error reading initial message: {}", e);
+            Ok(None)
+        }
+        Err(_) => {
+            // Timeout - no initial message available
+            debug!("No initial message available (timeout)");
+            Ok(None)
+        }
+    }
 }
 
 /// Read a response from Claude

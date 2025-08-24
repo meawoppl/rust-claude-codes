@@ -329,6 +329,9 @@ impl ClaudeCliBuilder {
     pub async fn spawn(self) -> Result<Child> {
         let args = self.build_args();
 
+        // Log the full command being executed
+        eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
+
         let child = Command::new(&self.command)
             .args(&args)
             .stdin(Stdio::piped())
