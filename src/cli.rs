@@ -234,7 +234,6 @@ impl ClaudeCliBuilder {
             "stream-json".to_string(),
             "--input-format".to_string(),
             "stream-json".to_string(),
-            "--replay-user-messages".to_string(),
         ];
 
         if let Some(ref debug) = self.debug {
@@ -366,10 +365,10 @@ mod tests {
 
         // Verify all streaming flags are present by default
         assert!(args.contains(&"--print".to_string()));
+        assert!(args.contains(&"--verbose".to_string())); // Required for --print with stream-json
         assert!(args.contains(&"--output-format".to_string()));
         assert!(args.contains(&"stream-json".to_string()));
         assert!(args.contains(&"--input-format".to_string()));
-        assert!(args.contains(&"--replay-user-messages".to_string()));
     }
 
     #[test]

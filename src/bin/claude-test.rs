@@ -173,8 +173,8 @@ async fn start_claude(
 async fn send_query(claude: &mut ClaudeProcess, query: &str) -> Result<()> {
     info!("Sending query: {}", query);
 
-    // Create the input message with a dummy session ID for now
-    let input = ClaudeInput::user_message(query, "test-session");
+    // Create the input message with default session ID
+    let input = ClaudeInput::user_message(query, "default");
 
     // Serialize to JSON
     let json_line = Protocol::serialize(&input).context("Failed to serialize input")?;
