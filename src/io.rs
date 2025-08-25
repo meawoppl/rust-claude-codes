@@ -1,4 +1,33 @@
-//! Top-level I/O types for Claude communication
+//! Core message types for Claude communication.
+//!
+//! This module defines the primary message structures used in the Claude protocol:
+//!
+//! - [`ClaudeInput`] - Messages sent to Claude
+//! - [`ClaudeOutput`] - Messages received from Claude
+//! - [`ContentBlock`] - Different types of content within messages
+//!
+//! # Message Flow
+//!
+//! 1. Create a [`ClaudeInput`] with your query
+//! 2. Send it to Claude via a client
+//! 3. Receive [`ClaudeOutput`] messages in response
+//! 4. Handle different output types (System, Assistant, Result)
+//!
+//! # Example
+//!
+//! ```
+//! use claude_codes::{ClaudeInput, ClaudeOutput};
+//!
+//! // Create an input message
+//! let input = ClaudeInput::user_message("Hello, Claude!", "session-123");
+//!
+//! // Parse an output message
+//! let json = r#"{"type":"assistant","message":{"role":"assistant","content":[]}}"#;
+//! match ClaudeOutput::parse_json(json) {
+//!     Ok(output) => println!("Got: {}", output.message_type()),
+//!     Err(e) => eprintln!("Parse error: {}", e),
+//! }
+//! ```
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

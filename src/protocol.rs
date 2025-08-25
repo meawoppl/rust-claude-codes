@@ -1,4 +1,28 @@
-//! Protocol implementation for JSON lines communication
+//! JSON Lines protocol implementation for Claude communication.
+//!
+//! This module provides the [`Protocol`] struct with methods for:
+//! - Serializing messages to JSON Lines format
+//! - Deserializing JSON Lines into typed messages
+//! - Reading/writing messages over sync and async I/O
+//!
+//! The JSON Lines format means each message is a complete JSON object on a single line,
+//! terminated by a newline character. This enables streaming communication where messages
+//! can be processed as they arrive.
+//!
+//! # Example
+//!
+//! ```
+//! use claude_codes::{Protocol, ClaudeInput};
+//!
+//! // Serialize a message
+//! let input = ClaudeInput::user_message("Hello!", "session");
+//! let json_line = Protocol::serialize(&input)?;
+//! assert!(json_line.ends_with('\n'));
+//!
+//! // Deserialize a message
+//! let output = Protocol::deserialize::<serde_json::Value>(&json_line)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 
 use crate::error::{Error, Result};
 use crate::messages::{Event, Request, Response};
