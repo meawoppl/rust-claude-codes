@@ -7,12 +7,14 @@ use crate::protocol::Protocol;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, ChildStdout};
 use tracing::debug;
+use uuid::Uuid;
 
 /// Synchronous client for communicating with Claude
 pub struct SyncClient {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
+    session_uuid: Option<Uuid>,
 }
 
 impl SyncClient {
@@ -31,6 +33,7 @@ impl SyncClient {
             child,
             stdin,
             stdout: BufReader::new(stdout),
+            session_uuid: None,
         })
     }
 
@@ -84,6 +87,25 @@ impl SyncClient {
                 debug!("[CLIENT] Received: {}", trimmed);
                 match ClaudeOutput::parse_json(trimmed) {
                     Ok(output) => {
+                        // Capture UUID from first response if not already set
+                        if self.session_uuid.is_none() {
+                            if let ClaudeOutput::Assistant(ref msg) = output {
+                                if let Some(ref uuid_str) = msg.uuid {
+                                    if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+                                        debug!("[CLIENT] Captured session UUID: {}", uuid);
+                                        self.session_uuid = Some(uuid);
+                                    }
+                                }
+                            } else if let ClaudeOutput::Result(ref msg) = output {
+                                if let Some(ref uuid_str) = msg.uuid {
+                                    if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+                                        debug!("[CLIENT] Captured session UUID: {}", uuid);
+                                        self.session_uuid = Some(uuid);
+                                    }
+                                }
+                            }
+                        }
+
                         // Check if this is a result message
                         if matches!(output, ClaudeOutput::Result(_)) {
                             debug!("[CLIENT] Received result message, stream complete");
@@ -111,6 +133,12 @@ impl SyncClient {
         self.child.kill().map_err(Error::Io)?;
         self.child.wait().map_err(Error::Io)?;
         Ok(())
+    }
+
+    /// Get the session UUID if available
+    /// Returns an error if no response has been received yet
+    pub fn session_uuid(&self) -> Result<Uuid> {
+        self.session_uuid.ok_or(Error::SessionNotInitialized)
     }
 }
 

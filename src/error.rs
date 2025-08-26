@@ -31,6 +31,9 @@ pub enum Error {
     #[error("Deserialization error: {0}")]
     Deserialization(String),
 
+    #[error("Session UUID not yet available - no response received")]
+    SessionNotInitialized,
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }
