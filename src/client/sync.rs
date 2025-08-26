@@ -49,6 +49,39 @@ impl SyncClient {
         Self::new(child)
     }
 
+    /// Resume a previous session by UUID
+    /// This creates a new client that resumes an existing session
+    pub fn resume_session(session_uuid: Uuid) -> Result<Self> {
+        let child = ClaudeCliBuilder::new()
+            .resume(Some(session_uuid.to_string()))
+            .spawn_sync()
+            .map_err(Error::Io)?;
+
+        debug!("Resuming Claude session with UUID: {}", session_uuid);
+        let mut client = Self::new(child)?;
+        // Pre-populate the session UUID since we're resuming
+        client.session_uuid = Some(session_uuid);
+        Ok(client)
+    }
+
+    /// Resume a previous session with a specific model
+    pub fn resume_session_with_model(session_uuid: Uuid, model: &str) -> Result<Self> {
+        let child = ClaudeCliBuilder::new()
+            .model(model)
+            .resume(Some(session_uuid.to_string()))
+            .spawn_sync()
+            .map_err(Error::Io)?;
+
+        debug!(
+            "Resuming Claude session with UUID: {} and model: {}",
+            session_uuid, model
+        );
+        let mut client = Self::new(child)?;
+        // Pre-populate the session UUID since we're resuming
+        client.session_uuid = Some(session_uuid);
+        Ok(client)
+    }
+
     /// Send a query and collect all responses
     pub fn query(&mut self, input: ClaudeInput) -> Result<Vec<ClaudeOutput>> {
         let mut responses = Vec::new();
