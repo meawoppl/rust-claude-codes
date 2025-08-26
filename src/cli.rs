@@ -6,6 +6,7 @@
 //! - JSON streaming input/output formats
 //! - Non-interactive print mode
 //! - Verbose output for proper streaming
+//! - OAuth token and API key environment variables for authentication
 //!
 //! # Example
 //!
@@ -19,9 +20,15 @@
 //!     .session_id("my-session")
 //!     .spawn().await?;
 //!     
-//! // Or for synchronous usage
+//! // With OAuth authentication
 //! let child = ClaudeCliBuilder::new()
 //!     .model("opus")
+//!     .oauth_token("sk-ant-oat-123456789")
+//!     .spawn_sync()?;
+//!
+//! // Or with API key authentication
+//! let child = ClaudeCliBuilder::new()
+//!     .api_key("sk-ant-api-987654321")
 //!     .spawn_sync()?;
 //! # Ok(())
 //! # }
@@ -82,6 +89,8 @@ pub struct ClaudeCliBuilder {
     ide: bool,
     strict_mcp_config: bool,
     session_id: Option<String>,
+    oauth_token: Option<String>,
+    api_key: Option<String>,
 }
 
 impl Default for ClaudeCliBuilder {
@@ -113,6 +122,8 @@ impl ClaudeCliBuilder {
             ide: false,
             strict_mcp_config: false,
             session_id: None,
+            oauth_token: None,
+            api_key: None,
         }
     }
 
@@ -249,6 +260,26 @@ impl ClaudeCliBuilder {
         self
     }
 
+    /// Set OAuth token for authentication (must start with "sk-ant-oat")
+    pub fn oauth_token<S: Into<String>>(mut self, token: S) -> Self {
+        let token_str = token.into();
+        if !token_str.starts_with("sk-ant-oat") {
+            eprintln!("Warning: OAuth token should start with 'sk-ant-oat'");
+        }
+        self.oauth_token = Some(token_str);
+        self
+    }
+
+    /// Set API key for authentication (must start with "sk-ant-api")
+    pub fn api_key<S: Into<String>>(mut self, key: S) -> Self {
+        let key_str = key.into();
+        if !key_str.starts_with("sk-ant-api") {
+            eprintln!("Warning: API key should start with 'sk-ant-api'");
+        }
+        self.api_key = Some(key_str);
+        self
+    }
+
     /// Build the command arguments (always includes JSON streaming flags)
     fn build_args(&self) -> Vec<String> {
         // Always add JSON streaming mode flags
@@ -368,13 +399,25 @@ impl ClaudeCliBuilder {
         );
         eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
-        let child = Command::new(&self.command)
-            .args(&args)
+        let mut cmd = Command::new(&self.command);
+        cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(Error::Io)?;
+            .stderr(Stdio::piped());
+
+        // Set OAuth token environment variable if provided
+        if let Some(ref token) = self.oauth_token {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
+            debug!("[CLI] Setting CLAUDE_CODE_OAUTH_TOKEN environment variable");
+        }
+
+        // Set API key environment variable if provided
+        if let Some(ref key) = self.api_key {
+            cmd.env("ANTHROPIC_API_KEY", key);
+            debug!("[CLI] Setting ANTHROPIC_API_KEY environment variable");
+        }
+
+        let child = cmd.spawn().map_err(Error::Io)?;
 
         Ok(child)
     }
@@ -387,6 +430,17 @@ impl ClaudeCliBuilder {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+
+        // Set OAuth token environment variable if provided
+        if let Some(ref token) = self.oauth_token {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
+        }
+
+        // Set API key environment variable if provided
+        if let Some(ref key) = self.api_key {
+            cmd.env("ANTHROPIC_API_KEY", key);
+        }
+
         cmd
     }
 
@@ -402,12 +456,25 @@ impl ClaudeCliBuilder {
         );
         eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
-        std::process::Command::new(&self.command)
-            .args(&args)
+        let mut cmd = std::process::Command::new(&self.command);
+        cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .stderr(Stdio::piped());
+
+        // Set OAuth token environment variable if provided
+        if let Some(ref token) = self.oauth_token {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
+            debug!("[CLI] Setting CLAUDE_CODE_OAUTH_TOKEN environment variable");
+        }
+
+        // Set API key environment variable if provided
+        if let Some(ref key) = self.api_key {
+            cmd.env("ANTHROPIC_API_KEY", key);
+            debug!("[CLI] Setting ANTHROPIC_API_KEY environment variable");
+        }
+
+        cmd.spawn()
     }
 }
 
@@ -456,5 +523,57 @@ mod tests {
 
         assert!(args.contains(&"--debug".to_string()));
         assert!(args.contains(&"api".to_string()));
+    }
+
+    #[test]
+    fn test_with_oauth_token() {
+        let valid_token = "sk-ant-oat-123456789";
+        let builder = ClaudeCliBuilder::new().oauth_token(valid_token);
+
+        // OAuth token is set as env var, not in args
+        let args = builder.clone().build_args();
+        assert!(!args.contains(&valid_token.to_string()));
+
+        // Verify it's stored in the builder
+        assert_eq!(builder.oauth_token, Some(valid_token.to_string()));
+    }
+
+    #[test]
+    fn test_oauth_token_validation() {
+        // Test with invalid prefix (should print warning but still accept)
+        let invalid_token = "invalid-token-123";
+        let builder = ClaudeCliBuilder::new().oauth_token(invalid_token);
+        assert_eq!(builder.oauth_token, Some(invalid_token.to_string()));
+    }
+
+    #[test]
+    fn test_with_api_key() {
+        let valid_key = "sk-ant-api-987654321";
+        let builder = ClaudeCliBuilder::new().api_key(valid_key);
+
+        // API key is set as env var, not in args
+        let args = builder.clone().build_args();
+        assert!(!args.contains(&valid_key.to_string()));
+
+        // Verify it's stored in the builder
+        assert_eq!(builder.api_key, Some(valid_key.to_string()));
+    }
+
+    #[test]
+    fn test_api_key_validation() {
+        // Test with invalid prefix (should print warning but still accept)
+        let invalid_key = "invalid-api-key";
+        let builder = ClaudeCliBuilder::new().api_key(invalid_key);
+        assert_eq!(builder.api_key, Some(invalid_key.to_string()));
+    }
+
+    #[test]
+    fn test_both_auth_methods() {
+        let oauth = "sk-ant-oat-123";
+        let api_key = "sk-ant-api-456";
+        let builder = ClaudeCliBuilder::new().oauth_token(oauth).api_key(api_key);
+
+        assert_eq!(builder.oauth_token, Some(oauth.to_string()));
+        assert_eq!(builder.api_key, Some(api_key.to_string()));
     }
 }
