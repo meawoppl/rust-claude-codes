@@ -32,6 +32,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::{Child, Command};
 use tracing::debug;
+use uuid::Uuid;
 
 /// Permission mode for Claude CLI
 #[derive(Debug, Clone, Copy)]
@@ -336,9 +337,15 @@ impl ClaudeCliBuilder {
             args.push("--strict-mcp-config".to_string());
         }
 
+        // Always provide a session ID - use provided one or generate a UUID4
+        args.push("--session-id".to_string());
         if let Some(ref id) = self.session_id {
-            args.push("--session-id".to_string());
             args.push(id.clone());
+        } else {
+            // Generate a UUID4 if no session ID was provided
+            let uuid = Uuid::new_v4();
+            debug!("[CLI] Generated session UUID: {}", uuid);
+            args.push(uuid.to_string());
         }
 
         // Add prompt as the last argument if provided

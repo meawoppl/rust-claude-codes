@@ -7,6 +7,7 @@ use crate::protocol::Protocol;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use tracing::{debug, error, info};
+use uuid::Uuid;
 
 /// Asynchronous client for communicating with Claude
 pub struct AsyncClient {
@@ -14,6 +15,7 @@ pub struct AsyncClient {
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     stderr: Option<BufReader<ChildStderr>>,
+    session_uuid: Option<Uuid>,
 }
 
 impl AsyncClient {
@@ -38,6 +40,7 @@ impl AsyncClient {
             stdin,
             stdout,
             stderr,
+            session_uuid: None,
         })
     }
 
@@ -159,6 +162,26 @@ impl AsyncClient {
             match ClaudeOutput::parse_json(trimmed) {
                 Ok(output) => {
                     debug!("[INCOMING] Parsed output type: {}", output.message_type());
+
+                    // Capture UUID from first response if not already set
+                    if self.session_uuid.is_none() {
+                        if let ClaudeOutput::Assistant(ref msg) = output {
+                            if let Some(ref uuid_str) = msg.uuid {
+                                if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+                                    debug!("[INCOMING] Captured session UUID: {}", uuid);
+                                    self.session_uuid = Some(uuid);
+                                }
+                            }
+                        } else if let ClaudeOutput::Result(ref msg) = output {
+                            if let Some(ref uuid_str) = msg.uuid {
+                                if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+                                    debug!("[INCOMING] Captured session UUID: {}", uuid);
+                                    self.session_uuid = Some(uuid);
+                                }
+                            }
+                        }
+                    }
+
                     return Ok(output);
                 }
                 Err(parse_error) => {
@@ -190,6 +213,12 @@ impl AsyncClient {
     /// Take the stderr reader (can only be called once)
     pub fn take_stderr(&mut self) -> Option<BufReader<ChildStderr>> {
         self.stderr.take()
+    }
+
+    /// Get the session UUID if available
+    /// Returns an error if no response has been received yet
+    pub fn session_uuid(&self) -> Result<Uuid> {
+        self.session_uuid.ok_or(Error::SessionNotInitialized)
     }
 }
 
