@@ -190,3 +190,12 @@ When I say:
 - Never create files unless absolutely necessary
 - Prefer editing existing files over creating new ones
 - Update documentation when making significant changes
+
+## Version Management
+When updating the version number in `Cargo.toml`:
+1. Update the version field in `Cargo.toml`
+2. Run `cargo build` to regenerate `Cargo.lock` with the new version
+3. Commit both `Cargo.toml` and `Cargo.lock` together
+4. Use a commit message like: "chore: bump version to X.Y.Z"
+
+This ensures the lockfile stays in sync with the version number.

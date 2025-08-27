@@ -17,7 +17,7 @@
 //! // Build and spawn an async Claude process
 //! let child = ClaudeCliBuilder::new()
 //!     .model("sonnet")
-//!     .session_id("my-session")
+//!     .session_id(uuid::Uuid::new_v4())
 //!     .spawn().await?;
 //!     
 //! // With OAuth authentication
@@ -88,7 +88,7 @@ pub struct ClaudeCliBuilder {
     add_dir: Vec<PathBuf>,
     ide: bool,
     strict_mcp_config: bool,
-    session_id: Option<String>,
+    session_id: Option<Uuid>,
     oauth_token: Option<String>,
     api_key: Option<String>,
 }
@@ -254,9 +254,9 @@ impl ClaudeCliBuilder {
         self
     }
 
-    /// Set a specific session ID
-    pub fn session_id<S: Into<String>>(mut self, id: S) -> Self {
-        self.session_id = Some(id.into());
+    /// Set a specific session ID (must be a UUID)
+    pub fn session_id(mut self, id: Uuid) -> Self {
+        self.session_id = Some(id);
         self
     }
 
@@ -370,14 +370,12 @@ impl ClaudeCliBuilder {
 
         // Always provide a session ID - use provided one or generate a UUID4
         args.push("--session-id".to_string());
-        if let Some(ref id) = self.session_id {
-            args.push(id.clone());
-        } else {
-            // Generate a UUID4 if no session ID was provided
+        let session_uuid = self.session_id.unwrap_or_else(|| {
             let uuid = Uuid::new_v4();
             debug!("[CLI] Generated session UUID: {}", uuid);
-            args.push(uuid.to_string());
-        }
+            uuid
+        });
+        args.push(session_uuid.to_string());
 
         // Add prompt as the last argument if provided
         if let Some(ref prompt) = self.prompt {

@@ -47,8 +47,8 @@
 //!     // Create a synchronous client
 //!     let mut client = SyncClient::with_defaults()?;
 //!     
-//!     // Build a structured input message
-//!     let input = ClaudeInput::user_message("What is 2 + 2?", "session-123");
+//!     // Build a structured input message  
+//!     let input = ClaudeInput::user_message("What is 2 + 2?", uuid::Uuid::new_v4());
 //!     
 //!     // Send and collect all responses
 //!     let responses = client.query(input)?;

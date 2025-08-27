@@ -19,7 +19,7 @@
 //! use claude_codes::{ClaudeInput, ClaudeOutput};
 //!
 //! // Create an input message
-//! let input = ClaudeInput::user_message("Hello, Claude!", "session-123");
+//! let input = ClaudeInput::user_message("Hello, Claude!", uuid::Uuid::new_v4());
 //!
 //! // Parse an output message
 //! let json = r#"{"type":"assistant","message":{"role":"assistant","content":[]}}"#;
@@ -29,10 +29,36 @@
 //! }
 //! ```
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::fmt;
 use tracing::debug;
+use uuid::Uuid;
+
+/// Serialize an optional UUID as a string
+fn serialize_optional_uuid<S>(uuid: &Option<Uuid>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match uuid {
+        Some(id) => serializer.serialize_str(&id.to_string()),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// Deserialize an optional UUID from a string
+fn deserialize_optional_uuid<'de, D>(deserializer: D) -> Result<Option<Uuid>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt_str: Option<String> = Option::deserialize(deserializer)?;
+    match opt_str {
+        Some(s) => Uuid::parse_str(&s)
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+        None => Ok(None),
+    }
+}
 
 /// Top-level enum for all possible Claude input messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,7 +111,11 @@ pub enum ClaudeOutput {
 pub struct UserMessage {
     pub message: MessageContent,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
+    #[serde(
+        serialize_with = "serialize_optional_uuid",
+        deserialize_with = "deserialize_optional_uuid"
+    )]
+    pub session_id: Option<Uuid>,
 }
 
 /// Message content with role
@@ -134,6 +164,7 @@ pub struct AssistantMessageContent {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
     Text(TextBlock),
+    Image(ImageBlock),
     Thinking(ThinkingBlock),
     ToolUse(ToolUseBlock),
     ToolResult(ToolResultBlock),
@@ -143,6 +174,21 @@ pub enum ContentBlock {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextBlock {
     pub text: String,
+}
+
+/// Image content block (follows Anthropic API structure)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageBlock {
+    pub source: ImageSource,
+}
+
+/// Image source information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageSource {
+    #[serde(rename = "type")]
+    pub source_type: String, // "base64"
+    pub media_type: String, // e.g., "image/jpeg", "image/png"
+    pub data: String,       // Base64-encoded image data
 }
 
 /// Thinking content block
@@ -276,25 +322,58 @@ pub struct ServerToolUse {
 
 impl ClaudeInput {
     /// Create a simple text user message
-    pub fn user_message(text: impl Into<String>, session_id: impl Into<String>) -> Self {
+    pub fn user_message(text: impl Into<String>, session_id: Uuid) -> Self {
         ClaudeInput::User(UserMessage {
             message: MessageContent {
                 role: "user".to_string(),
                 content: vec![ContentBlock::Text(TextBlock { text: text.into() })],
             },
-            session_id: Some(session_id.into()),
+            session_id: Some(session_id),
         })
     }
 
     /// Create a user message with content blocks
-    pub fn user_message_blocks(blocks: Vec<ContentBlock>, session_id: impl Into<String>) -> Self {
+    pub fn user_message_blocks(blocks: Vec<ContentBlock>, session_id: Uuid) -> Self {
         ClaudeInput::User(UserMessage {
             message: MessageContent {
                 role: "user".to_string(),
                 content: blocks,
             },
-            session_id: Some(session_id.into()),
+            session_id: Some(session_id),
         })
+    }
+
+    /// Create a user message with an image and optional text
+    /// Only supports JPEG, PNG, GIF, and WebP media types
+    pub fn user_message_with_image(
+        image_data: String,
+        media_type: String,
+        text: Option<String>,
+        session_id: Uuid,
+    ) -> Result<Self, String> {
+        // Validate media type
+        let valid_types = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+        if !valid_types.contains(&media_type.as_str()) {
+            return Err(format!(
+                "Invalid media type '{}'. Only JPEG, PNG, GIF, and WebP are supported.",
+                media_type
+            ));
+        }
+
+        let mut blocks = vec![ContentBlock::Image(ImageBlock {
+            source: ImageSource {
+                source_type: "base64".to_string(),
+                media_type,
+                data: image_data,
+            },
+        })];
+
+        if let Some(text_content) = text {
+            blocks.push(ContentBlock::Text(TextBlock { text: text_content }));
+        }
+
+        Ok(Self::user_message_blocks(blocks, session_id))
     }
 }
 
@@ -356,12 +435,13 @@ mod tests {
 
     #[test]
     fn test_serialize_user_message() {
-        let input = ClaudeInput::user_message("Hello, Claude!", "session-123");
+        let session_uuid = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let input = ClaudeInput::user_message("Hello, Claude!", session_uuid);
         let json = serde_json::to_string(&input).unwrap();
         assert!(json.contains("\"type\":\"user\""));
         assert!(json.contains("\"role\":\"user\""));
         assert!(json.contains("\"text\":\"Hello, Claude!\""));
-        assert!(json.contains("session-123"));
+        assert!(json.contains("550e8400-e29b-41d4-a716-446655440000"));
     }
 
     #[test]

@@ -106,14 +106,15 @@ impl AsyncClient {
     /// Send a query and collect all responses until Result message
     /// This is the simplified version that collects all responses
     pub async fn query(&mut self, text: &str) -> Result<Vec<ClaudeOutput>> {
-        self.query_with_session(text, "default").await
+        let session_id = Uuid::new_v4();
+        self.query_with_session(text, session_id).await
     }
 
     /// Send a query with a custom session ID and collect all responses
     pub async fn query_with_session(
         &mut self,
         text: &str,
-        session_id: &str,
+        session_id: Uuid,
     ) -> Result<Vec<ClaudeOutput>> {
         // Send the query
         let input = ClaudeInput::user_message(text, session_id);
@@ -138,14 +139,15 @@ impl AsyncClient {
     /// Send a query and return an async iterator over responses
     /// Returns a stream that yields ClaudeOutput until Result message is received
     pub async fn query_stream(&mut self, text: &str) -> Result<ResponseStream<'_>> {
-        self.query_stream_with_session(text, "default").await
+        let session_id = Uuid::new_v4();
+        self.query_stream_with_session(text, session_id).await
     }
 
     /// Send a query with session ID and return an async iterator over responses
     pub async fn query_stream_with_session(
         &mut self,
         text: &str,
-        session_id: &str,
+        session_id: Uuid,
     ) -> Result<ResponseStream<'_>> {
         // Send the query first
         let input = ClaudeInput::user_message(text, session_id);

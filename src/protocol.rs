@@ -15,7 +15,7 @@
 //! use claude_codes::{Protocol, ClaudeInput};
 //!
 //! // Serialize a message
-//! let input = ClaudeInput::user_message("Hello!", "session");
+//! let input = ClaudeInput::user_message("Hello!", uuid::Uuid::new_v4());
 //! let json_line = Protocol::serialize(&input)?;
 //! assert!(json_line.ends_with('\n'));
 //!
