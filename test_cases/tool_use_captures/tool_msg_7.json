@@ -1,0 +1,32 @@
+{
+  "type": "assistant",
+  "message": {
+    "id": "msg_014xD2bygTVGkrbhB7reXJMu",
+    "role": "assistant",
+    "model": "claude-sonnet-4-20250514",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "toolu_01VNEW6rM2o7V8AAMcBGnoCf",
+        "name": "Bash",
+        "input": {
+          "command": "ls /tmp",
+          "description": "List files in /tmp directory"
+        }
+      }
+    ],
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 339
+      },
+      "cache_creation_input_tokens": 339,
+      "cache_read_input_tokens": 15187,
+      "input_tokens": 8,
+      "output_tokens": 4,
+      "service_tier": "standard"
+    }
+  },
+  "session_id": "b0dc5efe-2d4d-4c8e-8d69-12b25e678cb3",
+  "uuid": "1b6657e3-86fa-4748-b38d-e63759dce626"
+}

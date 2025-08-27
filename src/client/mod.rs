@@ -39,7 +39,7 @@
 //! use claude_codes::{SyncClient, ClaudeInput};
 //!
 //! let mut client = SyncClient::with_defaults()?;
-//! let input = ClaudeInput::user_message("Hello!", "session");
+//! let input = ClaudeInput::user_message("Hello!", uuid::Uuid::new_v4());
 //! let responses = client.query(input)?;
 //! # Ok(())
 //! # }

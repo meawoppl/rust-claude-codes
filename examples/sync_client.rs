@@ -2,6 +2,7 @@
 
 use claude_codes::{ClaudeInput, SyncClient};
 use std::error::Error;
+use uuid::Uuid;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Initialize tracing at warning level to reduce noise
@@ -13,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut client = SyncClient::with_defaults()?;
 
     // Send a simple query
-    let input = ClaudeInput::user_message("What is 2 + 2?", "test-session");
+    let input = ClaudeInput::user_message("What is 2 + 2?", Uuid::new_v4());
 
     println!("Sending query: What is 2 + 2?");
     println!("Waiting for response...\n");

@@ -1,0 +1,15 @@
+{
+  "type": "user",
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "toolu_01TnCDw99Xfqbma1cmwWTt1b",
+        "content": "Claude requested permissions to read from /tmp, but you haven't granted it yet.",
+        "is_error": true
+      }
+    ]
+  },
+  "session_id": "b0dc5efe-2d4d-4c8e-8d69-12b25e678cb3"
+}

@@ -196,6 +196,13 @@ fn handle_output(output: ClaudeOutput) {
                             }
                         }
                     }
+                    claude_codes::io::ContentBlock::Image(image) => {
+                        println!(
+                            "\n[Image: {} - data length: {}]",
+                            image.source.media_type,
+                            image.source.data.len()
+                        );
+                    }
                 }
             }
         }

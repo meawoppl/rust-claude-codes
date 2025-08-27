@@ -52,13 +52,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```rust
 use claude_codes::{SyncClient, ClaudeInput};
+use uuid::Uuid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create client (checks Claude CLI compatibility)
     let mut client = SyncClient::with_defaults()?;
     
     // Send a query
-    let input = ClaudeInput::user_message("What is 2 + 2?", "session-1");
+    let input = ClaudeInput::user_message("What is 2 + 2?", Uuid::new_v4());
     let responses = client.query(input)?;
     
     for response in responses {
