@@ -2,7 +2,7 @@
 
 use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
-use crate::io::{ClaudeInput, ClaudeOutput};
+use crate::io::{ClaudeInput, ClaudeOutput, ContentBlock};
 use crate::protocol::Protocol;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout};
@@ -193,8 +193,8 @@ impl AsyncClient {
 
             debug!("[INCOMING] Received JSON from Claude: {}", trimmed);
 
-            // Use the parse_json method which returns ParseError
-            match ClaudeOutput::parse_json(trimmed) {
+            // Use the parse_json_tolerant method which handles ANSI escape codes
+            match ClaudeOutput::parse_json_tolerant(trimmed) {
                 Ok(output) => {
                     debug!("[INCOMING] Parsed output type: {}", output.message_type());
 
@@ -221,8 +221,12 @@ impl AsyncClient {
                 }
                 Err(parse_error) => {
                     error!("[INCOMING] Failed to deserialize: {}", parse_error);
+                    error!("[INCOMING] Raw JSON that failed: {}", trimmed);
                     // Convert ParseError to our Error type
-                    return Err(Error::Deserialization(parse_error.error_message));
+                    return Err(Error::Deserialization(format!(
+                        "{} (raw: {})",
+                        parse_error.error_message, trimmed
+                    )));
                 }
             }
         }
@@ -254,6 +258,63 @@ impl AsyncClient {
     /// Returns an error if no response has been received yet
     pub fn session_uuid(&self) -> Result<Uuid> {
         self.session_uuid.ok_or(Error::SessionNotInitialized)
+    }
+
+    /// Test if the Claude connection is working by sending a ping message
+    /// Returns true if Claude responds with "pong", false otherwise
+    pub async fn ping(&mut self) -> bool {
+        // Send a simple ping request
+        let ping_input = ClaudeInput::user_message(
+            "ping - respond with just the word 'pong' and nothing else",
+            self.session_uuid.unwrap_or_else(Uuid::new_v4),
+        );
+
+        // Try to send the ping
+        if let Err(e) = self.send(&ping_input).await {
+            debug!("Ping failed to send: {}", e);
+            return false;
+        }
+
+        // Try to receive responses until we get a result or error
+        let mut found_pong = false;
+        let mut message_count = 0;
+        const MAX_MESSAGES: usize = 10;
+
+        loop {
+            match self.receive().await {
+                Ok(output) => {
+                    message_count += 1;
+
+                    // Check if it's an assistant message containing "pong"
+                    if let ClaudeOutput::Assistant(msg) = &output {
+                        for content in &msg.message.content {
+                            if let ContentBlock::Text(text) = content {
+                                if text.text.to_lowercase().contains("pong") {
+                                    found_pong = true;
+                                }
+                            }
+                        }
+                    }
+
+                    // Stop on result message
+                    if matches!(output, ClaudeOutput::Result(_)) {
+                        break;
+                    }
+
+                    // Safety limit
+                    if message_count >= MAX_MESSAGES {
+                        debug!("Ping exceeded message limit");
+                        break;
+                    }
+                }
+                Err(e) => {
+                    debug!("Ping failed to receive response: {}", e);
+                    break;
+                }
+            }
+        }
+
+        found_pong
     }
 }
 

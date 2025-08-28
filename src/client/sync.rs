@@ -2,7 +2,7 @@
 
 use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
-use crate::io::{ClaudeInput, ClaudeOutput, ParseError};
+use crate::io::{ClaudeInput, ClaudeOutput, ContentBlock, ParseError};
 use crate::protocol::Protocol;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, ChildStdout};
@@ -118,7 +118,7 @@ impl SyncClient {
                 }
 
                 debug!("[CLIENT] Received: {}", trimmed);
-                match ClaudeOutput::parse_json(trimmed) {
+                match ClaudeOutput::parse_json_tolerant(trimmed) {
                     Ok(output) => {
                         // Capture UUID from first response if not already set
                         if self.session_uuid.is_none() {
@@ -149,7 +149,11 @@ impl SyncClient {
                     }
                     Err(ParseError { error_message, .. }) => {
                         debug!("[CLIENT] Failed to deserialize: {}", error_message);
-                        Err(Error::Deserialization(error_message))
+                        debug!("[CLIENT] Raw JSON that failed: {}", trimmed);
+                        Err(Error::Deserialization(format!(
+                            "{} (raw: {})",
+                            error_message, trimmed
+                        )))
                     }
                 }
             }
@@ -172,6 +176,39 @@ impl SyncClient {
     /// Returns an error if no response has been received yet
     pub fn session_uuid(&self) -> Result<Uuid> {
         self.session_uuid.ok_or(Error::SessionNotInitialized)
+    }
+
+    /// Test if the Claude connection is working by sending a ping message
+    /// Returns true if Claude responds with "pong", false otherwise
+    pub fn ping(&mut self) -> bool {
+        // Send a simple ping request
+        let ping_input = ClaudeInput::user_message(
+            "ping - respond with just the word 'pong' and nothing else",
+            self.session_uuid.unwrap_or_else(Uuid::new_v4),
+        );
+
+        // Try to send the ping and get responses
+        match self.query(ping_input) {
+            Ok(responses) => {
+                // Check all responses for "pong"
+                for output in responses {
+                    if let ClaudeOutput::Assistant(msg) = &output {
+                        for content in &msg.message.content {
+                            if let ContentBlock::Text(text) = content {
+                                if text.text.to_lowercase().contains("pong") {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                false
+            }
+            Err(e) => {
+                debug!("Ping failed: {}", e);
+                false
+            }
+        }
     }
 }
 

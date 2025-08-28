@@ -231,7 +231,7 @@ pub struct ResultMessage {
     pub is_error: bool,
     pub duration_ms: u64,
     pub duration_api_ms: u64,
-    pub num_turns: u32,
+    pub num_turns: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
@@ -401,6 +401,36 @@ impl ClaudeOutput {
     /// Check if this is a system message
     pub fn is_system_message(&self) -> bool {
         matches!(self, ClaudeOutput::System(_))
+    }
+
+    /// Parse a JSON string, handling potential ANSI escape codes and other prefixes
+    /// This method will:
+    /// 1. First try to parse as-is
+    /// 2. If that fails, trim until it finds a '{' and try again
+    pub fn parse_json_tolerant(s: &str) -> Result<ClaudeOutput, ParseError> {
+        // First try to parse as-is
+        match Self::parse_json(s) {
+            Ok(output) => Ok(output),
+            Err(first_error) => {
+                // If that fails, look for the first '{' character
+                if let Some(json_start) = s.find('{') {
+                    let trimmed = &s[json_start..];
+                    debug!(
+                        "[IO] Retrying parse after trimming {} chars of prefix",
+                        json_start
+                    );
+                    match Self::parse_json(trimmed) {
+                        Ok(output) => Ok(output),
+                        Err(_) => {
+                            // Return the original error if both attempts fail
+                            Err(first_error)
+                        }
+                    }
+                } else {
+                    Err(first_error)
+                }
+            }
+        }
     }
 
     /// Parse a JSON string, returning ParseError with raw JSON if it doesn't match our types

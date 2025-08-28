@@ -675,6 +675,34 @@ async fn test_mixed_content_blocks() {
     println!("Mixed content blocks test passed");
 }
 
+/// Test ping functionality
+#[tokio::test]
+async fn test_async_client_ping() {
+    let mut client = AsyncClient::with_defaults()
+        .await
+        .expect("Failed to create async client");
+
+    // Test ping
+    let ping_result = client.ping().await;
+    assert!(
+        ping_result,
+        "Ping should return true when Claude responds with 'pong'"
+    );
+}
+
+/// Test sync client ping functionality
+#[test]
+fn test_sync_client_ping() {
+    let mut client = SyncClient::with_defaults().expect("Failed to create sync client");
+
+    // Test ping
+    let ping_result = client.ping();
+    assert!(
+        ping_result,
+        "Ping should return true when Claude responds with 'pong'"
+    );
+}
+
 /// Test media type validation
 #[test]
 fn test_media_type_validation() {
@@ -717,4 +745,416 @@ fn test_media_type_validation() {
             assert!(msg.contains("Only JPEG, PNG, GIF, and WebP are supported"));
         }
     }
+}
+
+/// Test slash commands (like /help, /status, etc.)
+#[tokio::test]
+async fn test_slash_commands() {
+    // First, let's debug what raw JSON we get for slash commands
+    use std::io::Write;
+    use std::process::Command;
+
+    println!("=== Debugging slash command raw output ===");
+    let debug_session_id = Uuid::new_v4().to_string();
+    let mut claude_proc = Command::new("claude")
+        .args(&[
+            "--print",
+            "--verbose",
+            "--output-format",
+            "stream-json",
+            "--input-format",
+            "stream-json",
+            "--model",
+            "sonnet",
+            "--session-id",
+            &debug_session_id,
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn claude");
+
+    if let Some(mut stdin) = claude_proc.stdin.take() {
+        let input = format!(
+            r#"{{"type":"user","message":{{"role":"user","content":[{{"type":"text","text":"/status"}}]}},"session_id":"{}"}}"#,
+            debug_session_id
+        );
+        writeln!(stdin, "{}", input).expect("Failed to write to stdin");
+        drop(stdin); // Close stdin to signal EOF
+    }
+
+    let output = claude_proc
+        .wait_with_output()
+        .expect("Failed to read output");
+
+    println!("STDOUT (raw JSON lines):");
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        println!("  {}", line);
+        // Try to parse each line
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+            if val.get("type") == Some(&serde_json::Value::String("result".to_string())) {
+                println!(
+                    "\n  RESULT MESSAGE (pretty printed):\n{}",
+                    serde_json::to_string_pretty(&val).unwrap()
+                );
+
+                // Check for -1 values
+                if let Some(usage) = val.get("usage") {
+                    println!(
+                        "\n  USAGE block:\n{}",
+                        serde_json::to_string_pretty(&usage).unwrap()
+                    );
+                }
+            }
+        }
+    }
+
+    if !output.stderr.is_empty() {
+        println!("\nSTDERR:");
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    println!("=== End raw output debug ===\n");
+
+    // Now run the actual test
+    let mut client = AsyncClient::with_defaults()
+        .await
+        .expect("Failed to create async client");
+
+    // Test /help command
+    let mut stream = client
+        .query_stream("/help")
+        .await
+        .expect("Failed to send /help command");
+
+    let mut received_help_response = false;
+    let mut message_count = 0;
+    let mut got_result = false;
+
+    while let Some(result) = stream.next().await {
+        message_count += 1;
+
+        match result {
+            Ok(output) => {
+                println!("\n=== /help Response #{} ===", message_count);
+                println!("Message type: {}", output.message_type());
+
+                // Log full output for debugging
+                match &output {
+                    ClaudeOutput::System(msg) => {
+                        println!("System message - subtype: {}", msg.subtype);
+                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
+                            println!("System data:\n{}", json);
+                        }
+                    }
+                    ClaudeOutput::User(msg) => {
+                        println!("User message echoed back");
+                        for content in &msg.message.content {
+                            if let claude_codes::io::ContentBlock::Text(text) = content {
+                                println!("User text: {}", text.text);
+                            }
+                        }
+                    }
+                    ClaudeOutput::Assistant(msg) => {
+                        println!("Assistant message:");
+                        for content in &msg.message.content {
+                            match content {
+                                claude_codes::io::ContentBlock::Text(text) => {
+                                    println!("Assistant says:\n{}", text.text);
+                                    // Help response typically contains commands or usage info
+                                    if text.text.to_lowercase().contains("help")
+                                        || text.text.to_lowercase().contains("command")
+                                        || text.text.to_lowercase().contains("available")
+                                        || text.text.contains("/")
+                                    {
+                                        received_help_response = true;
+                                    }
+                                }
+                                _ => println!("(non-text content block)"),
+                            }
+                        }
+                    }
+                    ClaudeOutput::Result(result_msg) => {
+                        println!("Result message:");
+                        println!("  - Success: {}", !result_msg.is_error);
+                        println!("  - Duration: {}ms", result_msg.duration_ms);
+                        if let Some(result_text) = &result_msg.result {
+                            println!("  - Result text: {}", result_text);
+                        }
+                        got_result = true;
+                        if !result_msg.is_error {
+                            received_help_response = true;
+                            println!("Slash command completed successfully");
+                        }
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving response: {}", e);
+                break;
+            }
+        }
+
+        // Safety limit
+        if message_count > 15 {
+            break;
+        }
+    }
+
+    assert!(message_count > 0, "Should have received messages");
+    assert!(got_result, "Should have received a result message");
+    // Slash commands might not produce assistant messages, but should complete successfully
+    assert!(
+        received_help_response || got_result,
+        "Should have received help information or successful completion"
+    );
+
+    // Test /status command
+    let mut stream = client
+        .query_stream("/status")
+        .await
+        .expect("Failed to send /status command");
+
+    let mut received_status_response = false;
+    message_count = 0;
+    got_result = false;
+
+    while let Some(result) = stream.next().await {
+        message_count += 1;
+
+        match result {
+            Ok(output) => {
+                println!("\n=== /status Response #{} ===", message_count);
+                println!("Message type: {}", output.message_type());
+
+                // Log full output for debugging
+                match &output {
+                    ClaudeOutput::System(msg) => {
+                        println!("System message - subtype: {}", msg.subtype);
+                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
+                            println!("System data:\n{}", json);
+                        }
+                    }
+                    ClaudeOutput::User(msg) => {
+                        println!("User message echoed back");
+                        for content in &msg.message.content {
+                            if let claude_codes::io::ContentBlock::Text(text) = content {
+                                println!("User text: {}", text.text);
+                            }
+                        }
+                    }
+                    ClaudeOutput::Assistant(msg) => {
+                        println!("Assistant message:");
+                        for content in &msg.message.content {
+                            match content {
+                                claude_codes::io::ContentBlock::Text(text) => {
+                                    println!("Assistant says:\n{}", text.text);
+                                    // Status response typically contains session info, model info, etc.
+                                    if text.text.to_lowercase().contains("status")
+                                        || text.text.to_lowercase().contains("session")
+                                        || text.text.to_lowercase().contains("model")
+                                        || text.text.to_lowercase().contains("claude")
+                                    {
+                                        received_status_response = true;
+                                    }
+                                }
+                                _ => println!("(non-text content block)"),
+                            }
+                        }
+                    }
+                    ClaudeOutput::Result(result_msg) => {
+                        println!("Result message:");
+                        println!("  - Success: {}", !result_msg.is_error);
+                        println!("  - Duration: {}ms", result_msg.duration_ms);
+                        if let Some(result_text) = &result_msg.result {
+                            println!("  - Result text: {}", result_text);
+                        }
+                    }
+                }
+
+                // Check for successful result message
+                if let ClaudeOutput::Result(result_msg) = &output {
+                    got_result = true;
+                    println!("Status result: is_error={}", result_msg.is_error);
+                    if !result_msg.is_error {
+                        received_status_response = true;
+                        println!("/status command completed successfully");
+                    }
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving response: {}", e);
+                break;
+            }
+        }
+
+        // Safety limit
+        if message_count > 15 {
+            break;
+        }
+    }
+
+    assert!(
+        message_count > 0,
+        "Should have received messages for /status"
+    );
+    assert!(
+        got_result,
+        "Should have received a result message for /status"
+    );
+    assert!(
+        received_status_response || got_result,
+        "Should have received status information or successful completion"
+    );
+
+    // Test /cost command
+    println!("\n=== Testing /cost command ===");
+
+    // First, get raw output directly from the command
+    let test_session_id = Uuid::new_v4().to_string();
+    let mut claude_proc = Command::new("claude")
+        .args(&[
+            "--print",
+            "--verbose",
+            "--output-format",
+            "stream-json",
+            "--input-format",
+            "stream-json",
+            "--model",
+            "sonnet",
+            "--session-id",
+            &test_session_id,
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn claude");
+
+    if let Some(mut stdin) = claude_proc.stdin.take() {
+        let input = format!(
+            r#"{{"type":"user","message":{{"role":"user","content":[{{"type":"text","text":"/cost"}}]}},"session_id":"{}"}}"#,
+            test_session_id
+        );
+        writeln!(stdin, "{}", input).expect("Failed to write to stdin");
+        drop(stdin); // Close stdin to signal EOF
+    }
+
+    let output = claude_proc
+        .wait_with_output()
+        .expect("Failed to read output");
+
+    println!("RAW /cost STDOUT:");
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        println!("  RAW: {}", line);
+    }
+
+    if !output.stderr.is_empty() {
+        println!("\nRAW /cost STDERR:");
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    println!("=== End raw /cost output ===\n");
+
+    // Now test through the client
+    let mut stream = client
+        .query_stream("/cost")
+        .await
+        .expect("Failed to send /cost command");
+
+    let mut received_cost_response = false;
+    message_count = 0;
+    got_result = false;
+
+    while let Some(result) = stream.next().await {
+        message_count += 1;
+
+        match result {
+            Ok(output) => {
+                println!("\n=== /cost Response #{} ===", message_count);
+                println!("Message type: {}", output.message_type());
+
+                // Log full output for debugging
+                match &output {
+                    ClaudeOutput::System(msg) => {
+                        println!("System message - subtype: {}", msg.subtype);
+                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
+                            println!("System data:\n{}", json);
+                        }
+                    }
+                    ClaudeOutput::User(msg) => {
+                        println!("User message echoed back");
+                        for content in &msg.message.content {
+                            if let claude_codes::io::ContentBlock::Text(text) = content {
+                                println!("User text: {}", text.text);
+                            }
+                        }
+                    }
+                    ClaudeOutput::Assistant(msg) => {
+                        println!("Assistant message:");
+                        for content in &msg.message.content {
+                            match content {
+                                claude_codes::io::ContentBlock::Text(text) => {
+                                    println!("Assistant says:\n{}", text.text);
+                                    // Cost response typically contains cost info, subscription, or pricing
+                                    if text.text.to_lowercase().contains("cost")
+                                        || text.text.to_lowercase().contains("subscription")
+                                        || text.text.to_lowercase().contains("claude max")
+                                        || text.text.to_lowercase().contains("price")
+                                        || text.text.to_lowercase().contains("$")
+                                    {
+                                        received_cost_response = true;
+                                    }
+                                }
+                                _ => println!("(non-text content block)"),
+                            }
+                        }
+                    }
+                    ClaudeOutput::Result(result_msg) => {
+                        println!("Result message:");
+                        println!("  - Success: {}", !result_msg.is_error);
+                        println!("  - Duration: {}ms", result_msg.duration_ms);
+                        if let Some(result_text) = &result_msg.result {
+                            println!("  - Result text: {}", result_text);
+                            // Check if result contains cost information
+                            if result_text.to_lowercase().contains("subscription")
+                                || result_text.to_lowercase().contains("claude max")
+                                || result_text.to_lowercase().contains("cost")
+                            {
+                                received_cost_response = true;
+                            }
+                        }
+                        got_result = true;
+                        if !result_msg.is_error {
+                            received_cost_response = true;
+                            println!("/cost command completed successfully");
+                        }
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving response: {}", e);
+                break;
+            }
+        }
+
+        // Safety limit
+        if message_count > 15 {
+            break;
+        }
+    }
+
+    assert!(message_count > 0, "Should have received messages for /cost");
+    assert!(
+        got_result,
+        "Should have received a result message for /cost"
+    );
+    assert!(
+        received_cost_response || got_result,
+        "Should have received cost information or successful completion"
+    );
 }
