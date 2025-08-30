@@ -5,10 +5,8 @@ use std::error::Error;
 use uuid::Uuid;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize tracing at warning level to reduce noise
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::WARN)
-        .init();
+    // Initialize logging
+    env_logger::init();
 
     // Create client with default settings
     let mut client = SyncClient::with_defaults()?;

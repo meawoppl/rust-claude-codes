@@ -4,9 +4,10 @@ use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
 use crate::io::{ClaudeInput, ClaudeOutput, ContentBlock, ParseError};
 use crate::protocol::Protocol;
-use std::io::{BufRead, BufReader};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
-use tracing::debug;
 use uuid::Uuid;
 
 /// Synchronous client for communicating with Claude
@@ -212,6 +213,29 @@ impl SyncClient {
     }
 }
 
+// Protocol extension methods for synchronous I/O
+impl Protocol {
+    /// Write a message to a synchronous writer
+    pub fn write_sync<W: Write, T: Serialize>(writer: &mut W, message: &T) -> Result<()> {
+        let line = Self::serialize(message)?;
+        debug!("[PROTOCOL] Sending: {}", line.trim());
+        writer.write_all(line.as_bytes())?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    /// Read a message from a synchronous reader
+    pub fn read_sync<R: BufRead, T: for<'de> Deserialize<'de>>(reader: &mut R) -> Result<T> {
+        let mut line = String::new();
+        let bytes_read = reader.read_line(&mut line)?;
+        if bytes_read == 0 {
+            return Err(Error::ConnectionClosed);
+        }
+        debug!("[PROTOCOL] Received: {}", line.trim());
+        Self::deserialize(&line)
+    }
+}
+
 /// Iterator over responses from Claude
 pub struct ResponseIterator<'a> {
     client: &'a mut SyncClient,
@@ -251,5 +275,40 @@ impl Drop for SyncClient {
         if let Err(e) = self.shutdown() {
             debug!("[CLIENT] Error during shutdown: {}", e);
         }
+    }
+}
+
+/// Stream processor for handling continuous message streams
+pub struct StreamProcessor<R> {
+    reader: BufReader<R>,
+}
+
+impl<R: std::io::Read> StreamProcessor<R> {
+    /// Create a new stream processor
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: BufReader::new(reader),
+        }
+    }
+
+    /// Process the next message from the stream
+    pub fn next_message<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
+        Protocol::read_sync(&mut self.reader)
+    }
+
+    /// Process all messages in the stream
+    pub fn process_all<T, F>(&mut self, mut handler: F) -> Result<()>
+    where
+        T: for<'de> Deserialize<'de>,
+        F: FnMut(T) -> Result<()>,
+    {
+        loop {
+            match self.next_message() {
+                Ok(message) => handler(message)?,
+                Err(Error::ConnectionClosed) => break,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
     }
 }

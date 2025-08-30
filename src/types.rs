@@ -64,18 +64,6 @@ pub struct Metadata {
     pub extra: HashMap<String, serde_json::Value>,
 }
 
-/// Represents a file path with optional line numbers
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FileLocation {
-    pub path: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line_start: Option<usize>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line_end: Option<usize>,
-}
-
 /// Represents an error detail in responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorDetail {

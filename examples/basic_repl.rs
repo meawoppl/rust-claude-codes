@@ -5,16 +5,16 @@
 
 use anyhow::Result;
 use claude_codes::{AsyncClient, ClaudeOutput};
+use log::{debug, error, info};
 use std::env;
 use std::io::{self, Write};
 use tokio::io::AsyncBufReadExt;
-use tracing::{debug, error, info};
 
 /// Main entry point
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing with simple format
-    tracing_subscriber::fmt::init();
+    // Initialize logging with simple format
+    env_logger::init();
 
     // Parse command line arguments
     let args: Vec<String> = env::args().collect();

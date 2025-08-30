@@ -1,6 +1,6 @@
 [package]
 name = "claude-codes"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
@@ -14,18 +14,25 @@ keywords = ["claude", "ai", "json", "protocol", "api"]
 categories = ["api-bindings", "encoding", "parsing"]
 
 [dependencies]
-anyhow = "1.0.99"
+# Core dependencies always needed for types
 chrono = { version = "0.4.41", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 thiserror = "2.0.16"
-tokio = { version = "1.47.1", features = ["full"] }
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
 uuid = { version = "1.18.0", features = ["serde", "v4"] }
 
+# Optional dependencies for clients
+anyhow = { version = "1.0.99", optional = true }
+tokio = { version = "1.47.1", features = ["full"], optional = true }
+log = { version = "0.4.27", optional = true }
+
 [features]
+default = ["types", "sync-client", "async-client"]
+types = []
+sync-client = ["types", "anyhow", "log"]
+async-client = ["types", "anyhow", "tokio", "log"]
 integration-tests = []
+log = ["dep:log"]
 
 [dev-dependencies]
 env_logger = "0.11.8"

@@ -199,3 +199,18 @@ When updating the version number in `Cargo.toml`:
 4. Use a commit message like: "chore: bump version to X.Y.Z"
 
 This ensures the lockfile stays in sync with the version number.
+
+## Dependency Management
+When adding or updating dependencies:
+- **ALWAYS use `cargo add` or `cargo remove` commands** instead of manually editing `Cargo.toml`
+- For optional dependencies: `cargo add <package> --optional`
+- To update all dependencies: `cargo update`
+- To update specific dependency: `cargo update <package>`
+
+Examples:
+```bash
+cargo add serde --features derive      # Add with features
+cargo add tokio --optional             # Add as optional
+cargo remove old-package               # Remove a dependency
+cargo update                           # Update all to latest compatible
+```
