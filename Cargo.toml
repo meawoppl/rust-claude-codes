@@ -19,7 +19,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 thiserror = "2.0.16"
-uuid = { version = "1.18.0", features = ["serde", "v4"] }
+uuid = { version = "1.18.0", default-features = false, features = ["serde"] }
 
 # Optional dependencies for clients
 anyhow = { version = "1.0.99", optional = true }
@@ -29,11 +29,12 @@ log = { version = "0.4.27", optional = true }
 [features]
 default = ["types", "sync-client", "async-client"]
 types = []
-sync-client = ["types", "anyhow", "log"]
-async-client = ["types", "anyhow", "tokio", "log"]
+sync-client = ["types", "anyhow", "log", "uuid/v4"]
+async-client = ["types", "anyhow", "tokio", "log", "uuid/v4"]
 integration-tests = []
 log = ["dep:log"]
 
 [dev-dependencies]
 env_logger = "0.11.8"
 base64 = "0.22.1"
+uuid = { version = "1.18.0", features = ["v4"] }
