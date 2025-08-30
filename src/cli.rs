@@ -8,51 +8,6 @@
 //! - Verbose output for proper streaming
 //! - OAuth token and API key environment variables for authentication
 //!
-//! # Example
-//!
-//! ## Synchronous Usage
-//! ```no_run
-//! use claude_codes::ClaudeCliBuilder;
-//!
-//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Build and spawn a sync Claude process
-//! let child = ClaudeCliBuilder::new()
-//!     .model("sonnet")
-//!     .session_id(uuid::Uuid::new_v4())
-//!     .spawn_sync()?;
-//!     
-//! // With OAuth authentication
-//! let child = ClaudeCliBuilder::new()
-//!     .model("opus")
-//!     .oauth_token("sk-ant-oat-123456789")
-//!     .spawn_sync()?;
-//!
-//! // Or with API key authentication
-//! let child = ClaudeCliBuilder::new()
-//!     .api_key("sk-ant-api-987654321")
-//!     .spawn_sync()?;
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! ## Asynchronous Usage
-//! ```no_run
-//! # #[cfg(feature = "async-client")]
-//! # {
-//! use claude_codes::ClaudeCliBuilder;
-//!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Build and spawn an async Claude process
-//! let child = ClaudeCliBuilder::new()
-//!     .model("sonnet")
-//!     .session_id(uuid::Uuid::new_v4())
-//!     .spawn().await?;
-//! # Ok(())
-//! # }
-//! # }
-//! # #[cfg(not(feature = "async-client"))]
-//! # fn example() {}
-//! ```
 
 #[cfg(feature = "async-client")]
 use crate::error::{Error, Result};

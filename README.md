@@ -46,8 +46,39 @@ The possibilities are limited only by your imagination!
 
 ## Installation
 
+### Default Installation (All Features)
 ```bash
 cargo add claude-codes
+```
+
+### Feature Flags
+
+The crate is organized with feature flags for flexibility:
+
+- **`types`** - Core message types only (WASM-compatible, minimal dependencies)
+- **`sync-client`** - Synchronous client with blocking I/O
+- **`async-client`** - Asynchronous client with tokio runtime
+- **Default** - All features enabled
+
+#### WASM/Types Only
+For WebAssembly or when you only need message types:
+```toml
+[dependencies]
+claude-codes = { version = "0.3", default-features = false, features = ["types"] }
+```
+
+#### Sync Client Only
+For applications without async runtime:
+```toml
+[dependencies]
+claude-codes = { version = "0.3", default-features = false, features = ["sync-client"] }
+```
+
+#### Async Client Only  
+For tokio-based applications:
+```toml
+[dependencies]
+claude-codes = { version = "0.3", default-features = false, features = ["async-client"] }
 ```
 
 ## Usage
