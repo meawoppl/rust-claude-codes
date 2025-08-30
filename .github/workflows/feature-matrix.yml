@@ -36,17 +36,21 @@ jobs:
         toolchain: stable
         components: rustfmt, clippy
     
-    - name: Build with ${{ matrix.features.name }}
-      run: cargo build ${{ matrix.features.args }}
+    - name: Build library with ${{ matrix.features.name }}
+      run: cargo build --lib ${{ matrix.features.args }}
+    
+    - name: Build examples with ${{ matrix.features.name }}
+      if: matrix.features.name != 'types-only'
+      run: cargo build --examples ${{ matrix.features.args }}
     
     - name: Test with ${{ matrix.features.name }}
-      run: cargo test ${{ matrix.features.args }}
+      run: cargo test --lib ${{ matrix.features.args }}
     
     - name: Check with ${{ matrix.features.name }}
-      run: cargo check ${{ matrix.features.args }}
+      run: cargo check --lib ${{ matrix.features.args }}
     
     - name: Clippy with ${{ matrix.features.name }}
-      run: cargo clippy ${{ matrix.features.args }} -- -D warnings
+      run: cargo clippy --lib ${{ matrix.features.args }} -- -D warnings
 
   wasm-compatibility:
     name: Test WASM Compatibility
