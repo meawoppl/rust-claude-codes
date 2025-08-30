@@ -4,9 +4,10 @@ use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
 use crate::io::{ClaudeInput, ClaudeOutput, ContentBlock};
 use crate::protocol::Protocol;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use log::{debug, error, info};
+use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufReader as AsyncBufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout};
-use tracing::{debug, error, info};
 use uuid::Uuid;
 
 /// Asynchronous client for communicating with Claude
@@ -373,5 +374,69 @@ impl Drop for AsyncClient {
                 error!("Failed to kill Claude process on drop: {}", e);
             }
         }
+    }
+}
+
+// Protocol extension methods for asynchronous I/O
+impl Protocol {
+    /// Write a message to an async writer
+    pub async fn write_async<W: AsyncWriteExt + Unpin, T: Serialize>(
+        writer: &mut W,
+        message: &T,
+    ) -> Result<()> {
+        let line = Self::serialize(message)?;
+        debug!("[PROTOCOL] Sending async: {}", line.trim());
+        writer.write_all(line.as_bytes()).await?;
+        writer.flush().await?;
+        Ok(())
+    }
+
+    /// Read a message from an async reader
+    pub async fn read_async<R: AsyncBufReadExt + Unpin, T: for<'de> Deserialize<'de>>(
+        reader: &mut R,
+    ) -> Result<T> {
+        let mut line = String::new();
+        let bytes_read = reader.read_line(&mut line).await?;
+        if bytes_read == 0 {
+            return Err(Error::ConnectionClosed);
+        }
+        debug!("[PROTOCOL] Received async: {}", line.trim());
+        Self::deserialize(&line)
+    }
+}
+
+/// Async stream processor for handling continuous message streams
+pub struct AsyncStreamProcessor<R> {
+    reader: AsyncBufReader<R>,
+}
+
+impl<R: tokio::io::AsyncRead + Unpin> AsyncStreamProcessor<R> {
+    /// Create a new async stream processor
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: AsyncBufReader::new(reader),
+        }
+    }
+
+    /// Process the next message from the stream
+    pub async fn next_message<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
+        Protocol::read_async(&mut self.reader).await
+    }
+
+    /// Process all messages in the stream
+    pub async fn process_all<T, F, Fut>(&mut self, mut handler: F) -> Result<()>
+    where
+        T: for<'de> Deserialize<'de>,
+        F: FnMut(T) -> Fut,
+        Fut: std::future::Future<Output = Result<()>>,
+    {
+        loop {
+            match self.next_message().await {
+                Ok(message) => handler(message).await?,
+                Err(Error::ConnectionClosed) => break,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
     }
 }

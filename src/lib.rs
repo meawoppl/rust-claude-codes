@@ -14,6 +14,8 @@
 //! ## Using the Async Client (Recommended)
 //!
 //! ```no_run
+//! # #[cfg(feature = "async-client")]
+//! # {
 //! use claude_codes::AsyncClient;
 //!
 //! #[tokio::main]
@@ -36,11 +38,16 @@
 //!     
 //!     Ok(())
 //! }
+//! # }
+//! # #[cfg(not(feature = "async-client"))]
+//! # fn main() {}
 //! ```
 //!
 //! ## Using the Sync Client
 //!
 //! ```no_run
+//! # #[cfg(feature = "sync-client")]
+//! # {
 //! use claude_codes::{SyncClient, ClaudeInput};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,6 +66,9 @@
 //!     
 //!     Ok(())
 //! }
+//! # }
+//! # #[cfg(not(feature = "sync-client"))]
+//! # fn main() {}
 //! ```
 //!
 //! # Architecture
@@ -98,22 +108,41 @@
 //! - `sync_client.rs` - Synchronous client usage
 //! - `basic_repl.rs` - Interactive REPL implementation
 
-pub mod cli;
-pub mod client;
+// Core modules always available
 pub mod error;
 pub mod io;
 pub mod messages;
 pub mod protocol;
 pub mod types;
+
+// Client modules
+#[cfg(feature = "async-client")]
+pub mod client_async;
+#[cfg(feature = "sync-client")]
+pub mod client_sync;
+
+// Client-related modules
+#[cfg(any(feature = "sync-client", feature = "async-client"))]
+pub mod cli;
+#[cfg(any(feature = "sync-client", feature = "async-client"))]
 pub mod version;
 
-pub use cli::{ClaudeCliBuilder, PermissionMode};
-pub use client::{AsyncClient, SyncClient};
+// Core exports always available
 pub use error::{Error, Result};
 pub use io::{AssistantMessageContent, ClaudeInput, ClaudeOutput, ParseError};
 pub use messages::*;
-pub use protocol::Protocol;
+pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
+
+// Client exports
+#[cfg(feature = "async-client")]
+pub use client_async::{AsyncClient, AsyncStreamProcessor};
+#[cfg(feature = "sync-client")]
+pub use client_sync::{StreamProcessor, SyncClient};
+
+// Client-related exports
+#[cfg(any(feature = "sync-client", feature = "async-client"))]
+pub use cli::{ClaudeCliBuilder, PermissionMode};
 
 #[cfg(test)]
 mod tests {

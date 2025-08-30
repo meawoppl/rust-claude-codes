@@ -1,9 +1,9 @@
 //! Version checking utilities for Claude CLI compatibility
 
 use crate::error::Result;
+use log::{debug, warn};
 use std::process::Command;
 use std::sync::Once;
-use tracing::{debug, warn};
 
 /// The latest Claude CLI version we've tested against
 const TESTED_VERSION: &str = "1.0.89";
@@ -83,6 +83,7 @@ fn is_version_newer(version: &str, tested: &str) -> bool {
 }
 
 /// Async version check for tokio-based clients
+#[cfg(feature = "async-client")]
 pub async fn check_claude_version_async() -> Result<()> {
     use tokio::sync::OnceCell;
 
@@ -101,6 +102,7 @@ pub async fn check_claude_version_async() -> Result<()> {
 }
 
 /// Internal async implementation of version checking
+#[cfg(feature = "async-client")]
 async fn check_version_impl_async() -> Result<()> {
     use tokio::process::Command;
 

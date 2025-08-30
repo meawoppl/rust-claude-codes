@@ -8,37 +8,12 @@
 //! - Verbose output for proper streaming
 //! - OAuth token and API key environment variables for authentication
 //!
-//! # Example
-//!
-//! ```no_run
-//! use claude_codes::ClaudeCliBuilder;
-//!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Build and spawn an async Claude process
-//! let child = ClaudeCliBuilder::new()
-//!     .model("sonnet")
-//!     .session_id(uuid::Uuid::new_v4())
-//!     .spawn().await?;
-//!     
-//! // With OAuth authentication
-//! let child = ClaudeCliBuilder::new()
-//!     .model("opus")
-//!     .oauth_token("sk-ant-oat-123456789")
-//!     .spawn_sync()?;
-//!
-//! // Or with API key authentication
-//! let child = ClaudeCliBuilder::new()
-//!     .api_key("sk-ant-api-987654321")
-//!     .spawn_sync()?;
-//! # Ok(())
-//! # }
-//! ```
 
+#[cfg(feature = "async-client")]
 use crate::error::{Error, Result};
+use log::debug;
 use std::path::PathBuf;
 use std::process::Stdio;
-use tokio::process::{Child, Command};
-use tracing::debug;
 use uuid::Uuid;
 
 /// Permission mode for Claude CLI
@@ -386,7 +361,8 @@ impl ClaudeCliBuilder {
     }
 
     /// Spawn the Claude process
-    pub async fn spawn(self) -> Result<Child> {
+    #[cfg(feature = "async-client")]
+    pub async fn spawn(self) -> Result<tokio::process::Child> {
         let args = self.build_args();
 
         // Log the full command being executed
@@ -397,7 +373,7 @@ impl ClaudeCliBuilder {
         );
         eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
-        let mut cmd = Command::new(&self.command);
+        let mut cmd = tokio::process::Command::new(&self.command);
         cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -421,9 +397,10 @@ impl ClaudeCliBuilder {
     }
 
     /// Build a Command without spawning (for testing or manual execution)
-    pub fn build_command(self) -> Command {
+    #[cfg(feature = "async-client")]
+    pub fn build_command(self) -> tokio::process::Command {
         let args = self.build_args();
-        let mut cmd = Command::new(&self.command);
+        let mut cmd = tokio::process::Command::new(&self.command);
         cmd.args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

@@ -757,7 +757,7 @@ async fn test_slash_commands() {
     println!("=== Debugging slash command raw output ===");
     let debug_session_id = Uuid::new_v4().to_string();
     let mut claude_proc = Command::new("claude")
-        .args(&[
+        .args([
             "--print",
             "--verbose",
             "--output-format",
@@ -1016,7 +1016,7 @@ async fn test_slash_commands() {
     // First, get raw output directly from the command
     let test_session_id = Uuid::new_v4().to_string();
     let mut claude_proc = Command::new("claude")
-        .args(&[
+        .args([
             "--print",
             "--verbose",
             "--output-format",

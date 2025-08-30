@@ -32,7 +32,6 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::fmt;
-use tracing::debug;
 use uuid::Uuid;
 
 /// Serialize an optional UUID as a string
@@ -415,10 +414,6 @@ impl ClaudeOutput {
                 // If that fails, look for the first '{' character
                 if let Some(json_start) = s.find('{') {
                     let trimmed = &s[json_start..];
-                    debug!(
-                        "[IO] Retrying parse after trimming {} chars of prefix",
-                        json_start
-                    );
                     match Self::parse_json(trimmed) {
                         Ok(output) => Ok(output),
                         Err(_) => {
@@ -435,26 +430,16 @@ impl ClaudeOutput {
 
     /// Parse a JSON string, returning ParseError with raw JSON if it doesn't match our types
     pub fn parse_json(s: &str) -> Result<ClaudeOutput, ParseError> {
-        debug!("[IO] Attempting to parse JSON: {}", s);
-
         // First try to parse as a Value
-        let value: Value = serde_json::from_str(s).map_err(|e| {
-            debug!("[IO] Failed to parse as JSON Value: {}", e);
-            ParseError {
-                raw_json: Value::String(s.to_string()),
-                error_message: format!("Invalid JSON: {}", e),
-            }
+        let value: Value = serde_json::from_str(s).map_err(|e| ParseError {
+            raw_json: Value::String(s.to_string()),
+            error_message: format!("Invalid JSON: {}", e),
         })?;
 
-        debug!("[IO] Successfully parsed as JSON Value, attempting to deserialize as ClaudeOutput");
-
         // Then try to parse that Value as ClaudeOutput
-        serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| {
-            debug!("[IO] Failed to deserialize as ClaudeOutput: {}", e);
-            ParseError {
-                raw_json: value,
-                error_message: e.to_string(),
-            }
+        serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| ParseError {
+            raw_json: value,
+            error_message: e.to_string(),
         })
     }
 }
