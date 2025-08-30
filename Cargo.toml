@@ -38,3 +38,17 @@ log = ["dep:log"]
 env_logger = "0.11.8"
 base64 = "0.22.1"
 uuid = { version = "1.18.0", features = ["v4"] }
+tokio = { version = "1.47.1", features = ["full"] }
+anyhow = "1.0.99"
+
+[[example]]
+name = "async_client"
+required-features = ["async-client"]
+
+[[example]]
+name = "basic_repl"
+required-features = ["async-client"]
+
+[[example]]
+name = "sync_client"
+required-features = ["sync-client"]
