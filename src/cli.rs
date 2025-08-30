@@ -10,15 +10,16 @@
 //!
 //! # Example
 //!
+//! ## Synchronous Usage
 //! ```no_run
 //! use claude_codes::ClaudeCliBuilder;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! // Build and spawn an async Claude process
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build and spawn a sync Claude process
 //! let child = ClaudeCliBuilder::new()
 //!     .model("sonnet")
 //!     .session_id(uuid::Uuid::new_v4())
-//!     .spawn().await?;
+//!     .spawn_sync()?;
 //!     
 //! // With OAuth authentication
 //! let child = ClaudeCliBuilder::new()
@@ -32,6 +33,25 @@
 //!     .spawn_sync()?;
 //! # Ok(())
 //! # }
+//! ```
+//!
+//! ## Asynchronous Usage
+//! ```no_run
+//! # #[cfg(feature = "async-client")]
+//! # {
+//! use claude_codes::ClaudeCliBuilder;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build and spawn an async Claude process
+//! let child = ClaudeCliBuilder::new()
+//!     .model("sonnet")
+//!     .session_id(uuid::Uuid::new_v4())
+//!     .spawn().await?;
+//! # Ok(())
+//! # }
+//! # }
+//! # #[cfg(not(feature = "async-client"))]
+//! # fn example() {}
 //! ```
 
 #[cfg(feature = "async-client")]
