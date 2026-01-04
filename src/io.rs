@@ -121,7 +121,23 @@ pub struct UserMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageContent {
     pub role: String,
+    #[serde(deserialize_with = "deserialize_content_blocks")]
     pub content: Vec<ContentBlock>,
+}
+
+/// Deserialize content blocks that can be either a string or array
+fn deserialize_content_blocks<'de, D>(deserializer: D) -> Result<Vec<ContentBlock>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(vec![ContentBlock::Text(TextBlock { text: s })]),
+        Value::Array(_) => serde_json::from_value(value).map_err(serde::de::Error::custom),
+        _ => Err(serde::de::Error::custom(
+            "content must be a string or array",
+        )),
+    }
 }
 
 /// System message with metadata

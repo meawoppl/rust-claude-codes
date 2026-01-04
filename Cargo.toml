@@ -1,6 +1,6 @@
 [package]
 name = "claude-codes"
-version = "0.3.0"
+version = "2.0.76"
 edition = "2021"
 rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
@@ -12,6 +12,12 @@ license = "Apache-2.0"
 readme = "README.md"
 keywords = ["claude", "ai", "json", "protocol", "api"]
 categories = ["api-bindings", "encoding", "parsing"]
+exclude = [
+    "test_cases/",
+    "claude.md",
+    ".claude/",
+    "*.sh",
+]
 
 [dependencies]
 # Core dependencies always needed for types

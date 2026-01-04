@@ -371,7 +371,6 @@ impl ClaudeCliBuilder {
             self.command.display(),
             args.join(" ")
         );
-        eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
         let mut cmd = tokio::process::Command::new(&self.command);
         cmd.args(&args)
@@ -429,7 +428,6 @@ impl ClaudeCliBuilder {
             self.command.display(),
             args.join(" ")
         );
-        eprintln!("Executing: {} {}", self.command.display(), args.join(" "));
 
         let mut cmd = std::process::Command::new(&self.command);
         cmd.args(&args)
