@@ -52,6 +52,21 @@ claude-codes = { version = "2", default-features = false, features = ["sync-clie
 claude-codes = { version = "2", default-features = false, features = ["async-client"] }
 ```
 
+### WASM Support
+
+The `types` feature is fully compatible with `wasm32-unknown-unknown`, making it suitable for sharing Claude message types between native and browser/WASM code:
+
+```toml
+[dependencies]
+claude-codes = { version = "2", default-features = false, features = ["types"] }
+```
+
+This gives you access to all the typed message structures (`ClaudeInput`, `ClaudeOutput`, `ContentBlock`, etc.) without pulling in tokio or other native-only dependencies. Useful for:
+
+- Frontend applications that communicate with a Claude proxy
+- Shared type definitions across native backend and WASM frontend
+- Any WASM context needing Claude protocol types
+
 ## Usage
 
 ### Async Client
@@ -135,7 +150,7 @@ let serialized = Protocol::serialize(&output)?;
 
 ## Compatibility
 
-**Tested version:** Claude CLI 2.0.76
+**Tested version:** Claude CLI 2.1.3
 
 If you're using a different CLI version, please report whether it works at:
 https://github.com/meawoppl/rust-claude-codes/issues
