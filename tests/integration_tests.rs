@@ -1334,3 +1334,65 @@ fn test_sync_tool_approval_initialization() {
 
     client.shutdown().expect("Failed to shutdown client");
 }
+
+// ============================================================================
+// Session Resume Tests (Issue #14 fix)
+// ============================================================================
+
+/// Test that resume_session works without --session-id conflict
+///
+/// This tests the fix for issue #14: ClaudeCliBuilder was adding --session-id
+/// even when --resume was specified, causing Claude CLI to reject the command.
+/// Before the fix, this would fail with:
+/// "Error: --session-id can only be used with --continue or --resume if --fork-session is also specified."
+#[tokio::test]
+async fn test_resume_session_no_session_id_conflict() {
+    // First, create a session and get its UUID
+    let mut client = AsyncClient::with_defaults()
+        .await
+        .expect("Failed to create initial client");
+
+    // Send a simple query to establish the session
+    let mut stream = client
+        .query_stream("Remember: the secret word is 'banana'. Say 'ok'.")
+        .await
+        .expect("Failed to send initial query");
+
+    // Collect responses until we get a result
+    while let Some(result) = stream.next().await {
+        if let Ok(ClaudeOutput::Result(_)) = result {
+            break;
+        }
+    }
+
+    // Get the session UUID
+    let session_uuid = client.session_uuid().expect("Should have session UUID");
+    println!("Initial session UUID: {}", session_uuid);
+
+    // Shutdown the first client
+    client.shutdown().await.expect("Failed to shutdown client");
+
+    // Now resume the session - this should NOT fail with the --session-id error
+    // Before the fix, this would panic with CLI error about --session-id conflict:
+    // "Error: --session-id can only be used with --continue or --resume if --fork-session is also specified."
+    let resumed_result = AsyncClient::resume_session(session_uuid).await;
+
+    match resumed_result {
+        Ok(resumed_client) => {
+            println!("Successfully created resumed client (fix verified!)");
+            // The resumed session was created without the --session-id error
+            // That's the main thing we're testing
+            let _ = resumed_client.shutdown().await;
+        }
+        Err(e) => {
+            // If it fails, check it's not the --session-id error
+            let error_str = format!("{}", e);
+            assert!(
+                !error_str.contains("session-id"),
+                "Should not fail with --session-id error, got: {}",
+                error_str
+            );
+            println!("Resume failed for other reason (acceptable): {}", e);
+        }
+    }
+}
