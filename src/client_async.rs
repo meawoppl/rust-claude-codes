@@ -2,7 +2,10 @@
 
 use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
-use crate::io::{ClaudeInput, ClaudeOutput, ContentBlock};
+use crate::io::{
+    ClaudeInput, ClaudeOutput, ContentBlock, ControlRequestMessage, ControlResponse,
+    ControlResponseMessage,
+};
 use crate::protocol::Protocol;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -17,6 +20,8 @@ pub struct AsyncClient {
     stdout: BufReader<ChildStdout>,
     stderr: Option<BufReader<ChildStderr>>,
     session_uuid: Option<Uuid>,
+    /// Whether tool approval protocol has been initialized
+    tool_approval_enabled: bool,
 }
 
 impl AsyncClient {
@@ -42,6 +47,7 @@ impl AsyncClient {
             stdout,
             stderr,
             session_uuid: None,
+            tool_approval_enabled: false,
         })
     }
 
@@ -316,6 +322,155 @@ impl AsyncClient {
         }
 
         found_pong
+    }
+
+    // =========================================================================
+    // Tool Approval Protocol
+    // =========================================================================
+
+    /// Enable the tool approval protocol by performing the initialization handshake.
+    ///
+    /// After calling this method, the CLI will send `ControlRequest` messages when
+    /// Claude wants to use a tool. You must handle these by calling
+    /// `send_control_response()` with an appropriate response.
+    ///
+    /// **Important**: The client must have been created with
+    /// `ClaudeCliBuilder::permission_prompt_tool("stdio")` for this to work.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use claude_codes::{AsyncClient, ClaudeCliBuilder, ClaudeOutput, ControlRequestPayload};
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let child = ClaudeCliBuilder::new()
+    ///     .model("sonnet")
+    ///     .permission_prompt_tool("stdio")
+    ///     .spawn()
+    ///     .await?;
+    ///
+    /// let mut client = AsyncClient::new(child)?;
+    /// client.enable_tool_approval().await?;
+    ///
+    /// // Now when you receive messages, you may get ControlRequest messages
+    /// // that need responses
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn enable_tool_approval(&mut self) -> Result<()> {
+        if self.tool_approval_enabled {
+            debug!("[TOOL_APPROVAL] Already enabled, skipping initialization");
+            return Ok(());
+        }
+
+        let request_id = format!("init-{}", Uuid::new_v4());
+        let init_request = ControlRequestMessage::initialize(&request_id);
+
+        debug!("[TOOL_APPROVAL] Sending initialization handshake");
+        let json_line = Protocol::serialize(&init_request)?;
+        self.stdin
+            .write_all(json_line.as_bytes())
+            .await
+            .map_err(Error::Io)?;
+        self.stdin.flush().await.map_err(Error::Io)?;
+
+        // Wait for the initialization response
+        loop {
+            let mut line = String::new();
+            let bytes_read = self.stdout.read_line(&mut line).await.map_err(Error::Io)?;
+
+            if bytes_read == 0 {
+                return Err(Error::ConnectionClosed);
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            debug!("[TOOL_APPROVAL] Received: {}", trimmed);
+
+            // Try to parse as ClaudeOutput
+            match ClaudeOutput::parse_json_tolerant(trimmed) {
+                Ok(ClaudeOutput::ControlResponse(resp)) => {
+                    use crate::io::ControlResponsePayload;
+                    match &resp.response {
+                        ControlResponsePayload::Success {
+                            request_id: rid, ..
+                        } if rid == &request_id => {
+                            debug!("[TOOL_APPROVAL] Initialization successful");
+                            self.tool_approval_enabled = true;
+                            return Ok(());
+                        }
+                        ControlResponsePayload::Error { error, .. } => {
+                            return Err(Error::Protocol(format!(
+                                "Tool approval initialization failed: {}",
+                                error
+                            )));
+                        }
+                        _ => {
+                            // Different request_id, keep waiting
+                            continue;
+                        }
+                    }
+                }
+                Ok(_) => {
+                    // Got a different message type (system, etc.), keep waiting
+                    continue;
+                }
+                Err(e) => {
+                    return Err(Error::Deserialization(e.to_string()));
+                }
+            }
+        }
+    }
+
+    /// Send a control response back to the CLI.
+    ///
+    /// Use this to respond to `ControlRequest` messages received during tool approval.
+    /// The easiest way to create responses is using the helper methods on
+    /// `ToolPermissionRequest`:
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use claude_codes::{AsyncClient, ClaudeOutput, ControlRequestPayload};
+    ///
+    /// # async fn example(client: &mut AsyncClient) -> Result<(), Box<dyn std::error::Error>> {
+    /// # let output = client.receive().await?;
+    /// if let ClaudeOutput::ControlRequest(req) = output {
+    ///     if let ControlRequestPayload::CanUseTool(perm_req) = &req.request {
+    ///         // Use the ergonomic helpers on ToolPermissionRequest
+    ///         let response = if perm_req.tool_name == "Bash" {
+    ///             perm_req.deny("Bash commands not allowed", &req.request_id)
+    ///         } else {
+    ///             perm_req.allow(&req.request_id)
+    ///         };
+    ///         client.send_control_response(response).await?;
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn send_control_response(&mut self, response: ControlResponse) -> Result<()> {
+        let message: ControlResponseMessage = response.into();
+        let json_line = Protocol::serialize(&message)?;
+        debug!(
+            "[TOOL_APPROVAL] Sending control response: {}",
+            json_line.trim()
+        );
+
+        self.stdin
+            .write_all(json_line.as_bytes())
+            .await
+            .map_err(Error::Io)?;
+        self.stdin.flush().await.map_err(Error::Io)?;
+        Ok(())
+    }
+
+    /// Check if tool approval protocol is enabled
+    pub fn is_tool_approval_enabled(&self) -> bool {
+        self.tool_approval_enabled
     }
 }
 

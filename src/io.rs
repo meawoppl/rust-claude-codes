@@ -66,6 +66,12 @@ pub enum ClaudeInput {
     /// User message input
     User(UserMessage),
 
+    /// Control request (for initialization handshake)
+    ControlRequest(ControlRequest),
+
+    /// Control response (for tool permission responses)
+    ControlResponse(ControlResponse),
+
     /// Raw JSON for untyped messages
     #[serde(untagged)]
     Raw(Value),
@@ -103,6 +109,12 @@ pub enum ClaudeOutput {
 
     /// Result message (completion of a query)
     Result(ResultMessage),
+
+    /// Control request from CLI (tool permissions, hooks, etc.)
+    ControlRequest(ControlRequest),
+
+    /// Control response from CLI (ack for initialization, etc.)
+    ControlResponse(ControlResponse),
 }
 
 /// User message
@@ -318,6 +330,360 @@ pub enum PermissionMode {
     Plan,
 }
 
+// ============================================================================
+// Control Protocol Types (for bidirectional tool approval)
+// ============================================================================
+
+/// Control request from CLI (tool permission requests, hooks, etc.)
+///
+/// When using `--permission-prompt-tool stdio`, the CLI sends these requests
+/// asking for approval before executing tools. The SDK must respond with a
+/// [`ControlResponse`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlRequest {
+    /// Unique identifier for this request (used to correlate responses)
+    pub request_id: String,
+    /// The request payload
+    pub request: ControlRequestPayload,
+}
+
+/// Control request payload variants
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "subtype", rename_all = "snake_case")]
+pub enum ControlRequestPayload {
+    /// Tool permission request - Claude wants to use a tool
+    CanUseTool(ToolPermissionRequest),
+    /// Hook callback request
+    HookCallback(HookCallbackRequest),
+    /// MCP message request
+    McpMessage(McpMessageRequest),
+    /// Initialize request (sent by SDK to CLI)
+    Initialize(InitializeRequest),
+}
+
+/// Tool permission request details
+///
+/// This is sent when Claude wants to use a tool. The SDK should evaluate
+/// the request and respond with allow/deny using the ergonomic builder methods.
+///
+/// # Example
+///
+/// ```
+/// use claude_codes::{ToolPermissionRequest, ControlResponse};
+/// use serde_json::json;
+///
+/// fn handle_permission(req: &ToolPermissionRequest, request_id: &str) -> ControlResponse {
+///     // Block dangerous bash commands
+///     if req.tool_name == "Bash" {
+///         if let Some(cmd) = req.input.get("command").and_then(|v| v.as_str()) {
+///             if cmd.contains("rm -rf") {
+///                 return req.deny("Dangerous command blocked", request_id);
+///             }
+///         }
+///     }
+///
+///     // Allow everything else
+///     req.allow(request_id)
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolPermissionRequest {
+    /// Name of the tool Claude wants to use (e.g., "Bash", "Write", "Read")
+    pub tool_name: String,
+    /// Input parameters for the tool
+    pub input: Value,
+    /// Suggested permissions (if any)
+    #[serde(default)]
+    pub permission_suggestions: Vec<Value>,
+    /// Path that was blocked (if this is a retry after path-based denial)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_path: Option<String>,
+}
+
+impl ToolPermissionRequest {
+    /// Allow the tool to execute with its original input.
+    ///
+    /// # Example
+    /// ```
+    /// # use claude_codes::ToolPermissionRequest;
+    /// # use serde_json::json;
+    /// let req = ToolPermissionRequest {
+    ///     tool_name: "Read".to_string(),
+    ///     input: json!({"file_path": "/tmp/test.txt"}),
+    ///     permission_suggestions: vec![],
+    ///     blocked_path: None,
+    /// };
+    /// let response = req.allow("req-123");
+    /// ```
+    pub fn allow(&self, request_id: &str) -> ControlResponse {
+        ControlResponse::from_result(request_id, PermissionResult::allow(self.input.clone()))
+    }
+
+    /// Allow the tool to execute with modified input.
+    ///
+    /// Use this to sanitize or redirect tool inputs. For example, redirecting
+    /// file writes to a safe directory.
+    ///
+    /// # Example
+    /// ```
+    /// # use claude_codes::ToolPermissionRequest;
+    /// # use serde_json::json;
+    /// let req = ToolPermissionRequest {
+    ///     tool_name: "Write".to_string(),
+    ///     input: json!({"file_path": "/etc/passwd", "content": "test"}),
+    ///     permission_suggestions: vec![],
+    ///     blocked_path: None,
+    /// };
+    /// // Redirect to safe location
+    /// let safe_input = json!({"file_path": "/tmp/safe/passwd", "content": "test"});
+    /// let response = req.allow_with(safe_input, "req-123");
+    /// ```
+    pub fn allow_with(&self, modified_input: Value, request_id: &str) -> ControlResponse {
+        ControlResponse::from_result(request_id, PermissionResult::allow(modified_input))
+    }
+
+    /// Allow with updated permissions list.
+    pub fn allow_with_permissions(
+        &self,
+        modified_input: Value,
+        permissions: Vec<Value>,
+        request_id: &str,
+    ) -> ControlResponse {
+        ControlResponse::from_result(
+            request_id,
+            PermissionResult::allow_with_permissions(modified_input, permissions),
+        )
+    }
+
+    /// Deny the tool execution.
+    ///
+    /// The message will be shown to Claude, who may try a different approach.
+    ///
+    /// # Example
+    /// ```
+    /// # use claude_codes::ToolPermissionRequest;
+    /// # use serde_json::json;
+    /// let req = ToolPermissionRequest {
+    ///     tool_name: "Bash".to_string(),
+    ///     input: json!({"command": "sudo rm -rf /"}),
+    ///     permission_suggestions: vec![],
+    ///     blocked_path: None,
+    /// };
+    /// let response = req.deny("Dangerous command blocked by policy", "req-123");
+    /// ```
+    pub fn deny(&self, message: impl Into<String>, request_id: &str) -> ControlResponse {
+        ControlResponse::from_result(request_id, PermissionResult::deny(message))
+    }
+
+    /// Deny the tool execution and stop the entire session.
+    ///
+    /// Use this for severe policy violations that should halt all processing.
+    pub fn deny_and_stop(&self, message: impl Into<String>, request_id: &str) -> ControlResponse {
+        ControlResponse::from_result(request_id, PermissionResult::deny_and_interrupt(message))
+    }
+}
+
+/// Result of a permission decision
+///
+/// This type represents the decision made by the permission callback.
+/// It can be serialized directly into the control response format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "behavior", rename_all = "snake_case")]
+pub enum PermissionResult {
+    /// Allow the tool to execute
+    Allow {
+        /// The (possibly modified) input to pass to the tool
+        #[serde(rename = "updatedInput")]
+        updated_input: Value,
+        /// Optional updated permissions list
+        #[serde(rename = "updatedPermissions", skip_serializing_if = "Option::is_none")]
+        updated_permissions: Option<Vec<Value>>,
+    },
+    /// Deny the tool execution
+    Deny {
+        /// Message explaining why the tool was denied
+        message: String,
+        /// If true, stop the entire session
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        interrupt: bool,
+    },
+}
+
+impl PermissionResult {
+    /// Create an allow result with the given input
+    pub fn allow(input: Value) -> Self {
+        PermissionResult::Allow {
+            updated_input: input,
+            updated_permissions: None,
+        }
+    }
+
+    /// Create an allow result with permissions
+    pub fn allow_with_permissions(input: Value, permissions: Vec<Value>) -> Self {
+        PermissionResult::Allow {
+            updated_input: input,
+            updated_permissions: Some(permissions),
+        }
+    }
+
+    /// Create a deny result
+    pub fn deny(message: impl Into<String>) -> Self {
+        PermissionResult::Deny {
+            message: message.into(),
+            interrupt: false,
+        }
+    }
+
+    /// Create a deny result that also interrupts the session
+    pub fn deny_and_interrupt(message: impl Into<String>) -> Self {
+        PermissionResult::Deny {
+            message: message.into(),
+            interrupt: true,
+        }
+    }
+}
+
+/// Hook callback request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookCallbackRequest {
+    pub callback_id: String,
+    pub input: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
+}
+
+/// MCP message request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMessageRequest {
+    pub server_name: String,
+    pub message: Value,
+}
+
+/// Initialize request (SDK -> CLI)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitializeRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hooks: Option<Value>,
+}
+
+/// Control response to CLI
+///
+/// Built using the ergonomic methods on [`ToolPermissionRequest`] or
+/// constructed directly for other control request types.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlResponse {
+    /// The request ID this response corresponds to
+    pub response: ControlResponsePayload,
+}
+
+impl ControlResponse {
+    /// Create a success response from a PermissionResult
+    ///
+    /// This is the preferred way to construct permission responses.
+    pub fn from_result(request_id: &str, result: PermissionResult) -> Self {
+        // Serialize the PermissionResult to Value for the response
+        let response_value = serde_json::to_value(&result)
+            .expect("PermissionResult serialization should never fail");
+        ControlResponse {
+            response: ControlResponsePayload::Success {
+                request_id: request_id.to_string(),
+                response: Some(response_value),
+            },
+        }
+    }
+
+    /// Create a success response with the given payload (raw Value)
+    pub fn success(request_id: &str, response_data: Value) -> Self {
+        ControlResponse {
+            response: ControlResponsePayload::Success {
+                request_id: request_id.to_string(),
+                response: Some(response_data),
+            },
+        }
+    }
+
+    /// Create an empty success response (for acks)
+    pub fn success_empty(request_id: &str) -> Self {
+        ControlResponse {
+            response: ControlResponsePayload::Success {
+                request_id: request_id.to_string(),
+                response: None,
+            },
+        }
+    }
+
+    /// Create an error response
+    pub fn error(request_id: &str, error_message: impl Into<String>) -> Self {
+        ControlResponse {
+            response: ControlResponsePayload::Error {
+                request_id: request_id.to_string(),
+                error: error_message.into(),
+            },
+        }
+    }
+}
+
+/// Control response payload
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "subtype", rename_all = "snake_case")]
+pub enum ControlResponsePayload {
+    Success {
+        request_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        response: Option<Value>,
+    },
+    Error {
+        request_id: String,
+        error: String,
+    },
+}
+
+/// Wrapper for outgoing control responses (includes type tag)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlResponseMessage {
+    #[serde(rename = "type")]
+    pub message_type: String,
+    pub response: ControlResponsePayload,
+}
+
+impl From<ControlResponse> for ControlResponseMessage {
+    fn from(resp: ControlResponse) -> Self {
+        ControlResponseMessage {
+            message_type: "control_response".to_string(),
+            response: resp.response,
+        }
+    }
+}
+
+/// Wrapper for outgoing control requests (includes type tag)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlRequestMessage {
+    #[serde(rename = "type")]
+    pub message_type: String,
+    pub request_id: String,
+    pub request: ControlRequestPayload,
+}
+
+impl ControlRequestMessage {
+    /// Create an initialization request to send to CLI
+    pub fn initialize(request_id: impl Into<String>) -> Self {
+        ControlRequestMessage {
+            message_type: "control_request".to_string(),
+            request_id: request_id.into(),
+            request: ControlRequestPayload::Initialize(InitializeRequest { hooks: None }),
+        }
+    }
+
+    /// Create an initialization request with hooks configuration
+    pub fn initialize_with_hooks(request_id: impl Into<String>, hooks: Value) -> Self {
+        ControlRequestMessage {
+            message_type: "control_request".to_string(),
+            request_id: request_id.into(),
+            request: ControlRequestPayload::Initialize(InitializeRequest { hooks: Some(hooks) }),
+        }
+    }
+}
+
 /// Usage information for the request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageInfo {
@@ -400,6 +766,26 @@ impl ClaudeOutput {
             ClaudeOutput::User(_) => "user".to_string(),
             ClaudeOutput::Assistant(_) => "assistant".to_string(),
             ClaudeOutput::Result(_) => "result".to_string(),
+            ClaudeOutput::ControlRequest(_) => "control_request".to_string(),
+            ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
+        }
+    }
+
+    /// Check if this is a control request (tool permission request)
+    pub fn is_control_request(&self) -> bool {
+        matches!(self, ClaudeOutput::ControlRequest(_))
+    }
+
+    /// Check if this is a control response
+    pub fn is_control_response(&self) -> bool {
+        matches!(self, ClaudeOutput::ControlResponse(_))
+    }
+
+    /// Get the control request if this is one
+    pub fn as_control_request(&self) -> Option<&ControlRequest> {
+        match self {
+            ClaudeOutput::ControlRequest(req) => Some(req),
+            _ => None,
         }
     }
 
@@ -509,5 +895,186 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         assert!(!output.is_error());
+    }
+
+    // ============================================================================
+    // Control Protocol Tests
+    // ============================================================================
+
+    #[test]
+    fn test_deserialize_control_request_can_use_tool() {
+        let json = r#"{
+            "type": "control_request",
+            "request_id": "perm-abc123",
+            "request": {
+                "subtype": "can_use_tool",
+                "tool_name": "Write",
+                "input": {
+                    "file_path": "/home/user/hello.py",
+                    "content": "print('hello')"
+                },
+                "permission_suggestions": [],
+                "blocked_path": null
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_control_request());
+
+        if let ClaudeOutput::ControlRequest(req) = output {
+            assert_eq!(req.request_id, "perm-abc123");
+            if let ControlRequestPayload::CanUseTool(perm_req) = req.request {
+                assert_eq!(perm_req.tool_name, "Write");
+                assert_eq!(
+                    perm_req.input.get("file_path").unwrap().as_str().unwrap(),
+                    "/home/user/hello.py"
+                );
+            } else {
+                panic!("Expected CanUseTool payload");
+            }
+        } else {
+            panic!("Expected ControlRequest");
+        }
+    }
+
+    #[test]
+    fn test_tool_permission_request_allow() {
+        let req = ToolPermissionRequest {
+            tool_name: "Read".to_string(),
+            input: serde_json::json!({"file_path": "/tmp/test.txt"}),
+            permission_suggestions: vec![],
+            blocked_path: None,
+        };
+
+        let response = req.allow("req-123");
+        let message: ControlResponseMessage = response.into();
+
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("\"type\":\"control_response\""));
+        assert!(json.contains("\"subtype\":\"success\""));
+        assert!(json.contains("\"request_id\":\"req-123\""));
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"updatedInput\""));
+    }
+
+    #[test]
+    fn test_tool_permission_request_allow_with_modified_input() {
+        let req = ToolPermissionRequest {
+            tool_name: "Write".to_string(),
+            input: serde_json::json!({"file_path": "/etc/passwd", "content": "test"}),
+            permission_suggestions: vec![],
+            blocked_path: None,
+        };
+
+        let modified_input = serde_json::json!({
+            "file_path": "/tmp/safe/passwd",
+            "content": "test"
+        });
+        let response = req.allow_with(modified_input, "req-456");
+        let message: ControlResponseMessage = response.into();
+
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("/tmp/safe/passwd"));
+        assert!(!json.contains("/etc/passwd"));
+    }
+
+    #[test]
+    fn test_tool_permission_request_deny() {
+        let req = ToolPermissionRequest {
+            tool_name: "Bash".to_string(),
+            input: serde_json::json!({"command": "sudo rm -rf /"}),
+            permission_suggestions: vec![],
+            blocked_path: None,
+        };
+
+        let response = req.deny("Dangerous command blocked", "req-789");
+        let message: ControlResponseMessage = response.into();
+
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("\"behavior\":\"deny\""));
+        assert!(json.contains("Dangerous command blocked"));
+        assert!(!json.contains("\"interrupt\":true"));
+    }
+
+    #[test]
+    fn test_tool_permission_request_deny_and_stop() {
+        let req = ToolPermissionRequest {
+            tool_name: "Bash".to_string(),
+            input: serde_json::json!({"command": "rm -rf /"}),
+            permission_suggestions: vec![],
+            blocked_path: None,
+        };
+
+        let response = req.deny_and_stop("Security violation", "req-000");
+        let message: ControlResponseMessage = response.into();
+
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("\"behavior\":\"deny\""));
+        assert!(json.contains("\"interrupt\":true"));
+    }
+
+    #[test]
+    fn test_permission_result_serialization() {
+        // Test allow
+        let allow = PermissionResult::allow(serde_json::json!({"test": "value"}));
+        let json = serde_json::to_string(&allow).unwrap();
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"updatedInput\""));
+
+        // Test deny
+        let deny = PermissionResult::deny("Not allowed");
+        let json = serde_json::to_string(&deny).unwrap();
+        assert!(json.contains("\"behavior\":\"deny\""));
+        assert!(json.contains("\"message\":\"Not allowed\""));
+        assert!(!json.contains("\"interrupt\""));
+
+        // Test deny with interrupt
+        let deny_stop = PermissionResult::deny_and_interrupt("Stop!");
+        let json = serde_json::to_string(&deny_stop).unwrap();
+        assert!(json.contains("\"interrupt\":true"));
+    }
+
+    #[test]
+    fn test_control_request_message_initialize() {
+        let init = ControlRequestMessage::initialize("init-1");
+
+        let json = serde_json::to_string(&init).unwrap();
+        assert!(json.contains("\"type\":\"control_request\""));
+        assert!(json.contains("\"request_id\":\"init-1\""));
+        assert!(json.contains("\"subtype\":\"initialize\""));
+    }
+
+    #[test]
+    fn test_control_response_error() {
+        let response = ControlResponse::error("req-err", "Something went wrong");
+        let message: ControlResponseMessage = response.into();
+
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("\"subtype\":\"error\""));
+        assert!(json.contains("\"error\":\"Something went wrong\""));
+    }
+
+    #[test]
+    fn test_roundtrip_control_request() {
+        // Test that we can serialize and deserialize control requests
+        let original_json = r#"{
+            "type": "control_request",
+            "request_id": "test-123",
+            "request": {
+                "subtype": "can_use_tool",
+                "tool_name": "Bash",
+                "input": {"command": "ls -la"},
+                "permission_suggestions": []
+            }
+        }"#;
+
+        // Parse as ClaudeOutput
+        let output: ClaudeOutput = serde_json::from_str(original_json).unwrap();
+
+        // Serialize back and verify key parts are present
+        let reserialized = serde_json::to_string(&output).unwrap();
+        assert!(reserialized.contains("control_request"));
+        assert!(reserialized.contains("test-123"));
+        assert!(reserialized.contains("Bash"));
     }
 }
