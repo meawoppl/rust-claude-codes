@@ -370,14 +370,18 @@ impl ClaudeCliBuilder {
             args.push(tool.clone());
         }
 
-        // Always provide a session ID - use provided one or generate a UUID4
-        args.push("--session-id".to_string());
-        let session_uuid = self.session_id.unwrap_or_else(|| {
-            let uuid = Uuid::new_v4();
-            debug!("[CLI] Generated session UUID: {}", uuid);
-            uuid
-        });
-        args.push(session_uuid.to_string());
+        // Only add --session-id when NOT resuming/continuing an existing session
+        // (Claude CLI error: --session-id can only be used with --continue or --resume
+        // if --fork-session is also specified)
+        if self.resume.is_none() && !self.continue_conversation {
+            args.push("--session-id".to_string());
+            let session_uuid = self.session_id.unwrap_or_else(|| {
+                let uuid = Uuid::new_v4();
+                debug!("[CLI] Generated session UUID: {}", uuid);
+                uuid
+            });
+            args.push(session_uuid.to_string());
+        }
 
         // Add prompt as the last argument if provided
         if let Some(ref prompt) = self.prompt {
@@ -592,5 +596,49 @@ mod tests {
         let args = builder.build_args();
 
         assert!(!args.contains(&"--permission-prompt-tool".to_string()));
+    }
+
+    #[test]
+    fn test_session_id_present_for_new_session() {
+        let builder = ClaudeCliBuilder::new();
+        let args = builder.build_args();
+
+        assert!(
+            args.contains(&"--session-id".to_string()),
+            "New sessions should have --session-id"
+        );
+    }
+
+    #[test]
+    fn test_session_id_not_present_with_resume() {
+        // When resuming a session, --session-id should NOT be added
+        // (Claude CLI rejects --session-id + --resume without --fork-session)
+        let builder = ClaudeCliBuilder::new().resume(Some("existing-uuid".to_string()));
+        let args = builder.build_args();
+
+        assert!(
+            args.contains(&"--resume".to_string()),
+            "Should have --resume flag"
+        );
+        assert!(
+            !args.contains(&"--session-id".to_string()),
+            "--session-id should NOT be present when resuming"
+        );
+    }
+
+    #[test]
+    fn test_session_id_not_present_with_continue() {
+        // When continuing a session, --session-id should NOT be added
+        let builder = ClaudeCliBuilder::new().continue_conversation(true);
+        let args = builder.build_args();
+
+        assert!(
+            args.contains(&"--continue".to_string()),
+            "Should have --continue flag"
+        );
+        assert!(
+            !args.contains(&"--session-id".to_string()),
+            "--session-id should NOT be present when continuing"
+        );
     }
 }
