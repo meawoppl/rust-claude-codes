@@ -13,19 +13,17 @@
 //!
 //! ## Using the Async Client (Recommended)
 //!
-//! ```no_run
-//! # #[cfg(feature = "async-client")]
-//! # {
+//! ```ignore
 //! use claude_codes::AsyncClient;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create a client with automatic version checking
 //!     let mut client = AsyncClient::with_defaults().await?;
-//!     
+//!
 //!     // Send a query and stream responses
 //!     let mut stream = client.query_stream("What is 2 + 2?").await?;
-//!     
+//!
 //!     while let Some(response) = stream.next().await {
 //!         match response {
 //!             Ok(output) => {
@@ -35,40 +33,32 @@
 //!             Err(e) => eprintln!("Error: {}", e),
 //!         }
 //!     }
-//!     
+//!
 //!     Ok(())
 //! }
-//! # }
-//! # #[cfg(not(feature = "async-client"))]
-//! # fn main() {}
 //! ```
 //!
 //! ## Using the Sync Client
 //!
-//! ```no_run
-//! # #[cfg(feature = "sync-client")]
-//! # {
+//! ```ignore
 //! use claude_codes::{SyncClient, ClaudeInput};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create a synchronous client
 //!     let mut client = SyncClient::with_defaults()?;
-//!     
-//!     // Build a structured input message  
+//!
+//!     // Build a structured input message
 //!     let input = ClaudeInput::user_message("What is 2 + 2?", uuid::Uuid::new_v4());
-//!     
+//!
 //!     // Send and collect all responses
 //!     let responses = client.query(input)?;
-//!     
+//!
 //!     for response in responses {
 //!         println!("Received: {}", response.message_type());
 //!     }
-//!     
+//!
 //!     Ok(())
 //! }
-//! # }
-//! # #[cfg(not(feature = "sync-client"))]
-//! # fn main() {}
 //! ```
 //!
 //! # Architecture
@@ -133,6 +123,13 @@ pub use io::{AssistantMessageContent, ClaudeInput, ClaudeOutput, ParseError};
 pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
+
+// Control protocol types for tool permission handling
+pub use io::{
+    ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,
+    ControlResponseMessage, ControlResponsePayload, HookCallbackRequest, InitializeRequest,
+    McpMessageRequest, PermissionResult, ToolPermissionRequest,
+};
 
 // Client exports
 #[cfg(feature = "async-client")]

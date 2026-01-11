@@ -66,6 +66,8 @@ pub struct ClaudeCliBuilder {
     session_id: Option<Uuid>,
     oauth_token: Option<String>,
     api_key: Option<String>,
+    /// Tool for handling permission prompts (e.g., "stdio" for bidirectional control)
+    permission_prompt_tool: Option<String>,
 }
 
 impl Default for ClaudeCliBuilder {
@@ -99,6 +101,7 @@ impl ClaudeCliBuilder {
             session_id: None,
             oauth_token: None,
             api_key: None,
+            permission_prompt_tool: None,
         }
     }
 
@@ -255,6 +258,25 @@ impl ClaudeCliBuilder {
         self
     }
 
+    /// Enable bidirectional tool permission protocol via stdio
+    ///
+    /// When enabled, Claude CLI will send permission requests via stdout
+    /// and expect responses via stdin. Use "stdio" for standard I/O based
+    /// permission handling.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeCliBuilder;
+    ///
+    /// let builder = ClaudeCliBuilder::new()
+    ///     .permission_prompt_tool("stdio")
+    ///     .model("sonnet");
+    /// ```
+    pub fn permission_prompt_tool<S: Into<String>>(mut self, tool: S) -> Self {
+        self.permission_prompt_tool = Some(tool.into());
+        self
+    }
+
     /// Build the command arguments (always includes JSON streaming flags)
     fn build_args(&self) -> Vec<String> {
         // Always add JSON streaming mode flags
@@ -341,6 +363,11 @@ impl ClaudeCliBuilder {
 
         if self.strict_mcp_config {
             args.push("--strict-mcp-config".to_string());
+        }
+
+        if let Some(ref tool) = self.permission_prompt_tool {
+            args.push("--permission-prompt-tool".to_string());
+            args.push(tool.clone());
         }
 
         // Always provide a session ID - use provided one or generate a UUID4
@@ -548,5 +575,22 @@ mod tests {
 
         assert_eq!(builder.oauth_token, Some(oauth.to_string()));
         assert_eq!(builder.api_key, Some(api_key.to_string()));
+    }
+
+    #[test]
+    fn test_permission_prompt_tool() {
+        let builder = ClaudeCliBuilder::new().permission_prompt_tool("stdio");
+        let args = builder.build_args();
+
+        assert!(args.contains(&"--permission-prompt-tool".to_string()));
+        assert!(args.contains(&"stdio".to_string()));
+    }
+
+    #[test]
+    fn test_permission_prompt_tool_not_present_by_default() {
+        let builder = ClaudeCliBuilder::new();
+        let args = builder.build_args();
+
+        assert!(!args.contains(&"--permission-prompt-tool".to_string()));
     }
 }

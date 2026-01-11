@@ -232,5 +232,11 @@ fn handle_output(output: ClaudeOutput) {
                 }
             }
         }
+        ClaudeOutput::ControlRequest(req) => {
+            debug!("Control request received: {:?}", req.request_id);
+        }
+        ClaudeOutput::ControlResponse(resp) => {
+            debug!("Control response received: {:?}", resp.response);
+        }
     }
 }

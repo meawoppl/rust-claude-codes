@@ -889,6 +889,9 @@ async fn test_slash_commands() {
                         }
                         break;
                     }
+                    _ => {
+                        // Handle ControlRequest/ControlResponse if they appear
+                    }
                 }
             }
             Err(e) => {
@@ -971,6 +974,9 @@ async fn test_slash_commands() {
                         if let Some(result_text) = &result_msg.result {
                             println!("  - Result text: {}", result_text);
                         }
+                    }
+                    _ => {
+                        // Handle ControlRequest/ControlResponse if they appear
                     }
                 }
 
@@ -1134,6 +1140,9 @@ async fn test_slash_commands() {
                         }
                         break;
                     }
+                    _ => {
+                        // Handle ControlRequest/ControlResponse if they appear
+                    }
                 }
             }
             Err(e) => {
@@ -1157,4 +1166,171 @@ async fn test_slash_commands() {
         received_cost_response || got_result,
         "Should have received cost information or successful completion"
     );
+}
+
+// ============================================================================
+// Tool Approval Protocol Tests
+// ============================================================================
+
+/// Test that tool approval initialization handshake works
+#[tokio::test]
+async fn test_tool_approval_initialization() {
+    use claude_codes::ClaudeCliBuilder;
+
+    // Create a client with permission_prompt_tool enabled
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .permission_prompt_tool("stdio")
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude with permission_prompt_tool");
+
+    let mut client = AsyncClient::new(child).expect("Failed to create client");
+
+    // Verify tool approval is not enabled yet
+    assert!(
+        !client.is_tool_approval_enabled(),
+        "Tool approval should not be enabled before initialization"
+    );
+
+    // Enable tool approval (sends initialization handshake)
+    client
+        .enable_tool_approval()
+        .await
+        .expect("Tool approval initialization should succeed");
+
+    // Verify tool approval is now enabled
+    assert!(
+        client.is_tool_approval_enabled(),
+        "Tool approval should be enabled after initialization"
+    );
+
+    // Calling enable_tool_approval again should be a no-op (already enabled)
+    client
+        .enable_tool_approval()
+        .await
+        .expect("Second enable_tool_approval call should succeed (no-op)");
+
+    client.shutdown().await.expect("Failed to shutdown client");
+}
+
+/// Test tool approval with a simple query that triggers tool use
+#[tokio::test]
+async fn test_tool_approval_with_query() {
+    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload};
+
+    // Create a client with permission_prompt_tool enabled
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .permission_prompt_tool("stdio")
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude with permission_prompt_tool");
+
+    let mut client = AsyncClient::new(child).expect("Failed to create client");
+
+    // Enable tool approval
+    client
+        .enable_tool_approval()
+        .await
+        .expect("Tool approval initialization should succeed");
+
+    // Send a query that should trigger Read tool use
+    let input = ClaudeInput::user_message(
+        "Read the file /tmp/test_tool_approval.txt - if it doesn't exist just say 'file not found'",
+        Uuid::new_v4(),
+    );
+    client.send(&input).await.expect("Failed to send query");
+
+    // Collect responses, handling any tool permission requests
+    let mut message_count = 0;
+    let mut handled_permission_request = false;
+    let mut got_result = false;
+
+    loop {
+        match client.receive().await {
+            Ok(output) => {
+                message_count += 1;
+                println!("Message #{}: {}", message_count, output.message_type());
+
+                match &output {
+                    ClaudeOutput::ControlRequest(req) => {
+                        println!("Got control request: {:?}", req.request_id);
+                        if let ControlRequestPayload::CanUseTool(perm_req) = &req.request {
+                            println!(
+                                "Tool permission request for: {} with input: {:?}",
+                                perm_req.tool_name, perm_req.input
+                            );
+
+                            // Allow the tool to execute
+                            let response = perm_req.allow(&req.request_id);
+                            client
+                                .send_control_response(response)
+                                .await
+                                .expect("Failed to send control response");
+                            handled_permission_request = true;
+                        }
+                    }
+                    ClaudeOutput::Result(_) => {
+                        got_result = true;
+                        break;
+                    }
+                    _ => {}
+                }
+
+                // Safety limit
+                if message_count > 20 {
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                break;
+            }
+        }
+    }
+
+    assert!(message_count > 0, "Should have received messages");
+    assert!(got_result, "Should have received a result message");
+    // Note: The model might not always use tools for this query, so we don't assert on handled_permission_request
+    println!(
+        "Test completed. Handled permission request: {}",
+        handled_permission_request
+    );
+
+    client.shutdown().await.expect("Failed to shutdown client");
+}
+
+/// Test sync client tool approval initialization
+#[test]
+fn test_sync_tool_approval_initialization() {
+    use claude_codes::ClaudeCliBuilder;
+
+    // Create a sync client with permission_prompt_tool enabled
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .permission_prompt_tool("stdio")
+        .spawn_sync()
+        .expect("Failed to spawn Claude with permission_prompt_tool");
+
+    let mut client = SyncClient::new(child).expect("Failed to create client");
+
+    // Verify tool approval is not enabled yet
+    assert!(
+        !client.is_tool_approval_enabled(),
+        "Tool approval should not be enabled before initialization"
+    );
+
+    // Enable tool approval (sends initialization handshake)
+    client
+        .enable_tool_approval()
+        .expect("Tool approval initialization should succeed");
+
+    // Verify tool approval is now enabled
+    assert!(
+        client.is_tool_approval_enabled(),
+        "Tool approval should be enabled after initialization"
+    );
+
+    client.shutdown().expect("Failed to shutdown client");
 }
