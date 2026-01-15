@@ -124,6 +124,9 @@ pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
 
+// Task notification types for background task completion messages
+pub use io::{TaskNotification, TaskStatus};
+
 // Control protocol types for tool permission handling
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,

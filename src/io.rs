@@ -251,6 +251,189 @@ pub enum ToolResultContent {
     Structured(Vec<Value>),
 }
 
+// ============================================================================
+// Task Notification Types
+// ============================================================================
+
+/// Status of a background task
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskStatus {
+    /// Task completed successfully
+    Completed,
+    /// Task failed
+    Failed,
+    /// Task is still running
+    Running,
+    /// Unknown status (forward compatibility)
+    #[serde(other)]
+    Unknown,
+}
+
+/// A task notification embedded in user message text.
+///
+/// Claude Code emits these XML-like notifications when background tasks complete.
+/// They are embedded in the text content of user messages.
+///
+/// # Example
+///
+/// ```
+/// use claude_codes::TaskNotification;
+///
+/// let text = r#"<task-notification>
+/// <task-id>b1c496c</task-id>
+/// <output-file>/tmp/claude/tasks/b1c496c.output</output-file>
+/// <status>completed</status>
+/// <summary>Background command "git status" completed (exit code 0)</summary>
+/// </task-notification>
+/// Read the output file to retrieve the result."#;
+///
+/// if let Some(notification) = TaskNotification::parse(text) {
+///     assert_eq!(notification.task_id, "b1c496c");
+///     assert_eq!(notification.status, claude_codes::TaskStatus::Completed);
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskNotification {
+    /// Unique identifier for the task
+    pub task_id: String,
+    /// Path to the file containing task output
+    pub output_file: String,
+    /// Current status of the task
+    pub status: TaskStatus,
+    /// Human-readable summary of the task result
+    pub summary: String,
+}
+
+impl TaskNotification {
+    /// Parse a task notification from text content.
+    ///
+    /// Returns `Some(TaskNotification)` if the text contains a valid
+    /// `<task-notification>` block, otherwise returns `None`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use claude_codes::TaskNotification;
+    ///
+    /// let text = "<task-notification>\n<task-id>abc123</task-id>\n<output-file>/tmp/out.txt</output-file>\n<status>completed</status>\n<summary>Done</summary>\n</task-notification>";
+    /// let notification = TaskNotification::parse(text).unwrap();
+    /// assert_eq!(notification.task_id, "abc123");
+    /// ```
+    pub fn parse(text: &str) -> Option<Self> {
+        use quick_xml::events::Event;
+        use quick_xml::Reader;
+
+        // Find the task-notification block
+        let start_tag = "<task-notification>";
+        let end_tag = "</task-notification>";
+
+        let start_idx = text.find(start_tag)?;
+        let end_idx = text.find(end_tag)?;
+
+        if end_idx <= start_idx {
+            return None;
+        }
+
+        let xml_content = &text[start_idx..end_idx + end_tag.len()];
+
+        let mut reader = Reader::from_str(xml_content);
+        reader.config_mut().trim_text(true);
+
+        let mut task_id = None;
+        let mut output_file = None;
+        let mut status = None;
+        let mut summary = None;
+
+        let mut current_element: Option<String> = None;
+
+        loop {
+            match reader.read_event() {
+                Ok(Event::Start(e)) => {
+                    current_element = Some(
+                        String::from_utf8_lossy(e.name().as_ref()).to_string(),
+                    );
+                }
+                Ok(Event::Text(e)) => {
+                    if let Some(ref elem) = current_element {
+                        let text_content = e.unescape().ok()?.to_string();
+                        match elem.as_str() {
+                            "task-id" => task_id = Some(text_content),
+                            "output-file" => output_file = Some(text_content),
+                            "status" => status = Some(text_content),
+                            "summary" => summary = Some(text_content),
+                            _ => {}
+                        }
+                    }
+                }
+                Ok(Event::End(_)) => {
+                    current_element = None;
+                }
+                Ok(Event::Eof) => break,
+                Err(_) => return None,
+                _ => {}
+            }
+        }
+
+        Some(TaskNotification {
+            task_id: task_id?,
+            output_file: output_file?,
+            status: match status?.as_str() {
+                "completed" => TaskStatus::Completed,
+                "failed" => TaskStatus::Failed,
+                "running" => TaskStatus::Running,
+                _ => TaskStatus::Unknown,
+            },
+            summary: summary?,
+        })
+    }
+
+    /// Parse all task notifications from text content.
+    ///
+    /// Returns a vector of all `<task-notification>` blocks found in the text.
+    /// Useful when a message might contain multiple notifications.
+    pub fn parse_all(text: &str) -> Vec<Self> {
+        let mut notifications = Vec::new();
+        let mut search_start = 0;
+
+        while let Some(start_idx) = text[search_start..].find("<task-notification>") {
+            let absolute_start = search_start + start_idx;
+            if let Some(end_idx) = text[absolute_start..].find("</task-notification>") {
+                let absolute_end = absolute_start + end_idx + "</task-notification>".len();
+                if let Some(notification) = Self::parse(&text[absolute_start..absolute_end]) {
+                    notifications.push(notification);
+                }
+                search_start = absolute_end;
+            } else {
+                break;
+            }
+        }
+
+        notifications
+    }
+
+    /// Check if the given text contains a task notification.
+    pub fn contains_notification(text: &str) -> bool {
+        text.contains("<task-notification>")
+    }
+
+    /// Extract the remaining text after removing task notifications.
+    ///
+    /// Returns the text with all `<task-notification>...</task-notification>` blocks removed.
+    pub fn extract_remaining_text(text: &str) -> String {
+        let mut result = text.to_string();
+        while let Some(start_idx) = result.find("<task-notification>") {
+            if let Some(end_offset) = result[start_idx..].find("</task-notification>") {
+                let end_idx = start_idx + end_offset + "</task-notification>".len();
+                result = format!("{}{}", &result[..start_idx], &result[end_idx..]);
+            } else {
+                break;
+            }
+        }
+        result.trim().to_string()
+    }
+}
+
 /// Result message for completed queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultMessage {
@@ -1076,5 +1259,161 @@ mod tests {
         assert!(reserialized.contains("control_request"));
         assert!(reserialized.contains("test-123"));
         assert!(reserialized.contains("Bash"));
+    }
+
+    // ============================================================================
+    // Task Notification Tests
+    // ============================================================================
+
+    #[test]
+    fn test_task_notification_parse_basic() {
+        let text = r#"<task-notification>
+<task-id>b1c496c</task-id>
+<output-file>/tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output</output-file>
+<status>completed</status>
+<summary>Background command "Commit merge" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output"#;
+
+        let notification = TaskNotification::parse(text).expect("Should parse notification");
+
+        assert_eq!(notification.task_id, "b1c496c");
+        assert_eq!(
+            notification.output_file,
+            "/tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output"
+        );
+        assert_eq!(notification.status, TaskStatus::Completed);
+        assert_eq!(
+            notification.summary,
+            "Background command \"Commit merge\" completed (exit code 0)"
+        );
+    }
+
+    #[test]
+    fn test_task_notification_parse_failed_status() {
+        let text = r#"<task-notification>
+<task-id>xyz789</task-id>
+<output-file>/tmp/tasks/xyz789.output</output-file>
+<status>failed</status>
+<summary>Command failed with exit code 1</summary>
+</task-notification>"#;
+
+        let notification = TaskNotification::parse(text).expect("Should parse notification");
+        assert_eq!(notification.status, TaskStatus::Failed);
+    }
+
+    #[test]
+    fn test_task_notification_parse_running_status() {
+        let text = r#"<task-notification>
+<task-id>run123</task-id>
+<output-file>/tmp/tasks/run123.output</output-file>
+<status>running</status>
+<summary>Task is still running</summary>
+</task-notification>"#;
+
+        let notification = TaskNotification::parse(text).expect("Should parse notification");
+        assert_eq!(notification.status, TaskStatus::Running);
+    }
+
+    #[test]
+    fn test_task_notification_parse_unknown_status() {
+        let text = r#"<task-notification>
+<task-id>unk456</task-id>
+<output-file>/tmp/tasks/unk456.output</output-file>
+<status>some_future_status</status>
+<summary>Unknown status type</summary>
+</task-notification>"#;
+
+        let notification = TaskNotification::parse(text).expect("Should parse notification");
+        assert_eq!(notification.status, TaskStatus::Unknown);
+    }
+
+    #[test]
+    fn test_task_notification_parse_no_notification() {
+        let text = "This is just regular text without any notification.";
+        assert!(TaskNotification::parse(text).is_none());
+    }
+
+    #[test]
+    fn test_task_notification_parse_incomplete() {
+        let text = "<task-notification><task-id>abc</task-id></task-notification>";
+        // Missing required fields, should return None
+        assert!(TaskNotification::parse(text).is_none());
+    }
+
+    #[test]
+    fn test_task_notification_contains_notification() {
+        assert!(TaskNotification::contains_notification("<task-notification>...</task-notification>"));
+        assert!(!TaskNotification::contains_notification("just regular text"));
+    }
+
+    #[test]
+    fn test_task_notification_extract_remaining_text() {
+        let text = r#"<task-notification>
+<task-id>abc</task-id>
+<output-file>/tmp/out.txt</output-file>
+<status>completed</status>
+<summary>Done</summary>
+</task-notification>
+Read the output file to retrieve the result: /tmp/out.txt"#;
+
+        let remaining = TaskNotification::extract_remaining_text(text);
+        assert_eq!(remaining, "Read the output file to retrieve the result: /tmp/out.txt");
+    }
+
+    #[test]
+    fn test_task_notification_parse_all_multiple() {
+        let text = r#"<task-notification>
+<task-id>task1</task-id>
+<output-file>/tmp/task1.out</output-file>
+<status>completed</status>
+<summary>First task done</summary>
+</task-notification>
+Some text in between
+<task-notification>
+<task-id>task2</task-id>
+<output-file>/tmp/task2.out</output-file>
+<status>failed</status>
+<summary>Second task failed</summary>
+</task-notification>"#;
+
+        let notifications = TaskNotification::parse_all(text);
+        assert_eq!(notifications.len(), 2);
+        assert_eq!(notifications[0].task_id, "task1");
+        assert_eq!(notifications[0].status, TaskStatus::Completed);
+        assert_eq!(notifications[1].task_id, "task2");
+        assert_eq!(notifications[1].status, TaskStatus::Failed);
+    }
+
+    #[test]
+    fn test_task_status_serialization() {
+        // Test that TaskStatus serializes to lowercase
+        let completed = TaskStatus::Completed;
+        let json = serde_json::to_string(&completed).unwrap();
+        assert_eq!(json, "\"completed\"");
+
+        let failed = TaskStatus::Failed;
+        let json = serde_json::to_string(&failed).unwrap();
+        assert_eq!(json, "\"failed\"");
+
+        let running = TaskStatus::Running;
+        let json = serde_json::to_string(&running).unwrap();
+        assert_eq!(json, "\"running\"");
+    }
+
+    #[test]
+    fn test_task_notification_serialization() {
+        let notification = TaskNotification {
+            task_id: "test123".to_string(),
+            output_file: "/tmp/test.out".to_string(),
+            status: TaskStatus::Completed,
+            summary: "Test completed".to_string(),
+        };
+
+        let json = serde_json::to_string(&notification).unwrap();
+        assert!(json.contains("\"task_id\":\"test123\""));
+        assert!(json.contains("\"output_file\":\"/tmp/test.out\""));
+        assert!(json.contains("\"status\":\"completed\""));
+        assert!(json.contains("\"summary\":\"Test completed\""));
     }
 }
