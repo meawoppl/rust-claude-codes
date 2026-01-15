@@ -136,23 +136,26 @@ async fn main() -> Result<()> {
 /// Handle the output from Claude
 fn handle_output(output: ClaudeOutput) {
     match output {
-        ClaudeOutput::System(sys) => match sys.subtype.as_str() {
-            "init" => {
+        ClaudeOutput::System(sys) => match sys {
+            claude_codes::SystemMessage::Init(init_msg) => {
                 debug!("System initialization");
                 debug!(
-                    "System init data: {}",
-                    serde_json::to_string_pretty(&sys.data).unwrap_or_default()
+                    "System init data: session_id={:?}, cwd={:?}, model={:?}",
+                    init_msg.session_id, init_msg.cwd, init_msg.model
                 );
             }
-            "confirmation" => {
-                debug!("System confirmation received");
+            claude_codes::SystemMessage::Status(status_msg) => {
+                debug!("System status: {:?}", status_msg.status);
             }
-            _ => {
-                debug!("System message - {}", sys.subtype);
+            claude_codes::SystemMessage::CompactBoundary(compact_msg) => {
                 debug!(
-                    "System data: {}",
-                    serde_json::to_string_pretty(&sys.data).unwrap_or_default()
+                    "Context compaction: {} tokens, trigger={}",
+                    compact_msg.compact_metadata.pre_tokens,
+                    compact_msg.compact_metadata.trigger
                 );
+            }
+            claude_codes::SystemMessage::Other => {
+                debug!("System message - unknown subtype");
             }
         },
         ClaudeOutput::User(msg) => {

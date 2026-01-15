@@ -124,6 +124,11 @@ pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
 
+// System message types
+pub use io::{
+    CompactBoundaryMessage, CompactMetadata, InitSystemMessage, StatusSystemMessage, SystemMessage,
+};
+
 // Control protocol types for tool permission handling
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,

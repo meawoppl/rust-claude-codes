@@ -154,10 +154,71 @@ where
 
 /// System message with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SystemMessage {
-    pub subtype: String,
-    #[serde(flatten)]
-    pub data: Value, // Captures all other fields
+#[serde(tag = "subtype", rename_all = "snake_case")]
+pub enum SystemMessage {
+    /// Initial system message with session info
+    Init(InitSystemMessage),
+    /// Status update message (e.g., during context compaction)
+    Status(StatusSystemMessage),
+    /// Marks where context compaction occurred
+    CompactBoundary(CompactBoundaryMessage),
+    /// Unknown/other system message subtypes (fallback)
+    #[serde(other)]
+    Other,
+}
+
+/// Initial system message data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitSystemMessage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mcp_servers: Option<Vec<Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key_source: Option<String>,
+}
+
+/// Status system message (sent during operations like compaction)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusSystemMessage {
+    /// Session identifier
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    /// Current status (e.g., "compacting", or null when complete)
+    pub status: Option<String>,
+    /// Unique identifier for this message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+}
+
+/// Compact boundary message (marks where context compaction occurred)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompactBoundaryMessage {
+    /// Session identifier
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    /// Metadata about the compaction
+    pub compact_metadata: CompactMetadata,
+    /// Unique identifier for this message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+}
+
+/// Metadata about context compaction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompactMetadata {
+    /// Number of tokens before compaction
+    pub pre_tokens: u64,
+    /// What triggered the compaction ("auto" or "manual")
+    pub trigger: String,
 }
 
 /// Assistant message
@@ -1076,5 +1137,143 @@ mod tests {
         assert!(reserialized.contains("control_request"));
         assert!(reserialized.contains("test-123"));
         assert!(reserialized.contains("Bash"));
+    }
+
+    // ============================================================================
+    // System Message Tests
+    // ============================================================================
+
+    #[test]
+    fn test_deserialize_system_status_message() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "status",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "status": "compacting",
+            "uuid": "32eb9f9d-5ef7-47ff-8fce-bbe22fe7ed93"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_system_message());
+
+        if let ClaudeOutput::System(SystemMessage::Status(status_msg)) = output {
+            assert_eq!(
+                status_msg.session_id,
+                Some("879c1a88-3756-4092-aa95-0020c4ed9692".to_string())
+            );
+            assert_eq!(status_msg.status, Some("compacting".to_string()));
+            assert_eq!(
+                status_msg.uuid,
+                Some("32eb9f9d-5ef7-47ff-8fce-bbe22fe7ed93".to_string())
+            );
+        } else {
+            panic!("Expected System Status message");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_system_status_message_null_status() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "status",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "status": null,
+            "uuid": "92d9637e-d00e-418e-acd2-a504e3861c6a"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_system_message());
+
+        if let ClaudeOutput::System(SystemMessage::Status(status_msg)) = output {
+            assert_eq!(status_msg.status, None);
+        } else {
+            panic!("Expected System Status message");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_system_compact_boundary_message() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "compact_boundary",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "compact_metadata": {
+                "pre_tokens": 155285,
+                "trigger": "auto"
+            },
+            "uuid": "a67780d5-74cb-48b1-9137-7a6e7cee45d7"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_system_message());
+
+        if let ClaudeOutput::System(SystemMessage::CompactBoundary(compact_msg)) = output {
+            assert_eq!(
+                compact_msg.session_id,
+                Some("879c1a88-3756-4092-aa95-0020c4ed9692".to_string())
+            );
+            assert_eq!(compact_msg.compact_metadata.pre_tokens, 155285);
+            assert_eq!(compact_msg.compact_metadata.trigger, "auto");
+            assert_eq!(
+                compact_msg.uuid,
+                Some("a67780d5-74cb-48b1-9137-7a6e7cee45d7".to_string())
+            );
+        } else {
+            panic!("Expected System CompactBoundary message");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_system_init_message() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "init",
+            "session_id": "test-session-123",
+            "cwd": "/home/user/project",
+            "model": "claude-sonnet-4-20250514"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_system_message());
+
+        if let ClaudeOutput::System(SystemMessage::Init(init_msg)) = output {
+            assert_eq!(init_msg.session_id, Some("test-session-123".to_string()));
+            assert_eq!(init_msg.cwd, Some("/home/user/project".to_string()));
+            assert_eq!(init_msg.model, Some("claude-sonnet-4-20250514".to_string()));
+        } else {
+            panic!("Expected System Init message");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_unknown_system_message() {
+        // Unknown subtypes should fall back to Other variant
+        let json = r#"{
+            "type": "system",
+            "subtype": "some_future_subtype",
+            "session_id": "test-session",
+            "some_field": "some_value"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_system_message());
+
+        if let ClaudeOutput::System(SystemMessage::Other) = output {
+            // Successfully parsed as Other variant
+        } else {
+            panic!("Expected System Other message for unknown subtype");
+        }
+    }
+
+    #[test]
+    fn test_compact_metadata_serialization() {
+        let metadata = CompactMetadata {
+            pre_tokens: 100000,
+            trigger: "manual".to_string(),
+        };
+
+        let json = serde_json::to_string(&metadata).unwrap();
+        assert!(json.contains("\"pre_tokens\":100000"));
+        assert!(json.contains("\"trigger\":\"manual\""));
     }
 }
