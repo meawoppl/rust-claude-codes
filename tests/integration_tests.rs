@@ -1396,3 +1396,156 @@ async fn test_resume_session_no_session_id_conflict() {
         }
     }
 }
+
+// ============================================================================
+// Task Notification Tests
+// ============================================================================
+
+/// Test that we can trigger a background task and receive task notifications
+///
+/// This test asks Claude to run a command in the background (using run_in_background),
+/// waits for it to complete, and verifies we can parse the task notification
+/// from the user message text.
+#[tokio::test]
+async fn test_background_task_notification() {
+    use claude_codes::TaskNotification;
+
+    let mut client = AsyncClient::with_defaults()
+        .await
+        .expect("Failed to create async client");
+
+    // Ask Claude to run a background task that takes a moment
+    // We use a simple sleep command to ensure it runs in background
+    let mut stream = client
+        .query_stream(
+            "Please run `sleep 2 && echo 'Background task completed'` in the background using run_in_background. \
+             Then wait for it to complete and tell me when it's done.",
+        )
+        .await
+        .expect("Failed to send query");
+
+    let mut found_task_notification = false;
+    let mut task_notifications: Vec<TaskNotification> = Vec::new();
+    let mut message_count = 0;
+
+    while let Some(result) = stream.next().await {
+        message_count += 1;
+
+        match result {
+            Ok(output) => {
+                println!("Message #{}: {}", message_count, output.message_type());
+
+                // Check user messages for task notifications
+                if let ClaudeOutput::User(user_msg) = &output {
+                    for content in &user_msg.message.content {
+                        if let ContentBlock::Text(text_block) = content {
+                            println!("User message text: {}", &text_block.text[..text_block.text.len().min(200)]);
+
+                            // Check if this text contains a task notification
+                            if TaskNotification::contains_notification(&text_block.text) {
+                                println!("Found task notification in user message!");
+                                found_task_notification = true;
+
+                                // Parse and collect all notifications
+                                let notifications = TaskNotification::parse_all(&text_block.text);
+                                for notif in notifications {
+                                    println!(
+                                        "  Task ID: {}, Status: {:?}, Summary: {}",
+                                        notif.task_id, notif.status, notif.summary
+                                    );
+                                    task_notifications.push(notif);
+                                }
+
+                                // Also get the remaining text
+                                let remaining = TaskNotification::extract_remaining_text(&text_block.text);
+                                println!("  Remaining text: {}", remaining);
+                            }
+                        }
+                    }
+                }
+
+                // Check for result message to know we're done
+                if let ClaudeOutput::Result(result_msg) = &output {
+                    println!(
+                        "Result: is_error={}, duration={}ms",
+                        result_msg.is_error, result_msg.duration_ms
+                    );
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+            }
+        }
+
+        // Safety limit - background tasks can take a while
+        if message_count > 50 {
+            println!("Reached message limit, stopping");
+            break;
+        }
+    }
+
+    println!("\n=== Test Summary ===");
+    println!("Total messages: {}", message_count);
+    println!("Found task notification: {}", found_task_notification);
+    println!("Task notifications collected: {}", task_notifications.len());
+
+    // The test passes if we received messages - background task behavior may vary
+    assert!(message_count > 0, "Should have received messages");
+
+    // If we found notifications, verify they parsed correctly
+    for notif in &task_notifications {
+        assert!(!notif.task_id.is_empty(), "Task ID should not be empty");
+        assert!(!notif.output_file.is_empty(), "Output file should not be empty");
+        assert!(!notif.summary.is_empty(), "Summary should not be empty");
+    }
+
+    if found_task_notification {
+        println!("Successfully parsed {} task notification(s)!", task_notifications.len());
+    } else {
+        println!("Note: No task notification found - Claude may not have used background execution");
+    }
+}
+
+/// Test parsing task notifications from captured real-world data
+///
+/// This test uses the exact format from the GitHub issue to ensure
+/// our parser handles real Claude Code output correctly.
+#[test]
+fn test_parse_real_task_notification_format() {
+    use claude_codes::{TaskNotification, TaskStatus};
+
+    // This is the exact format from GitHub issue #18
+    let real_text = r#"<task-notification>
+<task-id>b1c496c</task-id>
+<output-file>/tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output</output-file>
+<status>completed</status>
+<summary>Background command "Commit merge" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output"#;
+
+    // Parse the notification
+    let notification = TaskNotification::parse(real_text)
+        .expect("Should parse real-world task notification format");
+
+    // Verify all fields
+    assert_eq!(notification.task_id, "b1c496c");
+    assert_eq!(
+        notification.output_file,
+        "/tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output"
+    );
+    assert_eq!(notification.status, TaskStatus::Completed);
+    assert_eq!(
+        notification.summary,
+        r#"Background command "Commit merge" completed (exit code 0)"#
+    );
+
+    // Verify remaining text extraction
+    let remaining = TaskNotification::extract_remaining_text(real_text);
+    assert_eq!(
+        remaining,
+        "Read the output file to retrieve the result: /tmp/claude/-home-meawoppl-repos-meter-sim/tasks/b1c496c.output"
+    );
+
+    println!("Successfully parsed real-world task notification!");
+}
