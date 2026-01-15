@@ -843,10 +843,7 @@ async fn test_slash_commands() {
                 // Log full output for debugging
                 match &output {
                     ClaudeOutput::System(msg) => {
-                        println!("System message - subtype: {}", msg.subtype);
-                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
-                            println!("System data:\n{}", json);
-                        }
+                        println!("System message: {:?}", msg);
                     }
                     ClaudeOutput::User(msg) => {
                         println!("User message echoed back");
@@ -935,10 +932,7 @@ async fn test_slash_commands() {
                 // Log full output for debugging
                 match &output {
                     ClaudeOutput::System(msg) => {
-                        println!("System message - subtype: {}", msg.subtype);
-                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
-                            println!("System data:\n{}", json);
-                        }
+                        println!("System message: {:?}", msg);
                     }
                     ClaudeOutput::User(msg) => {
                         println!("User message echoed back");
@@ -1086,10 +1080,7 @@ async fn test_slash_commands() {
                 // Log full output for debugging
                 match &output {
                     ClaudeOutput::System(msg) => {
-                        println!("System message - subtype: {}", msg.subtype);
-                        if let Ok(json) = serde_json::to_string_pretty(&msg.data) {
-                            println!("System data:\n{}", json);
-                        }
+                        println!("System message: {:?}", msg);
                     }
                     ClaudeOutput::User(msg) => {
                         println!("User message echoed back");
