@@ -1,0 +1,15 @@
+{
+  "type": "user",
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "toolu_01T3umv22ejaKP18zFVjLDZS",
+        "content": "This Bash command contains multiple operations. The following part requires approval: test -f /etc/passwd",
+        "is_error": true
+      }
+    ]
+  },
+  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2"
+}

@@ -1,0 +1,28 @@
+{
+  "type": "system",
+  "subtype": "init",
+  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2",
+  "cwd": "/home/meawoppl/repos/rust-claude-codes",
+  "tools": [
+    "Task",
+    "TaskOutput",
+    "Bash",
+    "Glob",
+    "Grep",
+    "ExitPlanMode",
+    "Read",
+    "Edit",
+    "Write",
+    "NotebookEdit",
+    "WebFetch",
+    "TodoWrite",
+    "WebSearch",
+    "KillShell",
+    "AskUserQuestion",
+    "Skill",
+    "EnterPlanMode",
+    "MCPSearch"
+  ],
+  "mcp_servers": [],
+  "model": "claude-sonnet-4-5-20250929"
+}

@@ -103,6 +103,7 @@ pub mod error;
 pub mod io;
 pub mod messages;
 pub mod protocol;
+pub mod tool_inputs;
 pub mod types;
 
 // Client modules
@@ -128,7 +129,15 @@ pub use types::*;
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,
     ControlResponseMessage, ControlResponsePayload, HookCallbackRequest, InitializeRequest,
-    McpMessageRequest, PermissionResult, ToolPermissionRequest,
+    McpMessageRequest, PermissionResult, ToolPermissionRequest, ToolUseBlock,
+};
+
+// Typed tool input types
+pub use tool_inputs::{
+    AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
+    ExitPlanModeInput, GlobInput, GrepInput, KillShellInput, NotebookEditInput, Question,
+    QuestionMetadata, QuestionOption, ReadInput, SkillInput, TaskInput, TaskOutputInput,
+    TodoItem, TodoWriteInput, ToolInput, WebFetchInput, WebSearchInput, WriteInput,
 };
 
 // Client exports
