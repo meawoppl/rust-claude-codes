@@ -125,6 +125,12 @@ pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
 
+// Content block types for message parsing
+pub use io::{
+    ContentBlock, ImageBlock, ImageSource, TextBlock, ThinkingBlock, ToolResultBlock,
+    ToolResultContent,
+};
+
 // Control protocol types for tool permission handling
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,
