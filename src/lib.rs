@@ -136,8 +136,8 @@ pub use io::{
 pub use tool_inputs::{
     AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
     ExitPlanModeInput, GlobInput, GrepInput, KillShellInput, NotebookEditInput, Question,
-    QuestionMetadata, QuestionOption, ReadInput, SkillInput, TaskInput, TaskOutputInput,
-    TodoItem, TodoWriteInput, ToolInput, WebFetchInput, WebSearchInput, WriteInput,
+    QuestionMetadata, QuestionOption, ReadInput, SkillInput, TaskInput, TaskOutputInput, TodoItem,
+    TodoWriteInput, ToolInput, WebFetchInput, WebSearchInput, WriteInput,
 };
 
 // Client exports

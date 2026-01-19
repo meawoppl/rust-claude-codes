@@ -3,10 +3,8 @@
 //! These tests verify that real Claude CLI tool use messages can be deserialized
 //! and their inputs can be parsed into strongly-typed structures.
 
-use claude_codes::{
-    BashInput, ClaudeOutput, ToolInput, ToolUseBlock,
-};
 use claude_codes::io::ContentBlock;
+use claude_codes::{BashInput, ClaudeOutput, ToolInput, ToolUseBlock};
 use serde_json::json;
 
 // ============================================================================
@@ -17,7 +15,8 @@ use serde_json::json;
 #[test]
 fn test_parse_system_init_message() {
     let json_str = include_str!("../test_cases/tool_use_captures/tool_msg_0.json");
-    let output: ClaudeOutput = serde_json::from_str(json_str).expect("Failed to parse system init message");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse system init message");
 
     match output {
         ClaudeOutput::System(msg) => {
@@ -29,7 +28,10 @@ fn test_parse_system_init_message() {
             assert!(tools_array.iter().any(|t| t.as_str() == Some("Bash")));
             assert!(tools_array.iter().any(|t| t.as_str() == Some("Read")));
             assert!(tools_array.iter().any(|t| t.as_str() == Some("Write")));
-            println!("System init message parsed successfully with {} tools", tools_array.len());
+            println!(
+                "System init message parsed successfully with {} tools",
+                tools_array.len()
+            );
         }
         _ => panic!("Expected System message, got {:?}", output.message_type()),
     }
@@ -39,7 +41,8 @@ fn test_parse_system_init_message() {
 #[test]
 fn test_parse_bash_tool_use_message() {
     let json_str = include_str!("../test_cases/tool_use_captures/tool_msg_1.json");
-    let output: ClaudeOutput = serde_json::from_str(json_str).expect("Failed to parse assistant message");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse assistant message");
 
     match output {
         ClaudeOutput::Assistant(msg) => {
@@ -55,7 +58,10 @@ fn test_parse_bash_tool_use_message() {
                 match typed {
                     ToolInput::Bash(bash) => {
                         assert_eq!(bash.command, "ls -la /tmp");
-                        assert_eq!(bash.description, Some("List files in /tmp directory".to_string()));
+                        assert_eq!(
+                            bash.description,
+                            Some("List files in /tmp directory".to_string())
+                        );
                     }
                     _ => panic!("Expected Bash input, got {:?}", typed.tool_name()),
                 }
@@ -78,7 +84,10 @@ fn test_parse_bash_date_command() {
             let typed = tool_use.typed_input().unwrap();
             if let ToolInput::Bash(bash) = typed {
                 assert_eq!(bash.command, "date");
-                assert_eq!(bash.description, Some("Show current date and time".to_string()));
+                assert_eq!(
+                    bash.description,
+                    Some("Show current date and time".to_string())
+                );
             } else {
                 panic!("Expected Bash");
             }
@@ -100,7 +109,10 @@ fn test_parse_bash_complex_command() {
             let typed = tool_use.typed_input().unwrap();
             if let ToolInput::Bash(bash) = typed {
                 assert!(bash.command.contains("test -f /etc/passwd"));
-                assert_eq!(bash.description, Some("Check if /etc/passwd exists".to_string()));
+                assert_eq!(
+                    bash.description,
+                    Some("Check if /etc/passwd exists".to_string())
+                );
             }
         }
     }
@@ -151,9 +163,13 @@ fn test_parse_result_with_permission_denials() {
         assert_eq!(tool_name, "Bash");
 
         let tool_input = denial1.get("tool_input").unwrap();
-        let bash: BashInput = serde_json::from_value(tool_input.clone()).expect("Failed to parse tool_input");
+        let bash: BashInput =
+            serde_json::from_value(tool_input.clone()).expect("Failed to parse tool_input");
         assert_eq!(bash.command, "ls -la /tmp");
-        assert_eq!(bash.description, Some("List files in /tmp directory".to_string()));
+        assert_eq!(
+            bash.description,
+            Some("List files in /tmp directory".to_string())
+        );
 
         // Parse the second denial
         let denial2 = &result.permission_denials[1];
@@ -161,7 +177,10 @@ fn test_parse_result_with_permission_denials() {
         let bash2: BashInput = serde_json::from_value(tool_input2.clone()).unwrap();
         assert!(bash2.command.contains("test -f /etc/passwd"));
 
-        println!("Parsed result with {} permission denials", result.permission_denials.len());
+        println!(
+            "Parsed result with {} permission denials",
+            result.permission_denials.len()
+        );
     }
 }
 
@@ -366,7 +385,10 @@ fn test_tool_input_ask_user_question_deserialization() {
 
     let question = input.as_ask_user_question().unwrap();
     assert_eq!(question.questions.len(), 1);
-    assert_eq!(question.questions[0].question, "Which database should we use?");
+    assert_eq!(
+        question.questions[0].question,
+        "Which database should we use?"
+    );
     assert_eq!(question.questions[0].options.len(), 2);
 }
 
