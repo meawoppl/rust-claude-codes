@@ -129,7 +129,7 @@ pub use types::*;
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,
     ControlResponseMessage, ControlResponsePayload, HookCallbackRequest, InitializeRequest,
-    McpMessageRequest, PermissionResult, ToolPermissionRequest, ToolUseBlock,
+    McpMessageRequest, PermissionResult, PermissionSuggestion, ToolPermissionRequest, ToolUseBlock,
 };
 
 // System message subtype types
