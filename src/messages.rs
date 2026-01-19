@@ -203,7 +203,30 @@ pub struct CompletionSuggestion {
     pub score: Option<f32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Value>,
+    pub metadata: Option<SuggestionMetadata>,
+}
+
+/// Metadata for a completion suggestion.
+///
+/// This struct captures common metadata fields while allowing additional
+/// custom fields through the `extra` field.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SuggestionMetadata {
+    /// The source of the suggestion (e.g., "history", "model", "cache")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+
+    /// Priority level for the suggestion
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<i32>,
+
+    /// Category of the suggestion
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+
+    /// Any additional metadata fields
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, Value>,
 }
 
 /// Status response
@@ -215,7 +238,30 @@ pub struct StatusResponse {
     pub progress: Option<Progress>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub details: Option<Value>,
+    pub details: Option<StatusDetails>,
+}
+
+/// Details for a status response.
+///
+/// This struct captures common status detail fields while allowing additional
+/// custom fields through the `extra` field.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StatusDetails {
+    /// Error message if the status indicates an error
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+
+    /// Reason for the current status
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+
+    /// Human-readable description of the status
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+
+    /// Any additional detail fields
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, Value>,
 }
 
 /// Progress information
@@ -271,4 +317,151 @@ pub enum EventType {
     Info,
     Debug,
     Custom(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_suggestion_metadata_parsing() {
+        let json = r#"{
+            "source": "history",
+            "priority": 5,
+            "category": "command",
+            "custom_field": "custom_value"
+        }"#;
+
+        let metadata: SuggestionMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(metadata.source, Some("history".to_string()));
+        assert_eq!(metadata.priority, Some(5));
+        assert_eq!(metadata.category, Some("command".to_string()));
+        assert_eq!(
+            metadata.extra.get("custom_field").unwrap(),
+            &serde_json::json!("custom_value")
+        );
+    }
+
+    #[test]
+    fn test_suggestion_metadata_minimal() {
+        let json = r#"{}"#;
+
+        let metadata: SuggestionMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(metadata.source, None);
+        assert_eq!(metadata.priority, None);
+        assert!(metadata.extra.is_empty());
+    }
+
+    #[test]
+    fn test_suggestion_metadata_roundtrip() {
+        let mut extra = std::collections::HashMap::new();
+        extra.insert("key".to_string(), serde_json::json!("value"));
+
+        let metadata = SuggestionMetadata {
+            source: Some("model".to_string()),
+            priority: Some(10),
+            category: None,
+            extra,
+        };
+
+        let json = serde_json::to_string(&metadata).unwrap();
+        let parsed: SuggestionMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, metadata);
+    }
+
+    #[test]
+    fn test_status_details_parsing() {
+        let json = r#"{
+            "error": "Connection failed",
+            "reason": "timeout",
+            "description": "The server did not respond in time",
+            "retry_count": 3
+        }"#;
+
+        let details: StatusDetails = serde_json::from_str(json).unwrap();
+        assert_eq!(details.error, Some("Connection failed".to_string()));
+        assert_eq!(details.reason, Some("timeout".to_string()));
+        assert_eq!(
+            details.description,
+            Some("The server did not respond in time".to_string())
+        );
+        assert_eq!(
+            details.extra.get("retry_count").unwrap(),
+            &serde_json::json!(3)
+        );
+    }
+
+    #[test]
+    fn test_status_details_minimal() {
+        let json = r#"{}"#;
+
+        let details: StatusDetails = serde_json::from_str(json).unwrap();
+        assert_eq!(details.error, None);
+        assert_eq!(details.reason, None);
+        assert!(details.extra.is_empty());
+    }
+
+    #[test]
+    fn test_status_details_roundtrip() {
+        let details = StatusDetails {
+            error: Some("Error message".to_string()),
+            reason: None,
+            description: Some("Description".to_string()),
+            extra: std::collections::HashMap::new(),
+        };
+
+        let json = serde_json::to_string(&details).unwrap();
+        let parsed: StatusDetails = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, details);
+    }
+
+    #[test]
+    fn test_completion_suggestion_with_metadata() {
+        let json = r#"{
+            "text": "git status",
+            "description": "Show repository status",
+            "score": 0.95,
+            "metadata": {
+                "source": "history",
+                "priority": 1
+            }
+        }"#;
+
+        let suggestion: CompletionSuggestion = serde_json::from_str(json).unwrap();
+        assert_eq!(suggestion.text, "git status");
+        assert_eq!(
+            suggestion.description,
+            Some("Show repository status".to_string())
+        );
+        assert_eq!(suggestion.score, Some(0.95));
+        assert!(suggestion.metadata.is_some());
+
+        let meta = suggestion.metadata.unwrap();
+        assert_eq!(meta.source, Some("history".to_string()));
+        assert_eq!(meta.priority, Some(1));
+    }
+
+    #[test]
+    fn test_status_response_with_details() {
+        let json = r#"{
+            "status": "in_progress",
+            "progress": {
+                "current": 50,
+                "total": 100,
+                "percentage": 0.5
+            },
+            "details": {
+                "reason": "processing",
+                "description": "Processing request"
+            }
+        }"#;
+
+        let response: StatusResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(response.status, Status::InProgress));
+        assert!(response.progress.is_some());
+        assert!(response.details.is_some());
+
+        let details = response.details.unwrap();
+        assert_eq!(details.reason, Some("processing".to_string()));
+    }
 }
