@@ -436,11 +436,28 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<UsageInfo>,
 
+    /// Tools that were blocked due to permission denials during the session
     #[serde(default)]
-    pub permission_denials: Vec<Value>,
+    pub permission_denials: Vec<PermissionDenial>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+}
+
+/// A record of a tool permission that was denied during the session.
+///
+/// This is included in `ResultMessage.permission_denials` to provide a summary
+/// of all permission denials that occurred.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionDenial {
+    /// The name of the tool that was blocked (e.g., "Bash", "Write")
+    pub tool_name: String,
+
+    /// The input that was passed to the tool
+    pub tool_input: Value,
+
+    /// The unique identifier for this tool use request
+    pub tool_use_id: String,
 }
 
 /// Result subtypes
@@ -1075,6 +1092,61 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         assert!(!output.is_error());
+    }
+
+    #[test]
+    fn test_deserialize_result_with_permission_denials() {
+        let json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 2,
+            "result": "Done",
+            "session_id": "123",
+            "total_cost_usd": 0.01,
+            "permission_denials": [
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "rm -rf /", "description": "Delete everything"},
+                    "tool_use_id": "toolu_123"
+                }
+            ]
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::Result(result) = output {
+            assert_eq!(result.permission_denials.len(), 1);
+            assert_eq!(result.permission_denials[0].tool_name, "Bash");
+            assert_eq!(result.permission_denials[0].tool_use_id, "toolu_123");
+            assert_eq!(
+                result.permission_denials[0]
+                    .tool_input
+                    .get("command")
+                    .unwrap(),
+                "rm -rf /"
+            );
+        } else {
+            panic!("Expected Result");
+        }
+    }
+
+    #[test]
+    fn test_permission_denial_roundtrip() {
+        let denial = PermissionDenial {
+            tool_name: "Write".to_string(),
+            tool_input: serde_json::json!({"file_path": "/etc/passwd", "content": "bad"}),
+            tool_use_id: "toolu_456".to_string(),
+        };
+
+        let json = serde_json::to_string(&denial).unwrap();
+        assert!(json.contains("\"tool_name\":\"Write\""));
+        assert!(json.contains("\"tool_use_id\":\"toolu_456\""));
+        assert!(json.contains("/etc/passwd"));
+
+        let parsed: PermissionDenial = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, denial);
     }
 
     // ============================================================================

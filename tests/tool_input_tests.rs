@@ -157,24 +157,26 @@ fn test_parse_result_with_permission_denials() {
         assert_eq!(result.num_turns, 4);
         assert_eq!(result.permission_denials.len(), 2);
 
-        // Parse the first denial's tool_input as BashInput
+        // Access the first denial's fields directly (now typed)
         let denial1 = &result.permission_denials[0];
-        let tool_name = denial1.get("tool_name").unwrap().as_str().unwrap();
-        assert_eq!(tool_name, "Bash");
+        assert_eq!(denial1.tool_name, "Bash");
+        assert_eq!(denial1.tool_use_id, "toolu_01F7wwFsuQE8bTbjP4Aig5Ab");
 
-        let tool_input = denial1.get("tool_input").unwrap();
+        // Parse the tool_input as BashInput
         let bash: BashInput =
-            serde_json::from_value(tool_input.clone()).expect("Failed to parse tool_input");
+            serde_json::from_value(denial1.tool_input.clone()).expect("Failed to parse tool_input");
         assert_eq!(bash.command, "ls -la /tmp");
         assert_eq!(
             bash.description,
             Some("List files in /tmp directory".to_string())
         );
 
-        // Parse the second denial
+        // Access the second denial
         let denial2 = &result.permission_denials[1];
-        let tool_input2 = denial2.get("tool_input").unwrap();
-        let bash2: BashInput = serde_json::from_value(tool_input2.clone()).unwrap();
+        assert_eq!(denial2.tool_name, "Bash");
+        assert_eq!(denial2.tool_use_id, "toolu_01T3umv22ejaKP18zFVjLDZS");
+
+        let bash2: BashInput = serde_json::from_value(denial2.tool_input.clone()).unwrap();
         assert!(bash2.command.contains("test -f /etc/passwd"));
 
         println!(
