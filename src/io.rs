@@ -160,6 +160,99 @@ pub struct SystemMessage {
     pub data: Value, // Captures all other fields
 }
 
+impl SystemMessage {
+    /// Check if this is an init message
+    pub fn is_init(&self) -> bool {
+        self.subtype == "init"
+    }
+
+    /// Check if this is a status message
+    pub fn is_status(&self) -> bool {
+        self.subtype == "status"
+    }
+
+    /// Check if this is a compact_boundary message
+    pub fn is_compact_boundary(&self) -> bool {
+        self.subtype == "compact_boundary"
+    }
+
+    /// Try to parse as an init message
+    pub fn as_init(&self) -> Option<InitMessage> {
+        if self.subtype != "init" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
+    /// Try to parse as a status message
+    pub fn as_status(&self) -> Option<StatusMessage> {
+        if self.subtype != "status" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
+    /// Try to parse as a compact_boundary message
+    pub fn as_compact_boundary(&self) -> Option<CompactBoundaryMessage> {
+        if self.subtype != "compact_boundary" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+}
+
+/// Init system message data - sent at session start
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitMessage {
+    /// Session identifier
+    pub session_id: String,
+    /// Current working directory
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    /// Model being used
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// List of available tools
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<String>,
+    /// MCP servers configured
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mcp_servers: Vec<Value>,
+}
+
+/// Status system message - sent during operations like context compaction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusMessage {
+    /// Session identifier
+    pub session_id: String,
+    /// Current status (e.g., "compacting") or null when complete
+    pub status: Option<String>,
+    /// Unique identifier for this message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+}
+
+/// Compact boundary message - marks where context compaction occurred
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompactBoundaryMessage {
+    /// Session identifier
+    pub session_id: String,
+    /// Metadata about the compaction
+    pub compact_metadata: CompactMetadata,
+    /// Unique identifier for this message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+}
+
+/// Metadata about context compaction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompactMetadata {
+    /// Number of tokens before compaction
+    pub pre_tokens: u64,
+    /// What triggered the compaction ("auto" or "manual")
+    pub trigger: String,
+}
+
 /// Assistant message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantMessage {
@@ -1110,5 +1203,113 @@ mod tests {
         assert!(reserialized.contains("control_request"));
         assert!(reserialized.contains("test-123"));
         assert!(reserialized.contains("Bash"));
+    }
+
+    // ============================================================================
+    // System Message Subtype Tests
+    // ============================================================================
+
+    #[test]
+    fn test_system_message_init() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "init",
+            "session_id": "test-session-123",
+            "cwd": "/home/user/project",
+            "model": "claude-sonnet-4",
+            "tools": ["Bash", "Read", "Write"],
+            "mcp_servers": []
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_init());
+            assert!(!sys.is_status());
+            assert!(!sys.is_compact_boundary());
+
+            let init = sys.as_init().expect("Should parse as init");
+            assert_eq!(init.session_id, "test-session-123");
+            assert_eq!(init.cwd, Some("/home/user/project".to_string()));
+            assert_eq!(init.model, Some("claude-sonnet-4".to_string()));
+            assert_eq!(init.tools, vec!["Bash", "Read", "Write"]);
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_status() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "status",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "status": "compacting",
+            "uuid": "32eb9f9d-5ef7-47ff-8fce-bbe22fe7ed93"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_status());
+            assert!(!sys.is_init());
+
+            let status = sys.as_status().expect("Should parse as status");
+            assert_eq!(status.session_id, "879c1a88-3756-4092-aa95-0020c4ed9692");
+            assert_eq!(status.status, Some("compacting".to_string()));
+            assert_eq!(
+                status.uuid,
+                Some("32eb9f9d-5ef7-47ff-8fce-bbe22fe7ed93".to_string())
+            );
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_status_null() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "status",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "status": null,
+            "uuid": "92d9637e-d00e-418e-acd2-a504e3861c6a"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            let status = sys.as_status().expect("Should parse as status");
+            assert_eq!(status.status, None);
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_compact_boundary() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "compact_boundary",
+            "session_id": "879c1a88-3756-4092-aa95-0020c4ed9692",
+            "compact_metadata": {
+                "pre_tokens": 155285,
+                "trigger": "auto"
+            },
+            "uuid": "a67780d5-74cb-48b1-9137-7a6e7cee45d7"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_compact_boundary());
+            assert!(!sys.is_init());
+            assert!(!sys.is_status());
+
+            let compact = sys
+                .as_compact_boundary()
+                .expect("Should parse as compact_boundary");
+            assert_eq!(compact.session_id, "879c1a88-3756-4092-aa95-0020c4ed9692");
+            assert_eq!(compact.compact_metadata.pre_tokens, 155285);
+            assert_eq!(compact.compact_metadata.trigger, "auto");
+        } else {
+            panic!("Expected System message");
+        }
     }
 }

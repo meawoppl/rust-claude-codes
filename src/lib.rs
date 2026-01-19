@@ -132,6 +132,9 @@ pub use io::{
     McpMessageRequest, PermissionResult, ToolPermissionRequest, ToolUseBlock,
 };
 
+// System message subtype types
+pub use io::{CompactBoundaryMessage, CompactMetadata, InitMessage, StatusMessage, SystemMessage};
+
 // Typed tool input types
 pub use tool_inputs::{
     AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
