@@ -135,6 +135,9 @@ pub use io::{
 // System message subtype types
 pub use io::{CompactBoundaryMessage, CompactMetadata, InitMessage, StatusMessage, SystemMessage};
 
+// Usage types
+pub use io::{AssistantUsage, CacheCreationDetails};
+
 // Typed tool input types
 pub use tool_inputs::{
     AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
