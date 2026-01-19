@@ -1,0 +1,32 @@
+{
+  "type": "assistant",
+  "message": {
+    "id": "msg_01EBQF9oGfY2q1ggFyJeR3vP",
+    "role": "assistant",
+    "model": "claude-sonnet-4-5-20250929",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "toolu_011U4kgQ9oshx2Z86oR12AtY",
+        "name": "Bash",
+        "input": {
+          "command": "date",
+          "description": "Show current date and time"
+        }
+      }
+    ],
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 539
+      },
+      "cache_creation_input_tokens": 539,
+      "cache_read_input_tokens": 18508,
+      "input_tokens": 3,
+      "output_tokens": 8,
+      "service_tier": "standard"
+    }
+  },
+  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2",
+  "uuid": "39271bcd-5c6a-4930-bc6a-25d2edde7841"
+}

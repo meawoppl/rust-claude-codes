@@ -233,6 +233,40 @@ pub struct ToolUseBlock {
     pub input: Value,
 }
 
+impl ToolUseBlock {
+    /// Try to parse the input as a typed ToolInput.
+    ///
+    /// This attempts to deserialize the raw JSON input into a strongly-typed
+    /// `ToolInput` enum variant. Returns `None` if parsing fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use claude_codes::{ToolUseBlock, ToolInput};
+    /// use serde_json::json;
+    ///
+    /// let block = ToolUseBlock {
+    ///     id: "toolu_123".to_string(),
+    ///     name: "Bash".to_string(),
+    ///     input: json!({"command": "ls -la"}),
+    /// };
+    ///
+    /// if let Some(ToolInput::Bash(bash)) = block.typed_input() {
+    ///     assert_eq!(bash.command, "ls -la");
+    /// }
+    /// ```
+    pub fn typed_input(&self) -> Option<crate::tool_inputs::ToolInput> {
+        serde_json::from_value(self.input.clone()).ok()
+    }
+
+    /// Parse the input as a typed ToolInput, returning an error on failure.
+    ///
+    /// Unlike `typed_input()`, this method returns the parsing error for debugging.
+    pub fn try_typed_input(&self) -> Result<crate::tool_inputs::ToolInput, serde_json::Error> {
+        serde_json::from_value(self.input.clone())
+    }
+}
+
 /// Tool result content block
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResultBlock {
