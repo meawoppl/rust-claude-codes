@@ -276,7 +276,47 @@ pub struct AssistantMessageContent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_sequence: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<serde_json::Value>,
+    pub usage: Option<AssistantUsage>,
+}
+
+/// Usage information for assistant messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantUsage {
+    /// Number of input tokens
+    #[serde(default)]
+    pub input_tokens: u32,
+
+    /// Number of output tokens
+    #[serde(default)]
+    pub output_tokens: u32,
+
+    /// Tokens used to create cache
+    #[serde(default)]
+    pub cache_creation_input_tokens: u32,
+
+    /// Tokens read from cache
+    #[serde(default)]
+    pub cache_read_input_tokens: u32,
+
+    /// Service tier used (e.g., "standard")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<String>,
+
+    /// Detailed cache creation breakdown
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_creation: Option<CacheCreationDetails>,
+}
+
+/// Detailed cache creation information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheCreationDetails {
+    /// Ephemeral 1-hour input tokens
+    #[serde(default)]
+    pub ephemeral_1h_input_tokens: u32,
+
+    /// Ephemeral 5-minute input tokens
+    #[serde(default)]
+    pub ephemeral_5m_input_tokens: u32,
 }
 
 /// Content blocks for messages
