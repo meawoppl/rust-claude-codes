@@ -528,6 +528,19 @@ pub enum ControlRequestPayload {
     Initialize(InitializeRequest),
 }
 
+/// A suggested permission for tool approval.
+///
+/// When Claude requests tool permission, it may include suggestions for
+/// permissions that could be granted to avoid repeated prompts for similar
+/// actions.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionSuggestion {
+    /// The tool this permission applies to (e.g., "Bash")
+    pub tool: String,
+    /// Semantic description of the action (e.g., "run tests")
+    pub prompt: String,
+}
+
 /// Tool permission request details
 ///
 /// This is sent when Claude wants to use a tool. The SDK should evaluate
@@ -559,9 +572,9 @@ pub struct ToolPermissionRequest {
     pub tool_name: String,
     /// Input parameters for the tool
     pub input: Value,
-    /// Suggested permissions (if any)
+    /// Suggested permissions that could be granted to avoid repeated prompts
     #[serde(default)]
-    pub permission_suggestions: Vec<Value>,
+    pub permission_suggestions: Vec<PermissionSuggestion>,
     /// Path that was blocked (if this is a retry after path-based denial)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blocked_path: Option<String>,
@@ -1243,6 +1256,57 @@ mod tests {
         assert!(reserialized.contains("control_request"));
         assert!(reserialized.contains("test-123"));
         assert!(reserialized.contains("Bash"));
+    }
+
+    #[test]
+    fn test_permission_suggestions_parsing() {
+        // Test that permission_suggestions deserialize correctly
+        let json = r#"{
+            "type": "control_request",
+            "request_id": "perm-456",
+            "request": {
+                "subtype": "can_use_tool",
+                "tool_name": "Bash",
+                "input": {"command": "npm test"},
+                "permission_suggestions": [
+                    {"tool": "Bash", "prompt": "run tests"},
+                    {"tool": "Bash", "prompt": "install dependencies"}
+                ]
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::ControlRequest(req) = output {
+            if let ControlRequestPayload::CanUseTool(perm_req) = req.request {
+                assert_eq!(perm_req.permission_suggestions.len(), 2);
+                assert_eq!(perm_req.permission_suggestions[0].tool, "Bash");
+                assert_eq!(perm_req.permission_suggestions[0].prompt, "run tests");
+                assert_eq!(perm_req.permission_suggestions[1].tool, "Bash");
+                assert_eq!(
+                    perm_req.permission_suggestions[1].prompt,
+                    "install dependencies"
+                );
+            } else {
+                panic!("Expected CanUseTool payload");
+            }
+        } else {
+            panic!("Expected ControlRequest");
+        }
+    }
+
+    #[test]
+    fn test_permission_suggestion_roundtrip() {
+        let suggestion = PermissionSuggestion {
+            tool: "Bash".to_string(),
+            prompt: "run tests".to_string(),
+        };
+
+        let json = serde_json::to_string(&suggestion).unwrap();
+        assert!(json.contains("\"tool\":\"Bash\""));
+        assert!(json.contains("\"prompt\":\"run tests\""));
+
+        let parsed: PermissionSuggestion = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, suggestion);
     }
 
     // ============================================================================
