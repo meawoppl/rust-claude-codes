@@ -1396,3 +1396,150 @@ async fn test_resume_session_no_session_id_conflict() {
         }
     }
 }
+
+/// Test the tool approval protocol - receive control_request and send denial
+#[tokio::test]
+async fn test_tool_approval_deny_flow() {
+    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload};
+    use std::fs;
+
+    println!("=== Testing tool approval deny flow ===");
+
+    // Create a test file that Claude will try to edit
+    let test_file = "/tmp/test_tool_approval_edit.txt";
+    fs::write(test_file, "Original content\n").expect("Failed to create test file");
+    println!("Created test file: {}", test_file);
+
+    // Create a client with permission_prompt_tool enabled
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .permission_prompt_tool("stdio")
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude with permission_prompt_tool");
+
+    let mut client = AsyncClient::new(child).expect("Failed to create client");
+
+    // Enable the tool approval protocol (handshake)
+    client
+        .enable_tool_approval()
+        .await
+        .expect("Failed to enable tool approval");
+
+    assert!(
+        client.is_tool_approval_enabled(),
+        "Tool approval should be enabled"
+    );
+    println!("Tool approval enabled successfully");
+
+    // Send a query that will trigger an Edit tool use (requires permission)
+    let session_id = Uuid::new_v4();
+    let input = ClaudeInput::user_message(
+        format!(
+            "Please edit the file {} and change 'Original' to 'Modified'. Do not ask for confirmation, just do it.",
+            test_file
+        ),
+        session_id,
+    );
+
+    client.send(&input).await.expect("Failed to send query");
+    println!("Sent query that should trigger tool use");
+
+    // Receive messages until we get a control_request
+    let mut received_control_request = false;
+    let mut control_request_id = String::new();
+    let mut tool_name = String::new();
+    let mut message_count = 0;
+
+    loop {
+        message_count += 1;
+        if message_count > 30 {
+            println!("Reached message limit without control request");
+            break;
+        }
+
+        match client.receive().await {
+            Ok(output) => {
+                println!(
+                    "Received message #{}: type={}",
+                    message_count,
+                    output.message_type()
+                );
+
+                match output {
+                    ClaudeOutput::ControlRequest(req) => {
+                        println!("Got ControlRequest!");
+                        println!("  Request ID: {}", req.request_id);
+
+                        if let ControlRequestPayload::CanUseTool(perm_req) = &req.request {
+                            println!("  Tool: {}", perm_req.tool_name);
+                            println!(
+                                "  Input: {}",
+                                serde_json::to_string_pretty(&perm_req.input).unwrap_or_default()
+                            );
+                            println!(
+                                "  Permission suggestions: {}",
+                                perm_req.permission_suggestions.len()
+                            );
+
+                            // Store info for verification
+                            received_control_request = true;
+                            control_request_id = req.request_id.clone();
+                            tool_name = perm_req.tool_name.clone();
+
+                            // Send a denial response
+                            let response =
+                                perm_req.deny("Access denied by integration test", &req.request_id);
+                            println!("Sending denial response...");
+                            client
+                                .send_control_response(response)
+                                .await
+                                .expect("Failed to send control response");
+                            println!("Denial sent successfully");
+                        }
+                    }
+                    ClaudeOutput::Result(result) => {
+                        println!("Got Result: is_error={}", result.is_error);
+                        if let Some(ref text) = result.result {
+                            println!("  Result text: {}", text);
+                        }
+                        // Once we get a result, we're done
+                        break;
+                    }
+                    ClaudeOutput::Assistant(msg) => {
+                        // Check if Claude acknowledged the denial
+                        for content in &msg.message.content {
+                            if let ContentBlock::Text(text) = content {
+                                println!("Assistant: {}", text.text);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving: {}", e);
+                break;
+            }
+        }
+    }
+
+    // Verify we received and handled a control request
+    assert!(
+        received_control_request,
+        "Should have received a ControlRequest message"
+    );
+    assert!(
+        !control_request_id.is_empty(),
+        "Should have captured request_id"
+    );
+    assert!(!tool_name.is_empty(), "Should have captured tool_name");
+
+    println!("=== Tool approval deny flow test passed ===");
+    println!("  Received control request for tool: {}", tool_name);
+    println!("  Request ID: {}", control_request_id);
+
+    // Cleanup
+    let _ = client.shutdown().await;
+    let _ = fs::remove_file(test_file);
+}

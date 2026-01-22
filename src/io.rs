@@ -556,13 +556,28 @@ pub enum ControlRequestPayload {
 ///
 /// When Claude requests tool permission, it may include suggestions for
 /// permissions that could be granted to avoid repeated prompts for similar
-/// actions.
+/// actions. The format varies based on the suggestion type:
+///
+/// - `setMode`: `{"type": "setMode", "mode": "acceptEdits", "destination": "session"}`
+/// - `addRules`: `{"type": "addRules", "rules": [...], "behavior": "allow", "destination": "session"}`
+///
+/// Use the helper methods to access common fields.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PermissionSuggestion {
-    /// The tool this permission applies to (e.g., "Bash")
-    pub tool: String,
-    /// Semantic description of the action (e.g., "run tests")
-    pub prompt: String,
+    /// The type of suggestion (e.g., "setMode", "addRules")
+    #[serde(rename = "type")]
+    pub suggestion_type: String,
+    /// Where to apply this permission (e.g., "session", "project")
+    pub destination: String,
+    /// The permission mode (for setMode type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// The behavior (for addRules type, e.g., "allow")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<String>,
+    /// The rules to add (for addRules type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules: Option<Vec<Value>>,
 }
 
 /// Tool permission request details
@@ -1390,6 +1405,40 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_control_request_edit_tool_real() {
+        // Real production message from Claude CLI
+        let json = r#"{"type":"control_request","request_id":"f3cf357c-17d6-4eca-b498-dd17c7ac43dd","request":{"subtype":"can_use_tool","tool_name":"Edit","input":{"file_path":"/home/meawoppl/repos/cc-proxy/proxy/src/ui.rs","old_string":"/// Print hint to re-authenticate\npub fn print_reauth_hint() {\n    println!(\n        \"  {} Run: {} to re-authenticate\",\n        \"→\".bright_blue(),\n        \"claude-portal logout && claude-portal login\".bright_cyan()\n    );\n}","new_string":"/// Print hint to re-authenticate\npub fn print_reauth_hint() {\n    println!(\n        \"  {} Run: {} to re-authenticate\",\n        \"→\".bright_blue(),\n        \"claude-portal --reauth\".bright_cyan()\n    );\n}","replace_all":false},"permission_suggestions":[{"type":"setMode","mode":"acceptEdits","destination":"session"}],"tool_use_id":"toolu_015BDGtNiqNrRSJSDrWXNckW"}}"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_control_request());
+        assert_eq!(output.message_type(), "control_request");
+
+        if let ClaudeOutput::ControlRequest(req) = output {
+            assert_eq!(req.request_id, "f3cf357c-17d6-4eca-b498-dd17c7ac43dd");
+            if let ControlRequestPayload::CanUseTool(perm_req) = req.request {
+                assert_eq!(perm_req.tool_name, "Edit");
+                // Verify input contains the expected Edit fields
+                assert_eq!(
+                    perm_req.input.get("file_path").unwrap().as_str().unwrap(),
+                    "/home/meawoppl/repos/cc-proxy/proxy/src/ui.rs"
+                );
+                assert!(perm_req.input.get("old_string").is_some());
+                assert!(perm_req.input.get("new_string").is_some());
+                assert!(!perm_req
+                    .input
+                    .get("replace_all")
+                    .unwrap()
+                    .as_bool()
+                    .unwrap());
+            } else {
+                panic!("Expected CanUseTool payload");
+            }
+        } else {
+            panic!("Expected ControlRequest");
+        }
+    }
+
+    #[test]
     fn test_tool_permission_request_allow() {
         let req = ToolPermissionRequest {
             tool_name: "Read".to_string(),
@@ -1532,7 +1581,7 @@ mod tests {
 
     #[test]
     fn test_permission_suggestions_parsing() {
-        // Test that permission_suggestions deserialize correctly
+        // Test that permission_suggestions deserialize correctly with real protocol format
         let json = r#"{
             "type": "control_request",
             "request_id": "perm-456",
@@ -1541,8 +1590,8 @@ mod tests {
                 "tool_name": "Bash",
                 "input": {"command": "npm test"},
                 "permission_suggestions": [
-                    {"tool": "Bash", "prompt": "run tests"},
-                    {"tool": "Bash", "prompt": "install dependencies"}
+                    {"type": "setMode", "mode": "acceptEdits", "destination": "session"},
+                    {"type": "setMode", "mode": "bypassPermissions", "destination": "project"}
                 ]
             }
         }"#;
@@ -1551,13 +1600,24 @@ mod tests {
         if let ClaudeOutput::ControlRequest(req) = output {
             if let ControlRequestPayload::CanUseTool(perm_req) = req.request {
                 assert_eq!(perm_req.permission_suggestions.len(), 2);
-                assert_eq!(perm_req.permission_suggestions[0].tool, "Bash");
-                assert_eq!(perm_req.permission_suggestions[0].prompt, "run tests");
-                assert_eq!(perm_req.permission_suggestions[1].tool, "Bash");
                 assert_eq!(
-                    perm_req.permission_suggestions[1].prompt,
-                    "install dependencies"
+                    perm_req.permission_suggestions[0].suggestion_type,
+                    "setMode"
                 );
+                assert_eq!(
+                    perm_req.permission_suggestions[0].mode,
+                    Some("acceptEdits".to_string())
+                );
+                assert_eq!(perm_req.permission_suggestions[0].destination, "session");
+                assert_eq!(
+                    perm_req.permission_suggestions[1].suggestion_type,
+                    "setMode"
+                );
+                assert_eq!(
+                    perm_req.permission_suggestions[1].mode,
+                    Some("bypassPermissions".to_string())
+                );
+                assert_eq!(perm_req.permission_suggestions[1].destination, "project");
             } else {
                 panic!("Expected CanUseTool payload");
             }
@@ -1567,18 +1627,62 @@ mod tests {
     }
 
     #[test]
-    fn test_permission_suggestion_roundtrip() {
+    fn test_permission_suggestion_set_mode_roundtrip() {
         let suggestion = PermissionSuggestion {
-            tool: "Bash".to_string(),
-            prompt: "run tests".to_string(),
+            suggestion_type: "setMode".to_string(),
+            destination: "session".to_string(),
+            mode: Some("acceptEdits".to_string()),
+            behavior: None,
+            rules: None,
         };
 
         let json = serde_json::to_string(&suggestion).unwrap();
-        assert!(json.contains("\"tool\":\"Bash\""));
-        assert!(json.contains("\"prompt\":\"run tests\""));
+        assert!(json.contains("\"type\":\"setMode\""));
+        assert!(json.contains("\"mode\":\"acceptEdits\""));
+        assert!(json.contains("\"destination\":\"session\""));
+        assert!(!json.contains("\"behavior\""));
+        assert!(!json.contains("\"rules\""));
 
         let parsed: PermissionSuggestion = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, suggestion);
+    }
+
+    #[test]
+    fn test_permission_suggestion_add_rules_roundtrip() {
+        let suggestion = PermissionSuggestion {
+            suggestion_type: "addRules".to_string(),
+            destination: "session".to_string(),
+            mode: None,
+            behavior: Some("allow".to_string()),
+            rules: Some(vec![serde_json::json!({
+                "toolName": "Read",
+                "ruleContent": "//tmp/**"
+            })]),
+        };
+
+        let json = serde_json::to_string(&suggestion).unwrap();
+        assert!(json.contains("\"type\":\"addRules\""));
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"destination\":\"session\""));
+        assert!(json.contains("\"rules\""));
+        assert!(json.contains("\"toolName\":\"Read\""));
+        assert!(!json.contains("\"mode\""));
+
+        let parsed: PermissionSuggestion = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, suggestion);
+    }
+
+    #[test]
+    fn test_permission_suggestion_add_rules_from_real_json() {
+        // Real production message from Claude CLI
+        let json = r#"{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"//tmp/**"}],"behavior":"allow","destination":"session"}"#;
+
+        let parsed: PermissionSuggestion = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.suggestion_type, "addRules");
+        assert_eq!(parsed.destination, "session");
+        assert_eq!(parsed.behavior, Some("allow".to_string()));
+        assert!(parsed.rules.is_some());
+        assert!(parsed.mode.is_none());
     }
 
     // ============================================================================
