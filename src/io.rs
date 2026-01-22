@@ -1424,14 +1424,12 @@ mod tests {
                 );
                 assert!(perm_req.input.get("old_string").is_some());
                 assert!(perm_req.input.get("new_string").is_some());
-                assert!(
-                    !perm_req
-                        .input
-                        .get("replace_all")
-                        .unwrap()
-                        .as_bool()
-                        .unwrap()
-                );
+                assert!(!perm_req
+                    .input
+                    .get("replace_all")
+                    .unwrap()
+                    .as_bool()
+                    .unwrap());
             } else {
                 panic!("Expected CanUseTool payload");
             }
