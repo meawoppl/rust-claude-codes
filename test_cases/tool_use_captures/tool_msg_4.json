@@ -5,11 +5,11 @@
     "content": [
       {
         "type": "tool_result",
-        "tool_use_id": "toolu_01F7wwFsuQE8bTbjP4Aig5Ab",
+        "tool_use_id": "toolu_018kLBCpZ5RKL62RscZpC1JB",
         "content": "ls in '/tmp' was blocked. For security, Claude Code may only list files in the allowed working directories for this session: '/home/meawoppl/repos/rust-claude-codes'.",
         "is_error": true
       }
     ]
   },
-  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2"
+  "session_id": "1f2f4a66-82a4-42e2-b93d-089998d779e6"
 }

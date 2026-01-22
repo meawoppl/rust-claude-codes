@@ -1,13 +1,13 @@
 {
   "type": "assistant",
   "message": {
-    "id": "msg_01EBQF9oGfY2q1ggFyJeR3vP",
+    "id": "msg_018oFJk3p8xccDFx5XdK2son",
     "role": "assistant",
     "model": "claude-sonnet-4-5-20250929",
     "content": [
       {
         "type": "tool_use",
-        "id": "toolu_01F7wwFsuQE8bTbjP4Aig5Ab",
+        "id": "toolu_018kLBCpZ5RKL62RscZpC1JB",
         "name": "Bash",
         "input": {
           "command": "ls -la /tmp",
@@ -16,17 +16,17 @@
       }
     ],
     "usage": {
+      "input_tokens": 3,
+      "output_tokens": 5,
+      "cache_creation_input_tokens": 5153,
+      "cache_read_input_tokens": 13522,
+      "service_tier": "standard",
       "cache_creation": {
         "ephemeral_1h_input_tokens": 0,
-        "ephemeral_5m_input_tokens": 539
-      },
-      "cache_creation_input_tokens": 539,
-      "cache_read_input_tokens": 18508,
-      "input_tokens": 3,
-      "output_tokens": 8,
-      "service_tier": "standard"
+        "ephemeral_5m_input_tokens": 5153
+      }
     }
   },
-  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2",
-  "uuid": "4b975e27-74c3-41a3-8e98-54b98062306c"
+  "session_id": "1f2f4a66-82a4-42e2-b93d-089998d779e6",
+  "uuid": "0d7e9269-f2d5-4298-b94f-e3cfc4b22fea"
 }

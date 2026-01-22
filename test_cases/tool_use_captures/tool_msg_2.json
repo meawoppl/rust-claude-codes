@@ -1,32 +1,32 @@
 {
   "type": "assistant",
   "message": {
-    "id": "msg_01EBQF9oGfY2q1ggFyJeR3vP",
+    "id": "msg_018oFJk3p8xccDFx5XdK2son",
     "role": "assistant",
     "model": "claude-sonnet-4-5-20250929",
     "content": [
       {
         "type": "tool_use",
-        "id": "toolu_011U4kgQ9oshx2Z86oR12AtY",
+        "id": "toolu_01Dfka2kj68yXQu4hz86frtp",
         "name": "Bash",
         "input": {
           "command": "date",
-          "description": "Show current date and time"
+          "description": "Show the current date"
         }
       }
     ],
     "usage": {
+      "input_tokens": 3,
+      "output_tokens": 5,
+      "cache_creation_input_tokens": 5153,
+      "cache_read_input_tokens": 13522,
+      "service_tier": "standard",
       "cache_creation": {
         "ephemeral_1h_input_tokens": 0,
-        "ephemeral_5m_input_tokens": 539
-      },
-      "cache_creation_input_tokens": 539,
-      "cache_read_input_tokens": 18508,
-      "input_tokens": 3,
-      "output_tokens": 8,
-      "service_tier": "standard"
+        "ephemeral_5m_input_tokens": 5153
+      }
     }
   },
-  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2",
-  "uuid": "39271bcd-5c6a-4930-bc6a-25d2edde7841"
+  "session_id": "1f2f4a66-82a4-42e2-b93d-089998d779e6",
+  "uuid": "fd69b82b-be6d-47a4-b579-4f17aab805af"
 }
