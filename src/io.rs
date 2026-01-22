@@ -556,16 +556,28 @@ pub enum ControlRequestPayload {
 ///
 /// When Claude requests tool permission, it may include suggestions for
 /// permissions that could be granted to avoid repeated prompts for similar
-/// actions.
+/// actions. The format varies based on the suggestion type:
+///
+/// - `setMode`: `{"type": "setMode", "mode": "acceptEdits", "destination": "session"}`
+/// - `addRules`: `{"type": "addRules", "rules": [...], "behavior": "allow", "destination": "session"}`
+///
+/// Use the helper methods to access common fields.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PermissionSuggestion {
-    /// The type of suggestion (e.g., "setMode")
+    /// The type of suggestion (e.g., "setMode", "addRules")
     #[serde(rename = "type")]
     pub suggestion_type: String,
-    /// The permission mode to set (e.g., "acceptEdits")
-    pub mode: String,
-    /// Where to apply this permission (e.g., "session")
+    /// Where to apply this permission (e.g., "session", "project")
     pub destination: String,
+    /// The permission mode (for setMode type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// The behavior (for addRules type, e.g., "allow")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<String>,
+    /// The rules to add (for addRules type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules: Option<Vec<Value>>,
 }
 
 /// Tool permission request details
@@ -1595,13 +1607,19 @@ mod tests {
                     perm_req.permission_suggestions[0].suggestion_type,
                     "setMode"
                 );
-                assert_eq!(perm_req.permission_suggestions[0].mode, "acceptEdits");
+                assert_eq!(
+                    perm_req.permission_suggestions[0].mode,
+                    Some("acceptEdits".to_string())
+                );
                 assert_eq!(perm_req.permission_suggestions[0].destination, "session");
                 assert_eq!(
                     perm_req.permission_suggestions[1].suggestion_type,
                     "setMode"
                 );
-                assert_eq!(perm_req.permission_suggestions[1].mode, "bypassPermissions");
+                assert_eq!(
+                    perm_req.permission_suggestions[1].mode,
+                    Some("bypassPermissions".to_string())
+                );
                 assert_eq!(perm_req.permission_suggestions[1].destination, "project");
             } else {
                 panic!("Expected CanUseTool payload");
@@ -1612,20 +1630,62 @@ mod tests {
     }
 
     #[test]
-    fn test_permission_suggestion_roundtrip() {
+    fn test_permission_suggestion_set_mode_roundtrip() {
         let suggestion = PermissionSuggestion {
             suggestion_type: "setMode".to_string(),
-            mode: "acceptEdits".to_string(),
             destination: "session".to_string(),
+            mode: Some("acceptEdits".to_string()),
+            behavior: None,
+            rules: None,
         };
 
         let json = serde_json::to_string(&suggestion).unwrap();
         assert!(json.contains("\"type\":\"setMode\""));
         assert!(json.contains("\"mode\":\"acceptEdits\""));
         assert!(json.contains("\"destination\":\"session\""));
+        assert!(!json.contains("\"behavior\""));
+        assert!(!json.contains("\"rules\""));
 
         let parsed: PermissionSuggestion = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, suggestion);
+    }
+
+    #[test]
+    fn test_permission_suggestion_add_rules_roundtrip() {
+        let suggestion = PermissionSuggestion {
+            suggestion_type: "addRules".to_string(),
+            destination: "session".to_string(),
+            mode: None,
+            behavior: Some("allow".to_string()),
+            rules: Some(vec![serde_json::json!({
+                "toolName": "Read",
+                "ruleContent": "//tmp/**"
+            })]),
+        };
+
+        let json = serde_json::to_string(&suggestion).unwrap();
+        assert!(json.contains("\"type\":\"addRules\""));
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"destination\":\"session\""));
+        assert!(json.contains("\"rules\""));
+        assert!(json.contains("\"toolName\":\"Read\""));
+        assert!(!json.contains("\"mode\""));
+
+        let parsed: PermissionSuggestion = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, suggestion);
+    }
+
+    #[test]
+    fn test_permission_suggestion_add_rules_from_real_json() {
+        // Real production message from Claude CLI
+        let json = r#"{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"//tmp/**"}],"behavior":"allow","destination":"session"}"#;
+
+        let parsed: PermissionSuggestion = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.suggestion_type, "addRules");
+        assert_eq!(parsed.destination, "session");
+        assert_eq!(parsed.behavior, Some("allow".to_string()));
+        assert!(parsed.rules.is_some());
+        assert!(parsed.mode.is_none());
     }
 
     // ============================================================================
