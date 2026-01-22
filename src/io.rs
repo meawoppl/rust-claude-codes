@@ -1001,6 +1001,199 @@ impl ClaudeOutput {
         matches!(self, ClaudeOutput::System(_))
     }
 
+    /// Check if this is a system init message
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"system","subtype":"init","session_id":"abc"}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    /// assert!(output.is_system_init());
+    /// ```
+    pub fn is_system_init(&self) -> bool {
+        matches!(self, ClaudeOutput::System(sys) if sys.is_init())
+    }
+
+    /// Get the session ID from any message type that has one.
+    ///
+    /// Returns the session ID from System, Assistant, or Result messages.
+    /// Returns `None` for User, ControlRequest, and ControlResponse messages.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"result","subtype":"success","is_error":false,
+    ///     "duration_ms":100,"duration_api_ms":200,"num_turns":1,
+    ///     "session_id":"my-session","total_cost_usd":0.01}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    /// assert_eq!(output.session_id(), Some("my-session"));
+    /// ```
+    pub fn session_id(&self) -> Option<&str> {
+        match self {
+            ClaudeOutput::System(sys) => sys.data.get("session_id").and_then(|v| v.as_str()),
+            ClaudeOutput::Assistant(ass) => Some(&ass.session_id),
+            ClaudeOutput::Result(res) => Some(&res.session_id),
+            ClaudeOutput::User(_) => None,
+            ClaudeOutput::ControlRequest(_) => None,
+            ClaudeOutput::ControlResponse(_) => None,
+        }
+    }
+
+    /// Get a specific tool use by name from an assistant message.
+    ///
+    /// Returns the first `ToolUseBlock` with the given name, or `None` if this
+    /// is not an assistant message or doesn't contain the specified tool.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"assistant","message":{"id":"msg_1","role":"assistant",
+    ///     "model":"claude-3","content":[{"type":"tool_use","id":"tu_1",
+    ///     "name":"Bash","input":{"command":"ls"}}]},"session_id":"abc"}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    ///
+    /// if let Some(bash) = output.as_tool_use("Bash") {
+    ///     assert_eq!(bash.name, "Bash");
+    /// }
+    /// ```
+    pub fn as_tool_use(&self, tool_name: &str) -> Option<&ToolUseBlock> {
+        match self {
+            ClaudeOutput::Assistant(ass) => {
+                ass.message.content.iter().find_map(|block| match block {
+                    ContentBlock::ToolUse(tu) if tu.name == tool_name => Some(tu),
+                    _ => None,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Get all tool uses from an assistant message.
+    ///
+    /// Returns an iterator over all `ToolUseBlock`s in the message, or an empty
+    /// iterator if this is not an assistant message.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"assistant","message":{"id":"msg_1","role":"assistant",
+    ///     "model":"claude-3","content":[
+    ///         {"type":"tool_use","id":"tu_1","name":"Read","input":{"file_path":"/tmp/a"}},
+    ///         {"type":"tool_use","id":"tu_2","name":"Write","input":{"file_path":"/tmp/b","content":"x"}}
+    ///     ]},"session_id":"abc"}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    ///
+    /// let tools: Vec<_> = output.tool_uses().collect();
+    /// assert_eq!(tools.len(), 2);
+    /// ```
+    pub fn tool_uses(&self) -> impl Iterator<Item = &ToolUseBlock> {
+        let content = match self {
+            ClaudeOutput::Assistant(ass) => Some(&ass.message.content),
+            _ => None,
+        };
+
+        content
+            .into_iter()
+            .flat_map(|c| c.iter())
+            .filter_map(|block| match block {
+                ContentBlock::ToolUse(tu) => Some(tu),
+                _ => None,
+            })
+    }
+
+    /// Get text content from an assistant message.
+    ///
+    /// Returns the concatenated text from all text blocks in the message,
+    /// or `None` if this is not an assistant message or has no text content.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"assistant","message":{"id":"msg_1","role":"assistant",
+    ///     "model":"claude-3","content":[{"type":"text","text":"Hello, world!"}]},
+    ///     "session_id":"abc"}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    /// assert_eq!(output.text_content(), Some("Hello, world!".to_string()));
+    /// ```
+    pub fn text_content(&self) -> Option<String> {
+        match self {
+            ClaudeOutput::Assistant(ass) => {
+                let texts: Vec<&str> = ass
+                    .message
+                    .content
+                    .iter()
+                    .filter_map(|block| match block {
+                        ContentBlock::Text(t) => Some(t.text.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+
+                if texts.is_empty() {
+                    None
+                } else {
+                    Some(texts.join(""))
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Get the assistant message if this is one.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"assistant","message":{"id":"msg_1","role":"assistant",
+    ///     "model":"claude-3","content":[]},"session_id":"abc"}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    ///
+    /// if let Some(assistant) = output.as_assistant() {
+    ///     assert_eq!(assistant.message.model, "claude-3");
+    /// }
+    /// ```
+    pub fn as_assistant(&self) -> Option<&AssistantMessage> {
+        match self {
+            ClaudeOutput::Assistant(ass) => Some(ass),
+            _ => None,
+        }
+    }
+
+    /// Get the result message if this is one.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"result","subtype":"success","is_error":false,
+    ///     "duration_ms":100,"duration_api_ms":200,"num_turns":1,
+    ///     "session_id":"abc","total_cost_usd":0.01}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    ///
+    /// if let Some(result) = output.as_result() {
+    ///     assert!(!result.is_error);
+    /// }
+    /// ```
+    pub fn as_result(&self) -> Option<&ResultMessage> {
+        match self {
+            ClaudeOutput::Result(res) => Some(res),
+            _ => None,
+        }
+    }
+
+    /// Get the system message if this is one.
+    pub fn as_system(&self) -> Option<&SystemMessage> {
+        match self {
+            ClaudeOutput::System(sys) => Some(sys),
+            _ => None,
+        }
+    }
+
     /// Parse a JSON string, handling potential ANSI escape codes and other prefixes
     /// This method will:
     /// 1. First try to parse as-is
@@ -1487,5 +1680,299 @@ mod tests {
         } else {
             panic!("Expected System message");
         }
+    }
+
+    // ============================================================================
+    // Helper Method Tests
+    // ============================================================================
+
+    #[test]
+    fn test_is_system_init() {
+        let init_json = r#"{
+            "type": "system",
+            "subtype": "init",
+            "session_id": "test-session"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(init_json).unwrap();
+        assert!(output.is_system_init());
+
+        let status_json = r#"{
+            "type": "system",
+            "subtype": "status",
+            "session_id": "test-session"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(status_json).unwrap();
+        assert!(!output.is_system_init());
+    }
+
+    #[test]
+    fn test_session_id() {
+        // Result message
+        let result_json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "result-session",
+            "total_cost_usd": 0.01
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(result_json).unwrap();
+        assert_eq!(output.session_id(), Some("result-session"));
+
+        // Assistant message
+        let assistant_json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": []
+            },
+            "session_id": "assistant-session"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(assistant_json).unwrap();
+        assert_eq!(output.session_id(), Some("assistant-session"));
+
+        // System message
+        let system_json = r#"{
+            "type": "system",
+            "subtype": "init",
+            "session_id": "system-session"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(system_json).unwrap();
+        assert_eq!(output.session_id(), Some("system-session"));
+    }
+
+    #[test]
+    fn test_as_tool_use() {
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": [
+                    {"type": "text", "text": "Let me run that command."},
+                    {"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {"command": "ls -la"}},
+                    {"type": "tool_use", "id": "tu_2", "name": "Read", "input": {"file_path": "/tmp/test"}}
+                ]
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        // Find Bash tool
+        let bash = output.as_tool_use("Bash");
+        assert!(bash.is_some());
+        assert_eq!(bash.unwrap().id, "tu_1");
+
+        // Find Read tool
+        let read = output.as_tool_use("Read");
+        assert!(read.is_some());
+        assert_eq!(read.unwrap().id, "tu_2");
+
+        // Non-existent tool
+        assert!(output.as_tool_use("Write").is_none());
+
+        // Not an assistant message
+        let result_json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "abc",
+            "total_cost_usd": 0.01
+        }"#;
+        let result: ClaudeOutput = serde_json::from_str(result_json).unwrap();
+        assert!(result.as_tool_use("Bash").is_none());
+    }
+
+    #[test]
+    fn test_tool_uses() {
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": [
+                    {"type": "text", "text": "Running commands..."},
+                    {"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {"command": "ls"}},
+                    {"type": "tool_use", "id": "tu_2", "name": "Read", "input": {"file_path": "/tmp/a"}},
+                    {"type": "tool_use", "id": "tu_3", "name": "Write", "input": {"file_path": "/tmp/b", "content": "x"}}
+                ]
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        let tools: Vec<_> = output.tool_uses().collect();
+        assert_eq!(tools.len(), 3);
+        assert_eq!(tools[0].name, "Bash");
+        assert_eq!(tools[1].name, "Read");
+        assert_eq!(tools[2].name, "Write");
+    }
+
+    #[test]
+    fn test_text_content() {
+        // Single text block
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": [{"type": "text", "text": "Hello, world!"}]
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert_eq!(output.text_content(), Some("Hello, world!".to_string()));
+
+        // Multiple text blocks
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": [
+                    {"type": "text", "text": "Hello, "},
+                    {"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {}},
+                    {"type": "text", "text": "world!"}
+                ]
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert_eq!(output.text_content(), Some("Hello, world!".to_string()));
+
+        // No text blocks
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": [{"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {}}]
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert_eq!(output.text_content(), None);
+
+        // Not an assistant message
+        let json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "abc",
+            "total_cost_usd": 0.01
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert_eq!(output.text_content(), None);
+    }
+
+    #[test]
+    fn test_as_assistant() {
+        let json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-sonnet-4",
+                "content": []
+            },
+            "session_id": "abc"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        let assistant = output.as_assistant();
+        assert!(assistant.is_some());
+        assert_eq!(assistant.unwrap().message.model, "claude-sonnet-4");
+
+        // Not an assistant
+        let result_json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "abc",
+            "total_cost_usd": 0.01
+        }"#;
+        let result: ClaudeOutput = serde_json::from_str(result_json).unwrap();
+        assert!(result.as_assistant().is_none());
+    }
+
+    #[test]
+    fn test_as_result() {
+        let json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 5,
+            "session_id": "abc",
+            "total_cost_usd": 0.05
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        let result = output.as_result();
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().num_turns, 5);
+        assert_eq!(result.unwrap().total_cost_usd, 0.05);
+
+        // Not a result
+        let assistant_json = r#"{
+            "type": "assistant",
+            "message": {
+                "id": "msg_1",
+                "role": "assistant",
+                "model": "claude-3",
+                "content": []
+            },
+            "session_id": "abc"
+        }"#;
+        let assistant: ClaudeOutput = serde_json::from_str(assistant_json).unwrap();
+        assert!(assistant.as_result().is_none());
+    }
+
+    #[test]
+    fn test_as_system() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "init",
+            "session_id": "abc",
+            "model": "claude-3"
+        }"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        let system = output.as_system();
+        assert!(system.is_some());
+        assert!(system.unwrap().is_init());
+
+        // Not a system message
+        let result_json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "abc",
+            "total_cost_usd": 0.01
+        }"#;
+        let result: ClaudeOutput = serde_json::from_str(result_json).unwrap();
+        assert!(result.as_system().is_none());
     }
 }
