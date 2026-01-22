@@ -1,8 +1,38 @@
 {
   "type": "system",
   "subtype": "init",
-  "session_id": "846f68a7-8f9c-4a74-bfaa-00de4ed361a2",
+  "agents": [
+    "Bash",
+    "general-purpose",
+    "statusline-setup",
+    "Explore",
+    "Plan"
+  ],
+  "apiKeySource": "none",
+  "claude_code_version": "2.1.15",
   "cwd": "/home/meawoppl/repos/rust-claude-codes",
+  "mcp_servers": [],
+  "model": "claude-sonnet-4-5-20250929",
+  "output_style": "default",
+  "permissionMode": "default",
+  "plugins": [
+    {
+      "name": "rust-analyzer-lsp",
+      "path": "/home/meawoppl/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0"
+    }
+  ],
+  "session_id": "1f2f4a66-82a4-42e2-b93d-089998d779e6",
+  "skills": [],
+  "slash_commands": [
+    "compact",
+    "context",
+    "cost",
+    "init",
+    "pr-comments",
+    "release-notes",
+    "review",
+    "security-review"
+  ],
   "tools": [
     "Task",
     "TaskOutput",
@@ -21,8 +51,7 @@
     "AskUserQuestion",
     "Skill",
     "EnterPlanMode",
-    "MCPSearch"
+    "ToolSearch"
   ],
-  "mcp_servers": [],
-  "model": "claude-sonnet-4-5-20250929"
+  "uuid": "7ded771e-9a47-45fd-b1e9-293476b8897d"
 }
