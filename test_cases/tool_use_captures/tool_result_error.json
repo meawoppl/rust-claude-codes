@@ -1,0 +1,1 @@
+{"message":{"content":[{"content":"<tool_use_error>InputValidationError: Read failed due to the following issue:\nThe parameter `offset` type is expected as `number` but provided as `string`</tool_use_error>","is_error":true,"tool_use_id":"toolu_01F5A3vbYenHhtdEV9Zt7arW","type":"tool_result"}],"role":"user"},"session_id":"08cd4ce5-1ce0-4dd4-8e7c-8b69712c514e","type":"user"}

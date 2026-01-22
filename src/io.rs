@@ -440,6 +440,13 @@ pub struct ResultMessage {
     #[serde(default)]
     pub permission_denials: Vec<PermissionDenial>,
 
+    /// Error messages when `is_error` is true.
+    ///
+    /// Contains human-readable error strings (e.g., "No conversation found with session ID: ...").
+    /// This allows typed access to error conditions without needing to serialize to JSON and search.
+    #[serde(default)]
+    pub errors: Vec<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
 }
@@ -1974,5 +1981,80 @@ mod tests {
         }"#;
         let result: ClaudeOutput = serde_json::from_str(result_json).unwrap();
         assert!(result.as_system().is_none());
+    }
+
+    // ============================================================================
+    // ResultMessage Errors Field Tests
+    // ============================================================================
+
+    #[test]
+    fn test_deserialize_result_message_with_errors() {
+        let json = r#"{
+            "type": "result",
+            "subtype": "error_during_execution",
+            "duration_ms": 0,
+            "duration_api_ms": 0,
+            "is_error": true,
+            "num_turns": 0,
+            "session_id": "27934753-425a-4182-892c-6b1c15050c3f",
+            "total_cost_usd": 0,
+            "errors": ["No conversation found with session ID: d56965c9-c855-4042-a8f5-f12bbb14d6f6"],
+            "permission_denials": []
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_error());
+
+        if let ClaudeOutput::Result(res) = output {
+            assert!(res.is_error);
+            assert_eq!(res.errors.len(), 1);
+            assert!(res.errors[0].contains("No conversation found"));
+        } else {
+            panic!("Expected Result message");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_result_message_errors_defaults_empty() {
+        // Test that errors field defaults to empty Vec when not present
+        let json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "123",
+            "total_cost_usd": 0.01
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::Result(res) = output {
+            assert!(res.errors.is_empty());
+        } else {
+            panic!("Expected Result message");
+        }
+    }
+
+    #[test]
+    fn test_result_message_errors_roundtrip() {
+        let json = r#"{
+            "type": "result",
+            "subtype": "error_during_execution",
+            "is_error": true,
+            "duration_ms": 0,
+            "duration_api_ms": 0,
+            "num_turns": 0,
+            "session_id": "test-session",
+            "total_cost_usd": 0.0,
+            "errors": ["Error 1", "Error 2"]
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let reserialized = serde_json::to_string(&output).unwrap();
+
+        // Verify the errors are preserved
+        assert!(reserialized.contains("Error 1"));
+        assert!(reserialized.contains("Error 2"));
     }
 }

@@ -453,6 +453,101 @@ fn test_tool_use_block_try_typed_input_error() {
 }
 
 // ============================================================================
+// Tests for new helper methods with real message captures
+// ============================================================================
+
+/// Test assistant message with usage info and parent_tool_use_id
+#[test]
+fn test_parse_assistant_with_usage_and_parent() {
+    let json_str = include_str!("../test_cases/tool_use_captures/assistant_with_usage.json");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse assistant message with usage");
+
+    // Test is_assistant_message()
+    assert!(output.is_assistant_message());
+
+    // Test session_id() helper
+    assert_eq!(
+        output.session_id(),
+        Some("08cd4ce5-1ce0-4dd4-8e7c-8b69712c514e")
+    );
+
+    // Test as_assistant() helper
+    let assistant = output.as_assistant().expect("Should be assistant");
+    assert_eq!(assistant.message.role, "assistant");
+    assert_eq!(assistant.message.model, "claude-haiku-4-5-20251001");
+
+    // Test tool_uses() helper
+    let tools: Vec<_> = output.tool_uses().collect();
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0].name, "Bash");
+
+    // Test as_tool_use() helper
+    let bash = output.as_tool_use("Bash").expect("Should find Bash tool");
+    assert_eq!(bash.name, "Bash");
+
+    // Test typed_input on the tool
+    let typed = bash.typed_input().expect("Should get typed input");
+    if let ToolInput::Bash(b) = typed {
+        assert!(b.command.contains("grep"));
+    } else {
+        panic!("Expected Bash input");
+    }
+
+    // Test text_content() - should be None since it's only tool_use
+    assert!(output.text_content().is_none());
+
+    // Check parent_tool_use_id is preserved
+    assert_eq!(
+        assistant.parent_tool_use_id,
+        Some("toolu_012hZhNyfdf6Y156ryHJSbxd".to_string())
+    );
+
+    // Check usage is preserved
+    let usage = assistant.message.usage.as_ref().expect("Should have usage");
+    assert_eq!(usage.input_tokens, 5);
+    assert_eq!(usage.output_tokens, 250);
+}
+
+/// Test tool_result with error content
+#[test]
+fn test_parse_tool_result_error_message() {
+    let json_str = include_str!("../test_cases/tool_use_captures/tool_result_error.json");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse tool result error");
+
+    // Should not be assistant
+    assert!(!output.is_assistant_message());
+
+    // Test session_id() returns None for user messages
+    assert!(output.session_id().is_none());
+
+    // Test is_error() - should be false since this is a user message, not result
+    assert!(!output.is_error());
+
+    // Verify it's a user message with tool_result content
+    if let ClaudeOutput::User(user) = output {
+        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.content.len(), 1);
+
+        if let ContentBlock::ToolResult(result) = &user.message.content[0] {
+            assert_eq!(result.is_error, Some(true));
+            assert_eq!(result.tool_use_id, "toolu_01F5A3vbYenHhtdEV9Zt7arW");
+            // Check error message content - ToolResultContent is an enum
+            if let Some(claude_codes::ToolResultContent::Text(text)) = &result.content {
+                assert!(text.contains("InputValidationError"));
+            } else {
+                panic!("Expected Text content in tool result");
+            }
+        } else {
+            panic!("Expected ToolResult content block");
+        }
+    } else {
+        panic!("Expected User message");
+    }
+}
+
+// ============================================================================
 // Roundtrip serialization tests
 // ============================================================================
 
