@@ -509,7 +509,7 @@ fn test_parse_assistant_with_usage_and_parent() {
     assert_eq!(usage.output_tokens, 250);
 }
 
-/// Test tool_result with error content
+/// Test tool_result with error content (string form)
 #[test]
 fn test_parse_tool_result_error_message() {
     let json_str = include_str!("../test_cases/tool_use_captures/tool_result_error.json");
@@ -538,6 +538,42 @@ fn test_parse_tool_result_error_message() {
                 assert!(text.contains("InputValidationError"));
             } else {
                 panic!("Expected Text content in tool result");
+            }
+        } else {
+            panic!("Expected ToolResult content block");
+        }
+    } else {
+        panic!("Expected User message");
+    }
+}
+
+/// Test tool_result with structured/array-form content (for WASM consumers - issue #42)
+#[test]
+fn test_parse_tool_result_structured_content() {
+    let json_str = include_str!("../test_cases/tool_use_captures/tool_result_structured.json");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse tool result with structured content");
+
+    // Verify it's a user message with tool_result content
+    if let ClaudeOutput::User(user) = output {
+        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.content.len(), 1);
+
+        if let ContentBlock::ToolResult(result) = &user.message.content[0] {
+            assert_eq!(result.tool_use_id, "toolu_01ABC123def456");
+            // Check structured content - ToolResultContent is an enum with Structured variant
+            if let Some(claude_codes::ToolResultContent::Structured(structured)) = &result.content {
+                // Structured content is Vec<Value>
+                assert!(!structured.is_empty());
+                // First element should have type: "text"
+                let first = &structured[0];
+                assert_eq!(first.get("type").and_then(|v| v.as_str()), Some("text"));
+                // Verify it contains actual text content
+                let text = first.get("text").and_then(|v| v.as_str());
+                assert!(text.is_some());
+                assert!(text.unwrap().contains("React"));
+            } else {
+                panic!("Expected Structured content in tool result, got: {:?}", result.content);
             }
         } else {
             panic!("Expected ToolResult content block");
