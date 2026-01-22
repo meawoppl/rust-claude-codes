@@ -583,6 +583,47 @@ fn test_parse_tool_result_structured_content() {
     }
 }
 
+/// Test tool_result with multiple text items in structured content (real message from production)
+#[test]
+fn test_parse_tool_result_multi_text_structured() {
+    let json_str = include_str!("../test_cases/tool_use_captures/tool_result_multi_text.json");
+    let output: ClaudeOutput =
+        serde_json::from_str(json_str).expect("Failed to parse tool result with multi-text content");
+
+    // Verify it's a user message with tool_result content
+    if let ClaudeOutput::User(user) = output {
+        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.content.len(), 1);
+
+        if let ContentBlock::ToolResult(result) = &user.message.content[0] {
+            assert_eq!(result.tool_use_id, "toolu_012hZhNyfdf6Y156ryHJSbxd");
+            // Check structured content has multiple text items
+            if let Some(claude_codes::ToolResultContent::Structured(structured)) = &result.content {
+                // Should have 2 text items (the main analysis and the agentId)
+                assert_eq!(structured.len(), 2);
+
+                // First element should have type: "text" with the analysis
+                let first = &structured[0];
+                assert_eq!(first.get("type").and_then(|v| v.as_str()), Some("text"));
+                let text = first.get("text").and_then(|v| v.as_str()).unwrap();
+                assert!(text.contains("ADSBView.tsx Component Analysis"));
+
+                // Second element should have the agentId
+                let second = &structured[1];
+                assert_eq!(second.get("type").and_then(|v| v.as_str()), Some("text"));
+                let agent_text = second.get("text").and_then(|v| v.as_str()).unwrap();
+                assert!(agent_text.contains("agentId"));
+            } else {
+                panic!("Expected Structured content in tool result, got: {:?}", result.content);
+            }
+        } else {
+            panic!("Expected ToolResult content block");
+        }
+    } else {
+        panic!("Expected User message");
+    }
+}
+
 // ============================================================================
 // Roundtrip serialization tests
 // ============================================================================
