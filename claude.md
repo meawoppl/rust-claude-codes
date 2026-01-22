@@ -163,6 +163,7 @@ When I say:
 - **"complete"**: Run `cargo fmt --all`, fix clippy issues with `cargo clippy --all-targets --all-features -- -D warnings`, then commit and push
 - **"freshen"**: Pull main and merge into the current branch
 - **"merge main"**: Pull the remote main branch and merge it into the current working branch
+- **"integration tests"**: Run `cargo test --features integration-tests` (requires Claude CLI installed and API key configured)
 
 ## Development Philosophy
 
