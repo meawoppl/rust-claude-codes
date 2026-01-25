@@ -407,6 +407,10 @@ async fn test_file_edit_tool_use() {
 }
 
 /// Test capturing raw tool blocks for deserialization testing
+///
+/// This test only writes to the test_cases directory on parse failures,
+/// appending new files with incrementing numbers. This helps capture
+/// new message formats that need to be added to the test suite.
 #[tokio::test]
 async fn test_capture_tool_blocks_for_testing() {
     use std::fs;
@@ -430,6 +434,15 @@ async fn test_capture_tool_blocks_for_testing() {
     let captures_dir = Path::new("test_cases/tool_use_captures");
     fs::create_dir_all(captures_dir).ok();
 
+    // Find the next available file number by checking existing files
+    let mut next_num = 0;
+    while captures_dir
+        .join(format!("tool_msg_{}.json", next_num))
+        .exists()
+    {
+        next_num += 1;
+    }
+
     let mut capture_count = 0;
     let mut message_count = 0;
 
@@ -438,18 +451,6 @@ async fn test_capture_tool_blocks_for_testing() {
 
         match result {
             Ok(output) => {
-                // Serialize the entire message for analysis
-                if let Ok(json) = serde_json::to_string_pretty(&output) {
-                    // Save messages that might contain tool use
-                    if json.contains("tool") || json.contains("Tool") {
-                        let filename = format!("tool_msg_{}.json", capture_count);
-                        let filepath = captures_dir.join(filename);
-                        fs::write(&filepath, &json).ok();
-                        println!("Captured potential tool message to {:?}", filepath);
-                        capture_count += 1;
-                    }
-                }
-
                 // Log what we're seeing
                 if let ClaudeOutput::Assistant(msg) = &output {
                     for content in &msg.message.content {
@@ -463,12 +464,17 @@ async fn test_capture_tool_blocks_for_testing() {
                 }
             }
             Err(e) => {
-                eprintln!("Parse error (might be new message type): {}", e);
-                // Save error details for analysis
-                let filename = format!("error_msg_{}.txt", capture_count);
-                let filepath = captures_dir.join(filename);
-                fs::write(&filepath, format!("Error: {}", e)).ok();
-                println!("Captured error to {:?}", filepath);
+                // Only capture on parse failures - these are new message types we need to handle
+                eprintln!("Parse error (new message type to handle): {}", e);
+
+                // Get the raw JSON from the error if possible
+                let error_text = format!("{}", e);
+                let filename = format!("tool_msg_{}.json", next_num + capture_count);
+                let filepath = captures_dir.join(&filename);
+
+                // Try to extract raw JSON from the error, or save error details
+                fs::write(&filepath, format!("// Parse error: {}\n{}", e, error_text)).ok();
+                println!("Captured parse failure to {:?}", filepath);
                 capture_count += 1;
             }
         }
@@ -478,7 +484,12 @@ async fn test_capture_tool_blocks_for_testing() {
         }
     }
 
-    println!("Captured {} potential tool messages", capture_count);
+    if capture_count > 0 {
+        println!(
+            "Captured {} new message types that failed to parse",
+            capture_count
+        );
+    }
     assert!(message_count > 0, "Should have received messages");
 }
 

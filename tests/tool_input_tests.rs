@@ -196,6 +196,33 @@ fn test_parse_result_with_permission_denials() {
     }
 }
 
+/// Test parsing result message with uuid field (tool_msg_8.json)
+#[test]
+fn test_parse_result_with_uuid() {
+    let json_str = include_str!("../test_cases/tool_use_captures/tool_msg_8.json");
+    let output: ClaudeOutput = serde_json::from_str(json_str).expect("Failed to parse");
+
+    if let ClaudeOutput::Result(result) = output {
+        assert!(!result.is_error);
+        assert_eq!(result.num_turns, 4);
+        assert_eq!(result.permission_denials.len(), 2);
+
+        // Verify the new uuid field is parsed
+        assert!(result.uuid.is_some());
+        let uuid = result.uuid.as_ref().unwrap();
+        assert!(uuid.contains("-"), "UUID should contain hyphens");
+        println!("Parsed result with uuid: {}", uuid);
+
+        // Verify errors array (empty in this case)
+        assert!(result.errors.is_empty());
+
+        // Verify usage info
+        assert!(result.usage.is_some());
+    } else {
+        panic!("Expected Result message");
+    }
+}
+
 // ============================================================================
 // Tests for ToolInput enum deserialization
 // ============================================================================
