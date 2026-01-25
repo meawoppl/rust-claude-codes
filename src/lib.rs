@@ -120,7 +120,10 @@ pub mod version;
 
 // Core exports always available
 pub use error::{Error, Result};
-pub use io::{AssistantMessageContent, ClaudeInput, ClaudeOutput, ParseError};
+pub use io::{
+    AnthropicError, AnthropicErrorDetails, AssistantMessageContent, ClaudeInput, ClaudeOutput,
+    ParseError,
+};
 pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;

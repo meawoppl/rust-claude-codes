@@ -66,6 +66,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`decision_reason` and `tool_use_id` fields on `ToolPermissionRequest`** - These fields are now exposed for consumers that need them when building custom permission handling logic. The `tool_use_id` is particularly useful for correlating permission requests with tool uses in the message stream.
 
+- **`ClaudeOutput::Error` variant for Anthropic API errors** - New variant to capture API errors (500, 529 overloaded, rate limits, etc.) that were previously unparsed.
+
+  ```rust
+  use claude_codes::ClaudeOutput;
+
+  match output {
+      ClaudeOutput::Error(err) => {
+          if err.is_overloaded() {
+              println!("API overloaded, retrying...");
+          } else if err.is_rate_limited() {
+              println!("Rate limited: {}", err.error.message);
+          } else {
+              println!("API error: {}", err.error.message);
+          }
+      }
+      // ... handle other variants
+  }
+  ```
+
+  Helper methods on `AnthropicError`:
+  - `is_overloaded()` - HTTP 529 overloaded error
+  - `is_server_error()` - HTTP 500 server error
+  - `is_rate_limited()` - HTTP 429 rate limit error
+  - `is_authentication_error()` - HTTP 401 auth error
+  - `is_invalid_request()` - HTTP 400 invalid request
+
+  Helper methods on `ClaudeOutput`:
+  - `is_api_error()` - Check if this is an error variant
+  - `as_anthropic_error()` - Get the error if this is one
+
 ### Changed
 
 - `allow_with_permissions` method documentation clarified to note it takes raw `Vec<Value>`. For type safety, prefer the new `allow_and_remember` method.
