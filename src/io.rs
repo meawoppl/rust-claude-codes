@@ -617,6 +617,12 @@ pub struct ToolPermissionRequest {
     /// Path that was blocked (if this is a retry after path-based denial)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blocked_path: Option<String>,
+    /// Reason why this tool use requires approval
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_reason: Option<String>,
+    /// The tool use ID for this request
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
 }
 
 impl ToolPermissionRequest {
@@ -631,6 +637,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"file_path": "/tmp/test.txt"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// let response = req.allow("req-123");
     /// ```
@@ -652,6 +660,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"file_path": "/etc/passwd", "content": "test"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// // Redirect to safe location
     /// let safe_input = json!({"file_path": "/tmp/safe/passwd", "content": "test"});
@@ -687,6 +697,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"command": "sudo rm -rf /"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// let response = req.deny("Dangerous command blocked by policy", "req-123");
     /// ```
@@ -1445,6 +1457,8 @@ mod tests {
             input: serde_json::json!({"file_path": "/tmp/test.txt"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.allow("req-123");
@@ -1465,6 +1479,8 @@ mod tests {
             input: serde_json::json!({"file_path": "/etc/passwd", "content": "test"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let modified_input = serde_json::json!({
@@ -1486,6 +1502,8 @@ mod tests {
             input: serde_json::json!({"command": "sudo rm -rf /"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.deny("Dangerous command blocked", "req-789");
@@ -1504,6 +1522,8 @@ mod tests {
             input: serde_json::json!({"command": "rm -rf /"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.deny_and_stop("Security violation", "req-000");
