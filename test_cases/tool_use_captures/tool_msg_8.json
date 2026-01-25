@@ -1,0 +1,41 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 11698,
+  "duration_api_ms": 12260,
+  "num_turns": 4,
+  "result": "Here are the results:\n\n1. **List files in /tmp**: This operation was blocked for security reasons. Claude Code restricts file listing to the allowed working directory: `/home/meawoppl/repos/rust-claude-codes`\n\n2. **Current date**: Wed Jan 21 04:43:38 PM PST 2026\n\n3. **Check if /etc/passwd exists**: This command requires approval due to security restrictions on accessing system files outside the working directory.\n\nThe tool operates within a sandboxed environment that restricts access to specific directories for security purposes.",
+  "session_id": "f32c922d-18b0-4ae5-bb71-bfe3cc483989",
+  "total_cost_usd": 0.03418065,
+  "usage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 4017,
+    "cache_read_input_tokens": 34053,
+    "output_tokens": 349,
+    "server_tool_use": {
+      "web_search_requests": 0
+    },
+    "service_tier": "standard"
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "ls -la /tmp",
+        "description": "List files in /tmp directory"
+      },
+      "tool_use_id": "toolu_01LAbvnWGchfLa9s1xYBbUDo"
+    },
+    {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "test -f /etc/passwd && echo \"File exists\" || echo \"File does not exist\"",
+        "description": "Check if /etc/passwd exists"
+      },
+      "tool_use_id": "toolu_0134jS6ZtvRoKiZdDkZGt2mL"
+    }
+  ],
+  "errors": [],
+  "uuid": "005abadc-b3cf-4a2c-8b81-8a21fe1d8012"
+}
