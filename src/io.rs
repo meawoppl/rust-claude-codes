@@ -118,6 +118,42 @@ pub enum ClaudeOutput {
 
     /// API error from Anthropic (500, 529 overloaded, etc.)
     Error(AnthropicError),
+
+    /// Unparsed output - raw content that couldn't be parsed as a known type.
+    ///
+    /// This variant captures lines that don't match any known message type,
+    /// allowing the stream to continue without failing. This can happen when:
+    /// - The Claude CLI emits non-JSON output (e.g., raw text, partial data)
+    /// - A new message type is added that this library doesn't yet support
+    /// - The stream contains corrupted or interleaved data
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// // Parse some invalid/unknown content permissively
+    /// let output = ClaudeOutput::parse_json_permissive("not valid json at all");
+    /// assert!(output.is_unparsed());
+    ///
+    /// if let ClaudeOutput::Unparsed(unparsed) = output {
+    ///     println!("Raw content: {}", unparsed.raw);
+    /// }
+    /// ```
+    #[serde(skip)]
+    Unparsed(UnparsedOutput),
+}
+
+/// Raw unparsed output from the Claude CLI.
+///
+/// This struct captures content that couldn't be deserialized into a known
+/// `ClaudeOutput` variant. It preserves both the raw string and any parse
+/// error information for debugging.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnparsedOutput {
+    /// The raw string content that was received
+    pub raw: String,
+    /// The error message explaining why parsing failed (if applicable)
+    pub error: Option<String>,
 }
 
 /// API error message from Anthropic.
@@ -1348,6 +1384,7 @@ impl ClaudeOutput {
             ClaudeOutput::ControlRequest(_) => "control_request".to_string(),
             ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
             ClaudeOutput::Error(_) => "error".to_string(),
+            ClaudeOutput::Unparsed(_) => "unparsed".to_string(),
         }
     }
 
@@ -1364,6 +1401,11 @@ impl ClaudeOutput {
     /// Check if this is an Anthropic API error
     pub fn is_api_error(&self) -> bool {
         matches!(self, ClaudeOutput::Error(_))
+    }
+
+    /// Check if this is unparsed content
+    pub fn is_unparsed(&self) -> bool {
+        matches!(self, ClaudeOutput::Unparsed(_))
     }
 
     /// Get the control request if this is one
@@ -1392,6 +1434,27 @@ impl ClaudeOutput {
     pub fn as_anthropic_error(&self) -> Option<&AnthropicError> {
         match self {
             ClaudeOutput::Error(err) => Some(err),
+            _ => None,
+        }
+    }
+
+    /// Get the unparsed output if this is one
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let output = ClaudeOutput::parse_json_permissive("not valid json");
+    /// if let Some(unparsed) = output.as_unparsed() {
+    ///     println!("Raw content: {}", unparsed.raw);
+    ///     if let Some(ref err) = unparsed.error {
+    ///         println!("Parse error: {}", err);
+    ///     }
+    /// }
+    /// ```
+    pub fn as_unparsed(&self) -> Option<&UnparsedOutput> {
+        match self {
+            ClaudeOutput::Unparsed(unparsed) => Some(unparsed),
             _ => None,
         }
     }
@@ -1449,6 +1512,7 @@ impl ClaudeOutput {
             ClaudeOutput::ControlRequest(_) => None,
             ClaudeOutput::ControlResponse(_) => None,
             ClaudeOutput::Error(_) => None,
+            ClaudeOutput::Unparsed(_) => None,
         }
     }
 
@@ -1644,6 +1708,39 @@ impl ClaudeOutput {
             raw_json: value,
             error_message: e.to_string(),
         })
+    }
+
+    /// Parse a JSON string permissively, never failing.
+    ///
+    /// This method first attempts `parse_json_tolerant`. If that fails, it returns
+    /// a `ClaudeOutput::Unparsed` variant containing the raw content and error.
+    ///
+    /// Use this when you want to continue processing the stream even if some
+    /// messages can't be parsed. This is useful for:
+    /// - Handling corrupted or interleaved data
+    /// - Forward compatibility with new message types
+    /// - Debugging issues with unexpected output
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// // Valid JSON parses normally
+    /// let output = ClaudeOutput::parse_json_permissive(r#"{"type":"system","subtype":"init","session_id":"abc"}"#);
+    /// assert!(output.is_system_message());
+    ///
+    /// // Invalid content becomes Unparsed instead of an error
+    /// let output = ClaudeOutput::parse_json_permissive("random garbage text");
+    /// assert!(output.is_unparsed());
+    /// ```
+    pub fn parse_json_permissive(s: &str) -> ClaudeOutput {
+        match Self::parse_json_tolerant(s) {
+            Ok(output) => output,
+            Err(parse_error) => ClaudeOutput::Unparsed(UnparsedOutput {
+                raw: s.to_string(),
+                error: Some(parse_error.error_message),
+            }),
+        }
     }
 }
 
@@ -2894,5 +2991,53 @@ mod tests {
         let json = r#"{"type":"error","error":{"type":"api_error","message":"Error"}}"#;
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         assert!(output.session_id().is_none());
+    }
+
+    #[test]
+    fn test_unparsed_output_from_invalid_json() {
+        let raw = "this is not valid json at all";
+        let output = ClaudeOutput::parse_json_permissive(raw);
+
+        assert!(output.is_unparsed());
+        assert_eq!(output.message_type(), "unparsed");
+        assert!(output.session_id().is_none());
+
+        let unparsed = output.as_unparsed().unwrap();
+        assert_eq!(unparsed.raw, raw);
+        assert!(unparsed.error.is_some());
+        assert!(unparsed.error.as_ref().unwrap().contains("Invalid JSON"));
+    }
+
+    #[test]
+    fn test_unparsed_output_from_unknown_type() {
+        // Valid JSON but unknown "type" field
+        let raw = r#"{"type":"unknown_new_type","data":"something"}"#;
+        let output = ClaudeOutput::parse_json_permissive(raw);
+
+        assert!(output.is_unparsed());
+        let unparsed = output.as_unparsed().unwrap();
+        assert_eq!(unparsed.raw, raw);
+        assert!(unparsed.error.is_some());
+    }
+
+    #[test]
+    fn test_parse_json_permissive_valid_input() {
+        let json = r#"{"type":"system","subtype":"init","session_id":"abc"}"#;
+        let output = ClaudeOutput::parse_json_permissive(json);
+
+        assert!(!output.is_unparsed());
+        assert!(output.is_system_message());
+    }
+
+    #[test]
+    fn test_unparsed_output_raw_code_fragment() {
+        // This simulates the actual bug scenario - raw Rust code in the stream
+        let raw = r#"),\n                                        )\n                                        .execute(&mut conn)\n"#;
+        let output = ClaudeOutput::parse_json_permissive(raw);
+
+        assert!(output.is_unparsed());
+        let unparsed = output.as_unparsed().unwrap();
+        assert!(unparsed.raw.contains("execute"));
+        assert!(unparsed.error.is_some());
     }
 }

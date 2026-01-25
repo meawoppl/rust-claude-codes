@@ -245,5 +245,12 @@ fn handle_output(output: ClaudeOutput) {
                 eprintln!("   Request ID: {}", req_id);
             }
         }
+        ClaudeOutput::Unparsed(unparsed) => {
+            eprintln!("\n⚠️  UNPARSED OUTPUT:");
+            eprintln!("   Raw: {}", unparsed.raw);
+            if let Some(ref err) = unparsed.error {
+                eprintln!("   Error: {}", err);
+            }
+        }
     }
 }
