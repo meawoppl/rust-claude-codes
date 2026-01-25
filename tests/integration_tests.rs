@@ -407,6 +407,10 @@ async fn test_file_edit_tool_use() {
 }
 
 /// Test capturing raw tool blocks for deserialization testing
+///
+/// NOTE: This test writes captures to a temp directory to avoid overwriting
+/// committed test fixtures. To update the test fixtures, manually copy
+/// interesting captures from the temp dir to test_cases/tool_use_captures/
 #[tokio::test]
 async fn test_capture_tool_blocks_for_testing() {
     use std::fs;
@@ -427,7 +431,8 @@ async fn test_capture_tool_blocks_for_testing() {
         .await
         .expect("Failed to send query");
 
-    let captures_dir = Path::new("test_cases/tool_use_captures");
+    // Write to temp directory to avoid dirtying committed test fixtures
+    let captures_dir = Path::new("/tmp/claude-codes-test-captures");
     fs::create_dir_all(captures_dir).ok();
 
     let mut capture_count = 0;
