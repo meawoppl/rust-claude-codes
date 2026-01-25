@@ -115,6 +115,86 @@ pub enum ClaudeOutput {
 
     /// Control response from CLI (ack for initialization, etc.)
     ControlResponse(ControlResponse),
+
+    /// API error from Anthropic (500, 529 overloaded, etc.)
+    Error(AnthropicError),
+}
+
+/// API error message from Anthropic.
+///
+/// When Claude Code encounters an API error (e.g., 500, 529 overloaded), it outputs
+/// a JSON message with `type: "error"`. This struct captures that error information.
+///
+/// # Example JSON
+///
+/// ```json
+/// {
+///   "type": "error",
+///   "error": {
+///     "type": "api_error",
+///     "message": "Internal server error"
+///   },
+///   "request_id": "req_011CXPC6BqUogB959LWEf52X"
+/// }
+/// ```
+///
+/// # Example
+///
+/// ```
+/// use claude_codes::ClaudeOutput;
+///
+/// let json = r#"{"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_123"}"#;
+/// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+///
+/// if let ClaudeOutput::Error(err) = output {
+///     println!("Error type: {}", err.error.error_type);
+///     println!("Message: {}", err.error.message);
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AnthropicError {
+    /// The nested error details
+    pub error: AnthropicErrorDetails,
+    /// The request ID for debugging/support
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+
+impl AnthropicError {
+    /// Check if this is an overloaded error (HTTP 529)
+    pub fn is_overloaded(&self) -> bool {
+        self.error.error_type == "overloaded_error"
+    }
+
+    /// Check if this is a server error (HTTP 500)
+    pub fn is_server_error(&self) -> bool {
+        self.error.error_type == "api_error"
+    }
+
+    /// Check if this is an invalid request error (HTTP 400)
+    pub fn is_invalid_request(&self) -> bool {
+        self.error.error_type == "invalid_request_error"
+    }
+
+    /// Check if this is an authentication error (HTTP 401)
+    pub fn is_authentication_error(&self) -> bool {
+        self.error.error_type == "authentication_error"
+    }
+
+    /// Check if this is a rate limit error (HTTP 429)
+    pub fn is_rate_limited(&self) -> bool {
+        self.error.error_type == "rate_limit_error"
+    }
+}
+
+/// Details of an Anthropic API error.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AnthropicErrorDetails {
+    /// The type of error (e.g., "api_error", "overloaded_error", "invalid_request_error")
+    #[serde(rename = "type")]
+    pub error_type: String,
+    /// Human-readable error message
+    pub message: String,
 }
 
 /// User message
@@ -552,6 +632,161 @@ pub enum ControlRequestPayload {
     Initialize(InitializeRequest),
 }
 
+/// A permission to grant for "remember this decision" functionality.
+///
+/// When responding to a tool permission request, you can include permissions
+/// that should be granted to avoid repeated prompts for similar actions.
+///
+/// # Example
+///
+/// ```
+/// use claude_codes::Permission;
+///
+/// // Grant permission for a specific bash command
+/// let perm = Permission::allow_tool("Bash", "npm test");
+///
+/// // Grant permission to set a mode for the session
+/// let mode_perm = Permission::set_mode("acceptEdits", "session");
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Permission {
+    /// The type of permission (e.g., "addRules", "setMode")
+    #[serde(rename = "type")]
+    pub permission_type: String,
+    /// Where to apply this permission (e.g., "session", "project")
+    pub destination: String,
+    /// The permission mode (for setMode type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// The behavior (for addRules type, e.g., "allow", "deny")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<String>,
+    /// The rules to add (for addRules type)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules: Option<Vec<PermissionRule>>,
+}
+
+/// A rule within a permission grant.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionRule {
+    /// The name of the tool this rule applies to
+    #[serde(rename = "toolName")]
+    pub tool_name: String,
+    /// The rule content (glob pattern or command pattern)
+    #[serde(rename = "ruleContent")]
+    pub rule_content: String,
+}
+
+impl Permission {
+    /// Create a permission to allow a specific tool with a rule pattern.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::Permission;
+    ///
+    /// // Allow "npm test" bash command for this session
+    /// let perm = Permission::allow_tool("Bash", "npm test");
+    ///
+    /// // Allow reading from /tmp directory
+    /// let read_perm = Permission::allow_tool("Read", "/tmp/**");
+    /// ```
+    pub fn allow_tool(tool_name: impl Into<String>, rule_content: impl Into<String>) -> Self {
+        Permission {
+            permission_type: "addRules".to_string(),
+            destination: "session".to_string(),
+            mode: None,
+            behavior: Some("allow".to_string()),
+            rules: Some(vec![PermissionRule {
+                tool_name: tool_name.into(),
+                rule_content: rule_content.into(),
+            }]),
+        }
+    }
+
+    /// Create a permission to allow a tool with a specific destination.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::Permission;
+    ///
+    /// // Allow for the entire project, not just session
+    /// let perm = Permission::allow_tool_with_destination("Bash", "npm test", "project");
+    /// ```
+    pub fn allow_tool_with_destination(
+        tool_name: impl Into<String>,
+        rule_content: impl Into<String>,
+        destination: impl Into<String>,
+    ) -> Self {
+        Permission {
+            permission_type: "addRules".to_string(),
+            destination: destination.into(),
+            mode: None,
+            behavior: Some("allow".to_string()),
+            rules: Some(vec![PermissionRule {
+                tool_name: tool_name.into(),
+                rule_content: rule_content.into(),
+            }]),
+        }
+    }
+
+    /// Create a permission to set a mode (like acceptEdits or bypassPermissions).
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::Permission;
+    ///
+    /// // Accept all edits for this session
+    /// let perm = Permission::set_mode("acceptEdits", "session");
+    /// ```
+    pub fn set_mode(mode: impl Into<String>, destination: impl Into<String>) -> Self {
+        Permission {
+            permission_type: "setMode".to_string(),
+            destination: destination.into(),
+            mode: Some(mode.into()),
+            behavior: None,
+            rules: None,
+        }
+    }
+
+    /// Create a permission from a PermissionSuggestion.
+    ///
+    /// This is useful when you want to grant a permission that Claude suggested.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::{Permission, PermissionSuggestion};
+    ///
+    /// // Convert a suggestion to a permission for the response
+    /// let suggestion = PermissionSuggestion {
+    ///     suggestion_type: "setMode".to_string(),
+    ///     destination: "session".to_string(),
+    ///     mode: Some("acceptEdits".to_string()),
+    ///     behavior: None,
+    ///     rules: None,
+    /// };
+    /// let perm = Permission::from_suggestion(&suggestion);
+    /// ```
+    pub fn from_suggestion(suggestion: &PermissionSuggestion) -> Self {
+        Permission {
+            permission_type: suggestion.suggestion_type.clone(),
+            destination: suggestion.destination.clone(),
+            mode: suggestion.mode.clone(),
+            behavior: suggestion.behavior.clone(),
+            rules: suggestion.rules.as_ref().map(|rules| {
+                rules
+                    .iter()
+                    .filter_map(|v| {
+                        Some(PermissionRule {
+                            tool_name: v.get("toolName")?.as_str()?.to_string(),
+                            rule_content: v.get("ruleContent")?.as_str()?.to_string(),
+                        })
+                    })
+                    .collect()
+            }),
+        }
+    }
+}
+
 /// A suggested permission for tool approval.
 ///
 /// When Claude requests tool permission, it may include suggestions for
@@ -617,6 +852,12 @@ pub struct ToolPermissionRequest {
     /// Path that was blocked (if this is a retry after path-based denial)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blocked_path: Option<String>,
+    /// Reason why this tool use requires approval
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_reason: Option<String>,
+    /// The tool use ID for this request
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
 }
 
 impl ToolPermissionRequest {
@@ -631,6 +872,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"file_path": "/tmp/test.txt"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// let response = req.allow("req-123");
     /// ```
@@ -652,6 +895,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"file_path": "/etc/passwd", "content": "test"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// // Redirect to safe location
     /// let safe_input = json!({"file_path": "/tmp/safe/passwd", "content": "test"});
@@ -661,7 +906,9 @@ impl ToolPermissionRequest {
         ControlResponse::from_result(request_id, PermissionResult::allow(modified_input))
     }
 
-    /// Allow with updated permissions list.
+    /// Allow with updated permissions list (raw JSON Values).
+    ///
+    /// Prefer using `allow_and_remember` for type safety.
     pub fn allow_with_permissions(
         &self,
         modified_input: Value,
@@ -672,6 +919,89 @@ impl ToolPermissionRequest {
             request_id,
             PermissionResult::allow_with_permissions(modified_input, permissions),
         )
+    }
+
+    /// Allow the tool and grant permissions for "remember this decision".
+    ///
+    /// This is the ergonomic way to allow a tool while also granting permissions
+    /// so similar actions won't require approval in the future.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::{ToolPermissionRequest, Permission};
+    /// use serde_json::json;
+    ///
+    /// let req = ToolPermissionRequest {
+    ///     tool_name: "Bash".to_string(),
+    ///     input: json!({"command": "npm test"}),
+    ///     permission_suggestions: vec![],
+    ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
+    /// };
+    ///
+    /// // Allow and remember this decision for the session
+    /// let response = req.allow_and_remember(
+    ///     vec![Permission::allow_tool("Bash", "npm test")],
+    ///     "req-123",
+    /// );
+    /// ```
+    pub fn allow_and_remember(
+        &self,
+        permissions: Vec<Permission>,
+        request_id: &str,
+    ) -> ControlResponse {
+        ControlResponse::from_result(
+            request_id,
+            PermissionResult::allow_with_typed_permissions(self.input.clone(), permissions),
+        )
+    }
+
+    /// Allow the tool with modified input and grant permissions.
+    ///
+    /// Combines input modification with "remember this decision" functionality.
+    pub fn allow_with_and_remember(
+        &self,
+        modified_input: Value,
+        permissions: Vec<Permission>,
+        request_id: &str,
+    ) -> ControlResponse {
+        ControlResponse::from_result(
+            request_id,
+            PermissionResult::allow_with_typed_permissions(modified_input, permissions),
+        )
+    }
+
+    /// Allow the tool and remember using the first permission suggestion.
+    ///
+    /// This is a convenience method for the common case of accepting Claude's
+    /// first suggested permission (usually the most relevant one).
+    ///
+    /// Returns `None` if there are no permission suggestions.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ToolPermissionRequest;
+    /// use serde_json::json;
+    ///
+    /// let req = ToolPermissionRequest {
+    ///     tool_name: "Bash".to_string(),
+    ///     input: json!({"command": "npm test"}),
+    ///     permission_suggestions: vec![],  // Would have suggestions in real use
+    ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
+    /// };
+    ///
+    /// // Try to allow with first suggestion, or just allow without remembering
+    /// let response = req.allow_and_remember_suggestion("req-123")
+    ///     .unwrap_or_else(|| req.allow("req-123"));
+    /// ```
+    pub fn allow_and_remember_suggestion(&self, request_id: &str) -> Option<ControlResponse> {
+        self.permission_suggestions.first().map(|suggestion| {
+            let perm = Permission::from_suggestion(suggestion);
+            self.allow_and_remember(vec![perm], request_id)
+        })
     }
 
     /// Deny the tool execution.
@@ -687,6 +1017,8 @@ impl ToolPermissionRequest {
     ///     input: json!({"command": "sudo rm -rf /"}),
     ///     permission_suggestions: vec![],
     ///     blocked_path: None,
+    ///     decision_reason: None,
+    ///     tool_use_id: None,
     /// };
     /// let response = req.deny("Dangerous command blocked by policy", "req-123");
     /// ```
@@ -737,11 +1069,39 @@ impl PermissionResult {
         }
     }
 
-    /// Create an allow result with permissions
+    /// Create an allow result with raw permissions (as JSON Values).
+    ///
+    /// Prefer using `allow_with_typed_permissions` for type safety.
     pub fn allow_with_permissions(input: Value, permissions: Vec<Value>) -> Self {
         PermissionResult::Allow {
             updated_input: input,
             updated_permissions: Some(permissions),
+        }
+    }
+
+    /// Create an allow result with typed permissions.
+    ///
+    /// This is the preferred way to grant permissions for "remember this decision"
+    /// functionality.
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::{Permission, PermissionResult};
+    /// use serde_json::json;
+    ///
+    /// let result = PermissionResult::allow_with_typed_permissions(
+    ///     json!({"command": "npm test"}),
+    ///     vec![Permission::allow_tool("Bash", "npm test")],
+    /// );
+    /// ```
+    pub fn allow_with_typed_permissions(input: Value, permissions: Vec<Permission>) -> Self {
+        let permission_values: Vec<Value> = permissions
+            .into_iter()
+            .filter_map(|p| serde_json::to_value(p).ok())
+            .collect();
+        PermissionResult::Allow {
+            updated_input: input,
+            updated_permissions: Some(permission_values),
         }
     }
 
@@ -987,6 +1347,7 @@ impl ClaudeOutput {
             ClaudeOutput::Result(_) => "result".to_string(),
             ClaudeOutput::ControlRequest(_) => "control_request".to_string(),
             ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
+            ClaudeOutput::Error(_) => "error".to_string(),
         }
     }
 
@@ -1000,10 +1361,37 @@ impl ClaudeOutput {
         matches!(self, ClaudeOutput::ControlResponse(_))
     }
 
+    /// Check if this is an Anthropic API error
+    pub fn is_api_error(&self) -> bool {
+        matches!(self, ClaudeOutput::Error(_))
+    }
+
     /// Get the control request if this is one
     pub fn as_control_request(&self) -> Option<&ControlRequest> {
         match self {
             ClaudeOutput::ControlRequest(req) => Some(req),
+            _ => None,
+        }
+    }
+
+    /// Get the Anthropic error if this is one
+    ///
+    /// # Example
+    /// ```
+    /// use claude_codes::ClaudeOutput;
+    ///
+    /// let json = r#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#;
+    /// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+    ///
+    /// if let Some(err) = output.as_anthropic_error() {
+    ///     if err.is_overloaded() {
+    ///         println!("API is overloaded, retrying...");
+    ///     }
+    /// }
+    /// ```
+    pub fn as_anthropic_error(&self) -> Option<&AnthropicError> {
+        match self {
+            ClaudeOutput::Error(err) => Some(err),
             _ => None,
         }
     }
@@ -1060,6 +1448,7 @@ impl ClaudeOutput {
             ClaudeOutput::User(_) => None,
             ClaudeOutput::ControlRequest(_) => None,
             ClaudeOutput::ControlResponse(_) => None,
+            ClaudeOutput::Error(_) => None,
         }
     }
 
@@ -1445,6 +1834,8 @@ mod tests {
             input: serde_json::json!({"file_path": "/tmp/test.txt"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.allow("req-123");
@@ -1465,6 +1856,8 @@ mod tests {
             input: serde_json::json!({"file_path": "/etc/passwd", "content": "test"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let modified_input = serde_json::json!({
@@ -1486,6 +1879,8 @@ mod tests {
             input: serde_json::json!({"command": "sudo rm -rf /"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.deny("Dangerous command blocked", "req-789");
@@ -1504,6 +1899,8 @@ mod tests {
             input: serde_json::json!({"command": "rm -rf /"}),
             permission_suggestions: vec![],
             blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
         };
 
         let response = req.deny_and_stop("Security violation", "req-000");
@@ -2160,5 +2557,342 @@ mod tests {
         // Verify the errors are preserved
         assert!(reserialized.contains("Error 1"));
         assert!(reserialized.contains("Error 2"));
+    }
+
+    // ============================================================================
+    // Permission Builder Tests
+    // ============================================================================
+
+    #[test]
+    fn test_permission_allow_tool() {
+        let perm = Permission::allow_tool("Bash", "npm test");
+
+        assert_eq!(perm.permission_type, "addRules");
+        assert_eq!(perm.destination, "session");
+        assert_eq!(perm.behavior, Some("allow".to_string()));
+        assert!(perm.mode.is_none());
+
+        let rules = perm.rules.unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].tool_name, "Bash");
+        assert_eq!(rules[0].rule_content, "npm test");
+    }
+
+    #[test]
+    fn test_permission_allow_tool_with_destination() {
+        let perm = Permission::allow_tool_with_destination("Read", "/tmp/**", "project");
+
+        assert_eq!(perm.permission_type, "addRules");
+        assert_eq!(perm.destination, "project");
+        assert_eq!(perm.behavior, Some("allow".to_string()));
+
+        let rules = perm.rules.unwrap();
+        assert_eq!(rules[0].tool_name, "Read");
+        assert_eq!(rules[0].rule_content, "/tmp/**");
+    }
+
+    #[test]
+    fn test_permission_set_mode() {
+        let perm = Permission::set_mode("acceptEdits", "session");
+
+        assert_eq!(perm.permission_type, "setMode");
+        assert_eq!(perm.destination, "session");
+        assert_eq!(perm.mode, Some("acceptEdits".to_string()));
+        assert!(perm.behavior.is_none());
+        assert!(perm.rules.is_none());
+    }
+
+    #[test]
+    fn test_permission_serialization() {
+        let perm = Permission::allow_tool("Bash", "npm test");
+        let json = serde_json::to_string(&perm).unwrap();
+
+        assert!(json.contains("\"type\":\"addRules\""));
+        assert!(json.contains("\"destination\":\"session\""));
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"toolName\":\"Bash\""));
+        assert!(json.contains("\"ruleContent\":\"npm test\""));
+    }
+
+    #[test]
+    fn test_permission_from_suggestion_set_mode() {
+        let suggestion = PermissionSuggestion {
+            suggestion_type: "setMode".to_string(),
+            destination: "session".to_string(),
+            mode: Some("acceptEdits".to_string()),
+            behavior: None,
+            rules: None,
+        };
+
+        let perm = Permission::from_suggestion(&suggestion);
+
+        assert_eq!(perm.permission_type, "setMode");
+        assert_eq!(perm.destination, "session");
+        assert_eq!(perm.mode, Some("acceptEdits".to_string()));
+    }
+
+    #[test]
+    fn test_permission_from_suggestion_add_rules() {
+        let suggestion = PermissionSuggestion {
+            suggestion_type: "addRules".to_string(),
+            destination: "session".to_string(),
+            mode: None,
+            behavior: Some("allow".to_string()),
+            rules: Some(vec![serde_json::json!({
+                "toolName": "Read",
+                "ruleContent": "/tmp/**"
+            })]),
+        };
+
+        let perm = Permission::from_suggestion(&suggestion);
+
+        assert_eq!(perm.permission_type, "addRules");
+        assert_eq!(perm.behavior, Some("allow".to_string()));
+
+        let rules = perm.rules.unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].tool_name, "Read");
+        assert_eq!(rules[0].rule_content, "/tmp/**");
+    }
+
+    #[test]
+    fn test_permission_result_allow_with_typed_permissions() {
+        let result = PermissionResult::allow_with_typed_permissions(
+            serde_json::json!({"command": "npm test"}),
+            vec![Permission::allow_tool("Bash", "npm test")],
+        );
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"updatedPermissions\""));
+        assert!(json.contains("\"toolName\":\"Bash\""));
+    }
+
+    #[test]
+    fn test_tool_permission_request_allow_and_remember() {
+        let req = ToolPermissionRequest {
+            tool_name: "Bash".to_string(),
+            input: serde_json::json!({"command": "npm test"}),
+            permission_suggestions: vec![],
+            blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
+        };
+
+        let response =
+            req.allow_and_remember(vec![Permission::allow_tool("Bash", "npm test")], "req-123");
+        let message: ControlResponseMessage = response.into();
+        let json = serde_json::to_string(&message).unwrap();
+
+        assert!(json.contains("\"type\":\"control_response\""));
+        assert!(json.contains("\"behavior\":\"allow\""));
+        assert!(json.contains("\"updatedPermissions\""));
+        assert!(json.contains("\"toolName\":\"Bash\""));
+    }
+
+    #[test]
+    fn test_tool_permission_request_allow_and_remember_suggestion() {
+        let req = ToolPermissionRequest {
+            tool_name: "Bash".to_string(),
+            input: serde_json::json!({"command": "npm test"}),
+            permission_suggestions: vec![PermissionSuggestion {
+                suggestion_type: "setMode".to_string(),
+                destination: "session".to_string(),
+                mode: Some("acceptEdits".to_string()),
+                behavior: None,
+                rules: None,
+            }],
+            blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
+        };
+
+        let response = req.allow_and_remember_suggestion("req-123");
+        assert!(response.is_some());
+
+        let message: ControlResponseMessage = response.unwrap().into();
+        let json = serde_json::to_string(&message).unwrap();
+
+        assert!(json.contains("\"type\":\"setMode\""));
+        assert!(json.contains("\"mode\":\"acceptEdits\""));
+    }
+
+    #[test]
+    fn test_tool_permission_request_allow_and_remember_suggestion_none() {
+        let req = ToolPermissionRequest {
+            tool_name: "Bash".to_string(),
+            input: serde_json::json!({"command": "npm test"}),
+            permission_suggestions: vec![], // No suggestions
+            blocked_path: None,
+            decision_reason: None,
+            tool_use_id: None,
+        };
+
+        let response = req.allow_and_remember_suggestion("req-123");
+        assert!(response.is_none());
+    }
+
+    // ============================================================================
+    // Anthropic Error Tests
+    // ============================================================================
+
+    #[test]
+    fn test_deserialize_anthropic_error() {
+        let json = r#"{
+            "type": "error",
+            "error": {
+                "type": "api_error",
+                "message": "Internal server error"
+            },
+            "request_id": "req_011CXPC6BqUogB959LWEf52X"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.is_api_error());
+        assert_eq!(output.message_type(), "error");
+
+        if let ClaudeOutput::Error(err) = output {
+            assert_eq!(err.error.error_type, "api_error");
+            assert_eq!(err.error.message, "Internal server error");
+            assert_eq!(
+                err.request_id,
+                Some("req_011CXPC6BqUogB959LWEf52X".to_string())
+            );
+            assert!(err.is_server_error());
+            assert!(!err.is_overloaded());
+        } else {
+            panic!("Expected Error variant");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_anthropic_overloaded_error() {
+        let json = r#"{
+            "type": "error",
+            "error": {
+                "type": "overloaded_error",
+                "message": "Overloaded"
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        if let ClaudeOutput::Error(err) = output {
+            assert!(err.is_overloaded());
+            assert!(!err.is_server_error());
+            assert!(err.request_id.is_none());
+        } else {
+            panic!("Expected Error variant");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_anthropic_rate_limit_error() {
+        let json = r#"{
+            "type": "error",
+            "error": {
+                "type": "rate_limit_error",
+                "message": "Rate limit exceeded"
+            },
+            "request_id": "req_456"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        if let ClaudeOutput::Error(err) = output {
+            assert!(err.is_rate_limited());
+            assert!(!err.is_overloaded());
+            assert!(!err.is_server_error());
+        } else {
+            panic!("Expected Error variant");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_anthropic_authentication_error() {
+        let json = r#"{
+            "type": "error",
+            "error": {
+                "type": "authentication_error",
+                "message": "Invalid API key"
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        if let ClaudeOutput::Error(err) = output {
+            assert!(err.is_authentication_error());
+        } else {
+            panic!("Expected Error variant");
+        }
+    }
+
+    #[test]
+    fn test_deserialize_anthropic_invalid_request_error() {
+        let json = r#"{
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "Invalid request body"
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        if let ClaudeOutput::Error(err) = output {
+            assert!(err.is_invalid_request());
+        } else {
+            panic!("Expected Error variant");
+        }
+    }
+
+    #[test]
+    fn test_anthropic_error_as_helper() {
+        let json = r#"{"type":"error","error":{"type":"api_error","message":"Error"}}"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+
+        let err = output.as_anthropic_error();
+        assert!(err.is_some());
+        assert_eq!(err.unwrap().error.error_type, "api_error");
+
+        // Non-error should return None
+        let result_json = r#"{
+            "type": "result",
+            "subtype": "success",
+            "is_error": false,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "abc",
+            "total_cost_usd": 0.01
+        }"#;
+        let result: ClaudeOutput = serde_json::from_str(result_json).unwrap();
+        assert!(result.as_anthropic_error().is_none());
+    }
+
+    #[test]
+    fn test_anthropic_error_roundtrip() {
+        let error = AnthropicError {
+            error: AnthropicErrorDetails {
+                error_type: "api_error".to_string(),
+                message: "Test error".to_string(),
+            },
+            request_id: Some("req_123".to_string()),
+        };
+
+        let json = serde_json::to_string(&error).unwrap();
+        assert!(json.contains("\"type\":\"api_error\""));
+        assert!(json.contains("\"message\":\"Test error\""));
+        assert!(json.contains("\"request_id\":\"req_123\""));
+
+        let parsed: AnthropicError = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, error);
+    }
+
+    #[test]
+    fn test_anthropic_error_session_id_is_none() {
+        let json = r#"{"type":"error","error":{"type":"api_error","message":"Error"}}"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert!(output.session_id().is_none());
     }
 }

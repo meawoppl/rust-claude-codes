@@ -1543,3 +1543,246 @@ async fn test_tool_approval_deny_flow() {
     let _ = client.shutdown().await;
     let _ = fs::remove_file(test_file);
 }
+
+/// Test the Permission builder and allow_and_remember flow
+#[tokio::test]
+async fn test_tool_approval_allow_and_remember() {
+    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload, Permission};
+    use std::fs;
+
+    println!("=== Testing tool approval with allow_and_remember ===");
+
+    // Create a test file that Claude will try to read
+    let test_file = "/tmp/test_permission_allow_remember.txt";
+    fs::write(test_file, "Hello from integration test\n").expect("Failed to create test file");
+    println!("Created test file: {}", test_file);
+
+    // Create a client with permission_prompt_tool enabled
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .permission_prompt_tool("stdio")
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude with permission_prompt_tool");
+
+    let mut client = AsyncClient::new(child).expect("Failed to create client");
+
+    // Enable the tool approval protocol
+    client
+        .enable_tool_approval()
+        .await
+        .expect("Failed to enable tool approval");
+
+    println!("Tool approval enabled successfully");
+
+    // Send a query that will trigger a Read tool use
+    let session_id = Uuid::new_v4();
+    let input = ClaudeInput::user_message(
+        format!(
+            "Please read the file {} and tell me what it says.",
+            test_file
+        ),
+        session_id,
+    );
+
+    client.send(&input).await.expect("Failed to send query");
+    println!("Sent query that should trigger Read tool use");
+
+    let mut received_control_request = false;
+    let mut used_allow_and_remember = false;
+    let mut message_count = 0;
+
+    loop {
+        message_count += 1;
+        if message_count > 30 {
+            println!("Reached message limit");
+            break;
+        }
+
+        match client.receive().await {
+            Ok(output) => {
+                println!(
+                    "Received message #{}: type={}",
+                    message_count,
+                    output.message_type()
+                );
+
+                match output {
+                    ClaudeOutput::ControlRequest(req) => {
+                        println!("Got ControlRequest!");
+
+                        if let ControlRequestPayload::CanUseTool(perm_req) = &req.request {
+                            println!("  Tool: {}", perm_req.tool_name);
+                            println!(
+                                "  Permission suggestions: {}",
+                                perm_req.permission_suggestions.len()
+                            );
+
+                            // Test the new decision_reason and tool_use_id fields
+                            if let Some(ref reason) = perm_req.decision_reason {
+                                println!("  Decision reason: {}", reason);
+                            }
+                            if let Some(ref tool_use_id) = perm_req.tool_use_id {
+                                println!("  Tool use ID: {}", tool_use_id);
+                            }
+
+                            received_control_request = true;
+
+                            // Use the new allow_and_remember API
+                            let response = if !perm_req.permission_suggestions.is_empty() {
+                                // Use allow_and_remember_suggestion if suggestions are available
+                                println!("Using allow_and_remember_suggestion");
+                                perm_req
+                                    .allow_and_remember_suggestion(&req.request_id)
+                                    .unwrap_or_else(|| perm_req.allow(&req.request_id))
+                            } else {
+                                // Build a custom permission using Permission::allow_tool
+                                println!("Using allow_and_remember with custom Permission");
+                                perm_req.allow_and_remember(
+                                    vec![Permission::allow_tool(&perm_req.tool_name, test_file)],
+                                    &req.request_id,
+                                )
+                            };
+
+                            used_allow_and_remember = true;
+                            client
+                                .send_control_response(response)
+                                .await
+                                .expect("Failed to send control response");
+                            println!("Sent allow_and_remember response");
+                        }
+                    }
+                    ClaudeOutput::Result(result) => {
+                        println!("Got Result: is_error={}", result.is_error);
+                        break;
+                    }
+                    ClaudeOutput::Assistant(msg) => {
+                        for content in &msg.message.content {
+                            if let ContentBlock::Text(text) = content {
+                                println!("Assistant: {}", text.text);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving: {}", e);
+                break;
+            }
+        }
+    }
+
+    assert!(
+        received_control_request,
+        "Should have received a ControlRequest"
+    );
+    assert!(
+        used_allow_and_remember,
+        "Should have used allow_and_remember API"
+    );
+
+    println!("=== Tool approval allow_and_remember test passed ===");
+
+    // Cleanup
+    let _ = client.shutdown().await;
+    let _ = fs::remove_file(test_file);
+}
+
+/// Test Permission struct construction and serialization
+#[test]
+fn test_permission_struct_integration() {
+    use claude_codes::{Permission, PermissionSuggestion};
+
+    // Test Permission::allow_tool
+    let perm = Permission::allow_tool("Bash", "npm test");
+    let json = serde_json::to_string(&perm).expect("Failed to serialize Permission");
+    println!("Permission::allow_tool JSON: {}", json);
+    assert!(json.contains("\"type\":\"addRules\""));
+    assert!(json.contains("\"toolName\":\"Bash\""));
+    assert!(json.contains("\"ruleContent\":\"npm test\""));
+
+    // Test Permission::set_mode
+    let mode_perm = Permission::set_mode("acceptEdits", "session");
+    let mode_json = serde_json::to_string(&mode_perm).expect("Failed to serialize mode Permission");
+    println!("Permission::set_mode JSON: {}", mode_json);
+    assert!(mode_json.contains("\"type\":\"setMode\""));
+    assert!(mode_json.contains("\"mode\":\"acceptEdits\""));
+
+    // Test Permission::from_suggestion
+    let suggestion = PermissionSuggestion {
+        suggestion_type: "setMode".to_string(),
+        destination: "session".to_string(),
+        mode: Some("acceptEdits".to_string()),
+        behavior: None,
+        rules: None,
+    };
+    let from_suggestion = Permission::from_suggestion(&suggestion);
+    assert_eq!(from_suggestion.permission_type, "setMode");
+    assert_eq!(from_suggestion.mode, Some("acceptEdits".to_string()));
+
+    println!("=== Permission struct integration test passed ===");
+}
+
+/// Test AnthropicError parsing and helper methods
+#[test]
+fn test_anthropic_error_integration() {
+    use claude_codes::{AnthropicError, AnthropicErrorDetails, ClaudeOutput};
+
+    // Test parsing various error types
+    let test_cases = vec![
+        (
+            r#"{"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_123"}"#,
+            "api_error",
+            true,  // is_server_error
+            false, // is_overloaded
+        ),
+        (
+            r#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#,
+            "overloaded_error",
+            false,
+            true,
+        ),
+        (
+            r#"{"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}"#,
+            "rate_limit_error",
+            false,
+            false,
+        ),
+    ];
+
+    for (json, expected_type, expect_server_error, expect_overloaded) in test_cases {
+        let output: ClaudeOutput = serde_json::from_str(json).expect("Failed to parse error JSON");
+
+        assert!(output.is_api_error(), "Should be identified as API error");
+        assert_eq!(output.message_type(), "error");
+
+        if let Some(err) = output.as_anthropic_error() {
+            assert_eq!(err.error.error_type, expected_type);
+            assert_eq!(err.is_server_error(), expect_server_error);
+            assert_eq!(err.is_overloaded(), expect_overloaded);
+            println!(
+                "Parsed {} error: {}",
+                err.error.error_type, err.error.message
+            );
+        } else {
+            panic!("Should be able to get AnthropicError");
+        }
+    }
+
+    // Test roundtrip serialization
+    let error = AnthropicError {
+        error: AnthropicErrorDetails {
+            error_type: "api_error".to_string(),
+            message: "Test error".to_string(),
+        },
+        request_id: Some("req_456".to_string()),
+    };
+
+    let json = serde_json::to_string(&error).expect("Failed to serialize");
+    let parsed: AnthropicError = serde_json::from_str(&json).expect("Failed to parse");
+    assert_eq!(parsed.error.error_type, error.error.error_type);
+    assert_eq!(parsed.request_id, error.request_id);
+
+    println!("=== AnthropicError integration test passed ===");
+}

@@ -238,5 +238,12 @@ fn handle_output(output: ClaudeOutput) {
         ClaudeOutput::ControlResponse(resp) => {
             debug!("Control response received: {:?}", resp.response);
         }
+        ClaudeOutput::Error(err) => {
+            eprintln!("\n⚠️  API ERROR: {}", err.error.message);
+            eprintln!("   Type: {}", err.error.error_type);
+            if let Some(ref req_id) = err.request_id {
+                eprintln!("   Request ID: {}", req_id);
+            }
+        }
     }
 }
