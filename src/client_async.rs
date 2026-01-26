@@ -24,6 +24,9 @@ pub struct AsyncClient {
     tool_approval_enabled: bool,
 }
 
+/// Buffer size for reading Claude's stdout (10MB).
+const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
+
 impl AsyncClient {
     /// Create a new async client from a tokio Child process
     pub fn new(mut child: Child) -> Result<Self> {
@@ -32,7 +35,8 @@ impl AsyncClient {
             .take()
             .ok_or_else(|| Error::Io(std::io::Error::other("Failed to get stdin handle")))?;
 
-        let stdout = BufReader::new(
+        let stdout = BufReader::with_capacity(
+            STDOUT_BUFFER_SIZE,
             child
                 .stdout
                 .take()
@@ -181,7 +185,23 @@ impl AsyncClient {
         Ok(())
     }
 
-    /// Try to receive a single response
+    /// Receive a single response from Claude.
+    ///
+    /// # Important: Polling Frequency
+    ///
+    /// This method should be polled frequently to prevent the OS pipe buffer from
+    /// filling up. Claude can emit very large JSON messages (hundreds of KB), and
+    /// if the pipe buffer overflows, data may be truncated.
+    ///
+    /// In a `tokio::select!` loop with other async operations, ensure `receive()`
+    /// is given priority or called frequently. For high-throughput scenarios,
+    /// consider spawning a dedicated task to drain stdout into an unbounded channel.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(ClaudeOutput)` - A parsed message from Claude
+    /// - `Err(Error::ConnectionClosed)` - Claude process has exited
+    /// - `Err(Error::Deserialization)` - Failed to parse the message
     pub async fn receive(&mut self) -> Result<ClaudeOutput> {
         let mut line = String::new();
 

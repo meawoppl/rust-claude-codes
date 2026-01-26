@@ -23,6 +23,9 @@ pub struct SyncClient {
     tool_approval_enabled: bool,
 }
 
+/// Buffer size for reading Claude's stdout (10MB).
+const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
+
 impl SyncClient {
     /// Create a new synchronous client from an existing child process
     pub fn new(mut child: Child) -> Result<Self> {
@@ -38,7 +41,7 @@ impl SyncClient {
         Ok(Self {
             child,
             stdin,
-            stdout: BufReader::new(stdout),
+            stdout: BufReader::with_capacity(STDOUT_BUFFER_SIZE, stdout),
             session_uuid: None,
             tool_approval_enabled: false,
         })
