@@ -1,6 +1,6 @@
 [package]
 name = "claude-codes"
-version = "2.1.17"
+version = "2.1.18"
 edition = "2021"
 rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
