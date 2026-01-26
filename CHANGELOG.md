@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`ClaudeOutput::Unparsed` variant for malformed output** - New variant that captures raw content when the Claude CLI emits data that can't be parsed as a known message type. This allows the stream to continue processing without failing on corrupted or unexpected data.
+
+  ```rust
+  use claude_codes::ClaudeOutput;
+
+  // Parse permissively - never fails, returns Unparsed for bad data
+  let output = ClaudeOutput::parse_json_permissive("not valid json");
+
+  if let ClaudeOutput::Unparsed(unparsed) = output {
+      eprintln!("Unparsed content: {}", unparsed.raw);
+      if let Some(ref err) = unparsed.error {
+          eprintln!("Parse error: {}", err);
+      }
+  }
+  ```
+
+  Helper methods:
+  - `ClaudeOutput::parse_json_permissive(s)` - Parse that never fails, returns `Unparsed` on error
+  - `ClaudeOutput::is_unparsed()` - Check if this is unparsed content
+  - `ClaudeOutput::as_unparsed()` - Get the `UnparsedOutput` if this is one
+
 ## [2.1.17] - 2026-01-25
 
 ### Added
