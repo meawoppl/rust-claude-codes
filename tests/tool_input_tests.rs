@@ -702,8 +702,14 @@ fn test_exit_plan_mode_with_remote_session_title() {
     let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
     assert_eq!(input.push_to_remote, Some(true));
     assert_eq!(input.remote_session_id, Some("session-abc-123".to_string()));
-    assert_eq!(input.remote_session_url, Some("https://claude.ai/session/abc".to_string()));
-    assert_eq!(input.remote_session_title, Some("Implement auth feature".to_string()));
+    assert_eq!(
+        input.remote_session_url,
+        Some("https://claude.ai/session/abc".to_string())
+    );
+    assert_eq!(
+        input.remote_session_title,
+        Some("Implement auth feature".to_string())
+    );
 }
 
 #[test]
@@ -721,8 +727,14 @@ fn test_exit_plan_mode_all_fields() {
     });
 
     let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
-    assert_eq!(input.plan, Some("# Full Plan\n\nStep 1: Do stuff".to_string()));
-    assert_eq!(input.remote_session_title, Some("My Plan Title".to_string()));
+    assert_eq!(
+        input.plan,
+        Some("# Full Plan\n\nStep 1: Do stuff".to_string())
+    );
+    assert_eq!(
+        input.remote_session_title,
+        Some("My Plan Title".to_string())
+    );
     assert_eq!(input.push_to_remote, Some(true));
     assert!(input.allowed_prompts.is_some());
     assert_eq!(input.allowed_prompts.unwrap().len(), 2);
