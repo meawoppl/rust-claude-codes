@@ -1,5 +1,11 @@
 # claude-codes
 
+[![Crates.io](https://img.shields.io/crates/v/claude-codes.svg)](https://crates.io/crates/claude-codes)
+[![Documentation](https://docs.rs/claude-codes/badge.svg)](https://docs.rs/claude-codes)
+[![CI](https://github.com/meawoppl/rust-claude-codes/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-claude-codes/actions/workflows/ci.yml)
+[![License](https://img.shields.io/crates/l/claude-codes.svg)](LICENSE)
+[![Downloads](https://img.shields.io/crates/d/claude-codes.svg)](https://crates.io/crates/claude-codes)
+
 A typed Rust interface for the Claude Code JSON protocol.
 
 ## Overview
