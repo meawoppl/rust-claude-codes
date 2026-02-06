@@ -384,6 +384,14 @@ pub struct ExitPlanModeInput {
     /// The remote session URL if pushed to remote
     #[serde(rename = "remoteSessionUrl", skip_serializing_if = "Option::is_none")]
     pub remote_session_url: Option<String>,
+
+    /// The remote session title if pushed to remote
+    #[serde(rename = "remoteSessionTitle", skip_serializing_if = "Option::is_none")]
+    pub remote_session_title: Option<String>,
+
+    /// The plan content from plan mode
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<String>,
 }
 
 /// An allowed prompt permission for plan mode.
