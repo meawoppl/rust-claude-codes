@@ -668,6 +668,133 @@ fn test_parse_tool_result_multi_text_structured() {
 }
 
 // ============================================================================
+// ExitPlanModeInput tests (issue #62)
+// ============================================================================
+
+#[test]
+fn test_exit_plan_mode_with_plan_field() {
+    // This is the exact JSON from issue #62 that was failing with deny_unknown_fields
+    let json = json!({
+        "allowedPrompts": [
+            { "tool": "Bash", "prompt": "run tests" }
+        ],
+        "plan": "# My Plan\n\n## Summary\n..."
+    });
+
+    let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
+    assert_eq!(input.plan, Some("# My Plan\n\n## Summary\n...".to_string()));
+    assert!(input.allowed_prompts.is_some());
+    let prompts = input.allowed_prompts.unwrap();
+    assert_eq!(prompts.len(), 1);
+    assert_eq!(prompts[0].tool, "Bash");
+    assert_eq!(prompts[0].prompt, "run tests");
+}
+
+#[test]
+fn test_exit_plan_mode_with_remote_session_title() {
+    let json = json!({
+        "pushToRemote": true,
+        "remoteSessionId": "session-abc-123",
+        "remoteSessionUrl": "https://claude.ai/session/abc",
+        "remoteSessionTitle": "Implement auth feature"
+    });
+
+    let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
+    assert_eq!(input.push_to_remote, Some(true));
+    assert_eq!(input.remote_session_id, Some("session-abc-123".to_string()));
+    assert_eq!(input.remote_session_url, Some("https://claude.ai/session/abc".to_string()));
+    assert_eq!(input.remote_session_title, Some("Implement auth feature".to_string()));
+}
+
+#[test]
+fn test_exit_plan_mode_all_fields() {
+    let json = json!({
+        "allowedPrompts": [
+            { "tool": "Bash", "prompt": "run tests" },
+            { "tool": "Bash", "prompt": "install dependencies" }
+        ],
+        "pushToRemote": true,
+        "remoteSessionId": "session-xyz",
+        "remoteSessionUrl": "https://claude.ai/session/xyz",
+        "remoteSessionTitle": "My Plan Title",
+        "plan": "# Full Plan\n\nStep 1: Do stuff"
+    });
+
+    let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
+    assert_eq!(input.plan, Some("# Full Plan\n\nStep 1: Do stuff".to_string()));
+    assert_eq!(input.remote_session_title, Some("My Plan Title".to_string()));
+    assert_eq!(input.push_to_remote, Some(true));
+    assert!(input.allowed_prompts.is_some());
+    assert_eq!(input.allowed_prompts.unwrap().len(), 2);
+}
+
+#[test]
+fn test_exit_plan_mode_empty() {
+    // ExitPlanMode with no fields should still work
+    let json = json!({});
+
+    let input: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
+    assert_eq!(input.plan, None);
+    assert_eq!(input.remote_session_title, None);
+    assert_eq!(input.allowed_prompts, None);
+    assert_eq!(input.push_to_remote, None);
+    assert_eq!(input.remote_session_id, None);
+    assert_eq!(input.remote_session_url, None);
+}
+
+#[test]
+fn test_exit_plan_mode_unknown_field_rejected() {
+    // deny_unknown_fields should still reject truly unknown fields
+    let json = json!({
+        "plan": "my plan",
+        "bogusField": "should fail"
+    });
+
+    let result: Result<claude_codes::ExitPlanModeInput, _> = serde_json::from_value(json);
+    assert!(result.is_err(), "Should reject unknown fields");
+}
+
+#[test]
+fn test_exit_plan_mode_via_tool_input_enum() {
+    // Verify the ToolInput enum can deserialize ExitPlanModeInput with the new fields
+    let json = json!({
+        "allowedPrompts": [
+            { "tool": "Bash", "prompt": "run build" }
+        ],
+        "plan": "# Build Plan"
+    });
+
+    let input: ToolInput = serde_json::from_value(json).unwrap();
+    assert!(matches!(input, ToolInput::ExitPlanMode(_)));
+    assert_eq!(input.tool_name(), Some("ExitPlanMode"));
+
+    if let ToolInput::ExitPlanMode(exit) = input {
+        assert_eq!(exit.plan, Some("# Build Plan".to_string()));
+    } else {
+        panic!("Expected ExitPlanMode variant");
+    }
+}
+
+#[test]
+fn test_exit_plan_mode_roundtrip() {
+    let original = claude_codes::ExitPlanModeInput {
+        allowed_prompts: Some(vec![claude_codes::AllowedPrompt {
+            tool: "Bash".to_string(),
+            prompt: "run tests".to_string(),
+        }]),
+        push_to_remote: Some(true),
+        remote_session_id: Some("id-123".to_string()),
+        remote_session_url: Some("https://example.com".to_string()),
+        remote_session_title: Some("My Title".to_string()),
+        plan: Some("# The Plan".to_string()),
+    };
+
+    let json = serde_json::to_value(&original).unwrap();
+    let parsed: claude_codes::ExitPlanModeInput = serde_json::from_value(json).unwrap();
+    assert_eq!(original, parsed);
+}
+
+// ============================================================================
 // Roundtrip serialization tests
 // ============================================================================
 
