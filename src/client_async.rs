@@ -7,7 +7,7 @@ use crate::io::{
     ControlResponseMessage,
 };
 use crate::protocol::Protocol;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufReader as AsyncBufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout};
@@ -247,9 +247,9 @@ impl AsyncClient {
                     return Ok(output);
                 }
                 Err(parse_error) => {
-                    error!("[INCOMING] Failed to deserialize: {}", parse_error);
-                    error!("[INCOMING] Raw JSON that failed: {}", trimmed);
-                    // Convert ParseError to our Error type
+                    warn!("[INCOMING] Failed to deserialize message from Claude CLI. Please report this at https://github.com/meawoppl/rust-claude-codes/issues with the raw message below.");
+                    warn!("[INCOMING] Parse error: {}", parse_error);
+                    warn!("[INCOMING] Raw message: {}", trimmed);
                     return Err(Error::Deserialization(format!(
                         "{} (raw: {})",
                         parse_error.error_message, trimmed
