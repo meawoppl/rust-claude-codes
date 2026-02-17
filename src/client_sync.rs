@@ -7,7 +7,7 @@ use crate::io::{
     ControlResponseMessage, ParseError,
 };
 use crate::protocol::Protocol;
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
@@ -158,8 +158,9 @@ impl SyncClient {
                         }
                     }
                     Err(ParseError { error_message, .. }) => {
-                        debug!("[CLIENT] Failed to deserialize: {}", error_message);
-                        debug!("[CLIENT] Raw JSON that failed: {}", trimmed);
+                        warn!("[CLIENT] Failed to deserialize message from Claude CLI. Please report this at https://github.com/meawoppl/rust-claude-codes/issues with the raw message below.");
+                        warn!("[CLIENT] Parse error: {}", error_message);
+                        warn!("[CLIENT] Raw message: {}", trimmed);
                         Err(Error::Deserialization(format!(
                             "{} (raw: {})",
                             error_message, trimmed
