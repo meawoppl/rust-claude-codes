@@ -164,7 +164,7 @@ pub use client_sync::{StreamProcessor, SyncClient};
 
 // Client-related exports
 #[cfg(any(feature = "sync-client", feature = "async-client"))]
-pub use cli::{ClaudeCliBuilder, PermissionMode};
+pub use cli::{ClaudeCliBuilder, CliFlag, InputFormat, OutputFormat, PermissionMode};
 
 #[cfg(test)]
 mod tests {
