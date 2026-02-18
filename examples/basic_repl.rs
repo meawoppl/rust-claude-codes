@@ -245,5 +245,13 @@ fn handle_output(output: ClaudeOutput) {
                 eprintln!("   Request ID: {}", req_id);
             }
         }
+        ClaudeOutput::RateLimitEvent(evt) => {
+            debug!(
+                "Rate limit event: status={}, type={}, resets_at={}",
+                evt.rate_limit_info.status,
+                evt.rate_limit_info.rate_limit_type,
+                evt.rate_limit_info.resets_at
+            );
+        }
     }
 }

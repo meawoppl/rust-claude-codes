@@ -5,6 +5,7 @@ use super::content_blocks::{ContentBlock, ToolUseBlock};
 use super::control::{ControlRequest, ControlResponse};
 use super::errors::{AnthropicError, ParseError};
 use super::message_types::{AssistantMessage, SystemMessage, UserMessage};
+use super::rate_limit::RateLimitEvent;
 use super::result::ResultMessage;
 
 /// Top-level enum for all possible Claude output messages
@@ -31,6 +32,9 @@ pub enum ClaudeOutput {
 
     /// API error from Anthropic (500, 529 overloaded, etc.)
     Error(AnthropicError),
+
+    /// Rate limit status event
+    RateLimitEvent(RateLimitEvent),
 }
 
 impl ClaudeOutput {
@@ -44,6 +48,7 @@ impl ClaudeOutput {
             ClaudeOutput::ControlRequest(_) => "control_request".to_string(),
             ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
             ClaudeOutput::Error(_) => "error".to_string(),
+            ClaudeOutput::RateLimitEvent(_) => "rate_limit_event".to_string(),
         }
     }
 
@@ -88,6 +93,19 @@ impl ClaudeOutput {
     pub fn as_anthropic_error(&self) -> Option<&AnthropicError> {
         match self {
             ClaudeOutput::Error(err) => Some(err),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a rate limit event
+    pub fn is_rate_limit_event(&self) -> bool {
+        matches!(self, ClaudeOutput::RateLimitEvent(_))
+    }
+
+    /// Get the rate limit event if this is one
+    pub fn as_rate_limit_event(&self) -> Option<&RateLimitEvent> {
+        match self {
+            ClaudeOutput::RateLimitEvent(evt) => Some(evt),
             _ => None,
         }
     }
@@ -145,6 +163,7 @@ impl ClaudeOutput {
             ClaudeOutput::ControlRequest(_) => None,
             ClaudeOutput::ControlResponse(_) => None,
             ClaudeOutput::Error(_) => None,
+            ClaudeOutput::RateLimitEvent(evt) => Some(&evt.session_id),
         }
     }
 
