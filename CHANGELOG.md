@@ -134,8 +134,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial support for `permission_suggestions` field in `ToolPermissionRequest`.
+- Re-export `ContentBlock`, `ToolUseBlock`, and other io types at crate root
+- Typed `UsageInfo` on `AssistantMessage` with `input_tokens`, `output_tokens`, and `cache_creation_input_tokens`
+- Typed `PermissionSuggestion` for `ToolPermissionRequest` permission suggestions
+- Typed `PermissionDenial` for `ResultMessage` permission denial details
+- Typed `StatusDetails` and `SuggestionMetadata` for system status responses
+- Typed system message subtypes (`init`, `status`, `compact_boundary`)
+- Typed `ToolInput` definitions for all built-in tools (Read, Write, Edit, Bash, Glob, Grep, etc.)
+- Helper methods on `ClaudeOutput`: `is_assistant_message()`, `is_result()`, `is_error()`, `as_assistant()`, `as_result()`, `as_system()`, `text_content()`, `tool_uses()`
+- `errors` field on `ResultMessage` for capturing error details
+- Real production message test captures for structured content
 
----
+## [2.1.4] - 2026-01-10
 
-For older versions, see the [GitHub releases](https://github.com/meawoppl/rust-claude-codes/releases).
+### Added
+
+- Tool approval protocol support with interactive permission request/response handling
+- `ControlRequest` and `ControlResponse` types for the tool permission workflow
+- `ToolPermissionRequest` with `allow()`, `deny()`, and `allow_with_permissions()` helpers
+
+### Fixed
+
+- `--session-id` flag no longer incorrectly added when using `--resume` or `--continue`
+
+## [2.1.3] - 2026-01-09
+
+### Changed
+
+- Version sync with Claude CLI 2.1.3
+- WASM support documentation for the `types` feature with `wasm32-unknown-unknown`
+
+## [2.0.76] - 2026-01-04
+
+### Changed
+
+- Version sync with Claude CLI 2.0.76
+- Fixed content deserialization to handle both string and array formats
+
+### Fixed
+
+- Removed debug `eprintln` statements from output
+
+## [0.3.0] - 2025-08-30
+
+### Changed
+
+- **Breaking:** Reorganized to feature-based architecture with `sync-client`, `async-client`, and `types` features
+- **Breaking:** Switched logging from `tracing` to `log` crate
+- **Breaking:** Client modules moved to top-level `client_sync` and `client_async`
+- `types` feature enables WASM-compatible type definitions without client dependencies
+
+## [0.2.1] - 2025-08-28
+
+### Added
+
+- `ping()` method on `AsyncClient` and `SyncClient` for connectivity testing
+- `parse_json_tolerant()` to handle ANSI escape codes in responses
+- Integration tests for slash commands (`/help`, `/status`, `/cost`)
+
+### Fixed
+
+- `num_turns` field type to handle `-1` for slash commands
+
+## [0.2.0] - 2025-08-26
+
+### Added
+
+- Image content block support (JPEG, PNG, GIF, WebP) with `user_message_with_image()`
+- OAuth token and API key environment variable support (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`)
+
+### Changed
+
+- **Breaking:** Session IDs use `UUID` type instead of `String`
+- **Breaking:** `ClaudeInput::user_message()` now requires `UUID` for session_id
+
+## [0.1.2] - 2025-08-25
+
+### Added
+
+- `resume_session()` and `resume_session_with_model()` on both clients
+- Environment variable support for OAuth tokens and API keys
+- Validation warnings for incorrect token/key prefixes
+
+## [0.1.1] - 2025-08-25
+
+### Added
+
+- Session UUID versioning to track Claude Code sessions
+- `session_uuid()` getter on both `AsyncClient` and `SyncClient`
+- CLI builder generates UUID v4 by default
+
+## [0.1.0] - 2025-08-25
+
+### Added
+
+- Comprehensive crate and module-level documentation
+- `AsyncClient` and `SyncClient` API docs
+
+### Changed
+
+- Simplified licensing to Apache-2.0 only
+
+## [0.0.5] - 2025-08-24
+
+### Added
+
+- `AsyncClient` with `query()` and `query_stream()` methods
+- `SyncClient` for non-async contexts
+- `ResponseStream` and `ResponseIterator` for iterative response processing
+- `ResultMessage` with `UsageInfo` for token usage and cost tracking
+- Claude CLI version checking with compatibility warnings
+- Example programs: `basic_repl`, `async_client`, `sync_client`
+
+### Changed
+
+- Message types restructured to match Claude Code SDK (System, User, Assistant, Result)
+
+## [0.0.1] - 2025-08-23
+
+### Added
+
+- Initial implementation of `claude-codes` crate
+- `ClaudeInput` and `ClaudeOutput` enums for typed protocol messages
+- `ClaudeCliBuilder` for streaming JSON mode
+- Interactive testing binary for protocol debugging
+- Automatic test case capture for failed deserializations
