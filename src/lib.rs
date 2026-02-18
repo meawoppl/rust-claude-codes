@@ -145,6 +145,9 @@ pub use io::{
 // System message subtype types
 pub use io::{CompactBoundaryMessage, CompactMetadata, InitMessage, StatusMessage, SystemMessage};
 
+// Rate limit types
+pub use io::{RateLimitEvent, RateLimitInfo};
+
 // Usage types
 pub use io::{AssistantUsage, CacheCreationDetails};
 

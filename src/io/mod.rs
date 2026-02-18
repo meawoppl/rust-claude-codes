@@ -36,6 +36,7 @@ mod control;
 mod errors;
 mod mcp;
 mod message_types;
+mod rate_limit;
 mod result;
 
 pub use claude_input::*;
@@ -45,4 +46,5 @@ pub use control::*;
 pub use errors::*;
 pub use mcp::*;
 pub use message_types::*;
+pub use rate_limit::*;
 pub use result::*;
