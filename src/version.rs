@@ -6,7 +6,7 @@ use std::process::Command;
 use std::sync::Once;
 
 /// The latest Claude CLI version we've tested against
-const TESTED_VERSION: &str = "2.0.76";
+const TESTED_VERSION: &str = "2.1.47";
 
 /// Ensures version warning is only shown once per session
 static VERSION_CHECK: Once = Once::new();
