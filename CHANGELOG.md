@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.45] - 2026-02-18
+
+### Added
+
+- **Expanded `InitMessage` fields** - Added typed fields for `slash_commands`, `agents`, `plugins`, `skills`, `claude_code_version`, `api_key_source`, `output_style`, and `permission_mode`
+- **`PluginInfo` struct** - Typed representation of plugin entries with `name` and `path` fields
+- **`allow_recursion()` on `ClaudeCliBuilder`** - Enables spawning Claude CLI from within a Claude Code session by unsetting `CLAUDECODE` env var
+- **`/clear` integration test** - Verifies session ID resets after `/clear` command
+
+### Changed
+
+- Updated `TESTED_VERSION` to `2.1.47`
+- All integration tests now use `allow_recursion()` for reliable execution inside Claude Code sessions
+
 ## [2.1.20] - 2026-02-17
 
 ### Added
