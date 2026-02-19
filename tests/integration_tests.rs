@@ -8,8 +8,29 @@
 #![cfg(feature = "integration-tests")]
 
 use claude_codes::io::ContentBlock;
-use claude_codes::{AsyncClient, ClaudeInput, ClaudeOutput, SyncClient};
+use claude_codes::{AsyncClient, ClaudeCliBuilder, ClaudeInput, ClaudeOutput, SyncClient};
 use uuid::Uuid;
+
+/// Create an async client that works inside a Claude Code session
+async fn async_client() -> AsyncClient {
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude");
+    AsyncClient::new(child).expect("Failed to create async client")
+}
+
+/// Create a sync client that works inside a Claude Code session
+fn sync_client() -> SyncClient {
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .spawn_sync()
+        .expect("Failed to spawn Claude");
+    SyncClient::new(child).expect("Failed to create sync client")
+}
 
 /// Test that we can check Claude CLI version
 #[tokio::test]
@@ -27,10 +48,7 @@ async fn test_claude_cli_version() {
 /// Test basic async client connection and query
 #[tokio::test]
 async fn test_async_client_basic_query() {
-    // Create a client with defaults
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Query with a simple math question
     let mut stream = client
@@ -76,8 +94,7 @@ async fn test_async_client_basic_query() {
 /// Test sync client with a simple query
 #[test]
 fn test_sync_client_basic_query() {
-    // Create a sync client
-    let mut client = SyncClient::with_defaults().expect("Failed to create sync client");
+    let mut client = sync_client();
 
     // Build input
     let session_id = Uuid::new_v4();
@@ -110,9 +127,7 @@ fn test_sync_client_basic_query() {
 /// Test async client with multiple queries in sequence
 #[tokio::test]
 async fn test_async_client_conversation() {
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // First query
     let mut stream1 = client
@@ -166,9 +181,7 @@ async fn test_async_client_conversation() {
 /// Test handling various message types
 #[tokio::test]
 async fn test_message_types() {
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     let mut stream = client
         .query_stream("Hello! Please respond briefly.")
@@ -201,13 +214,12 @@ async fn test_message_types() {
 /// Test with custom session ID using the builder
 #[tokio::test]
 async fn test_with_custom_session() {
-    use claude_codes::ClaudeCliBuilder;
-
     // Use a proper UUID for the session ID
     let session_uuid = Uuid::new_v4();
 
     let builder = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .session_id(session_uuid);
 
     let mut client = AsyncClient::from_builder(builder)
@@ -240,9 +252,7 @@ async fn test_with_custom_session() {
 /// Test tool use - listing directory and file operations
 #[tokio::test]
 async fn test_tool_use_blocks() {
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Ask Claude to list the current directory
     let mut stream = client
@@ -351,9 +361,7 @@ async fn test_tool_use_blocks() {
 /// Test file editing tool use
 #[tokio::test]
 async fn test_file_edit_tool_use() {
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Create a test file first
     let test_file = "/tmp/claude_test_file.txt";
@@ -416,9 +424,7 @@ async fn test_capture_tool_blocks_for_testing() {
     use std::fs;
     use std::path::Path;
 
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Ask for multiple tool uses to get variety
     let mut stream = client
@@ -505,9 +511,7 @@ async fn test_image_content_blocks() {
     let base64_image = STANDARD.encode(&image_data);
 
     // Create client
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Send message with image
     let session_id = Uuid::new_v4();
@@ -689,9 +693,7 @@ async fn test_mixed_content_blocks() {
 /// Test ping functionality
 #[tokio::test]
 async fn test_async_client_ping() {
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Test ping
     let ping_result = client.ping().await;
@@ -704,7 +706,7 @@ async fn test_async_client_ping() {
 /// Test sync client ping functionality
 #[test]
 fn test_sync_client_ping() {
-    let mut client = SyncClient::with_defaults().expect("Failed to create sync client");
+    let mut client = sync_client();
 
     // Test ping
     let ping_result = client.ping();
@@ -780,6 +782,7 @@ async fn test_slash_commands() {
             "--session-id",
             &debug_session_id,
         ])
+        .env_remove("CLAUDECODE")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -829,9 +832,7 @@ async fn test_slash_commands() {
     println!("=== End raw output debug ===\n");
 
     // Now run the actual test
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create async client");
+    let mut client = async_client().await;
 
     // Test /help command
     let mut stream = client
@@ -1045,6 +1046,7 @@ async fn test_slash_commands() {
             "--session-id",
             &test_session_id,
         ])
+        .env_remove("CLAUDECODE")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -1186,11 +1188,10 @@ async fn test_slash_commands() {
 /// Test that tool approval initialization handshake works
 #[tokio::test]
 async fn test_tool_approval_initialization() {
-    use claude_codes::ClaudeCliBuilder;
-
     // Create a client with permission_prompt_tool enabled
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .permission_prompt_tool("stdio")
         .spawn()
         .await
@@ -1228,11 +1229,12 @@ async fn test_tool_approval_initialization() {
 /// Test tool approval with a simple query that triggers tool use
 #[tokio::test]
 async fn test_tool_approval_with_query() {
-    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload};
+    use claude_codes::ControlRequestPayload;
 
     // Create a client with permission_prompt_tool enabled
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .permission_prompt_tool("stdio")
         .spawn()
         .await
@@ -1315,11 +1317,10 @@ async fn test_tool_approval_with_query() {
 /// Test sync client tool approval initialization
 #[test]
 fn test_sync_tool_approval_initialization() {
-    use claude_codes::ClaudeCliBuilder;
-
     // Create a sync client with permission_prompt_tool enabled
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .permission_prompt_tool("stdio")
         .spawn_sync()
         .expect("Failed to spawn Claude with permission_prompt_tool");
@@ -1359,9 +1360,7 @@ fn test_sync_tool_approval_initialization() {
 #[tokio::test]
 async fn test_resume_session_no_session_id_conflict() {
     // First, create a session and get its UUID
-    let mut client = AsyncClient::with_defaults()
-        .await
-        .expect("Failed to create initial client");
+    let mut client = async_client().await;
 
     // Send a simple query to establish the session
     let mut stream = client
@@ -1386,7 +1385,12 @@ async fn test_resume_session_no_session_id_conflict() {
     // Now resume the session - this should NOT fail with the --session-id error
     // Before the fix, this would panic with CLI error about --session-id conflict:
     // "Error: --session-id can only be used with --continue or --resume if --fork-session is also specified."
-    let resumed_result = AsyncClient::resume_session(session_uuid).await;
+    let resumed_result = AsyncClient::from_builder(
+        ClaudeCliBuilder::new()
+            .allow_recursion()
+            .resume(Some(session_uuid.to_string())),
+    )
+    .await;
 
     match resumed_result {
         Ok(resumed_client) => {
@@ -1411,7 +1415,7 @@ async fn test_resume_session_no_session_id_conflict() {
 /// Test the tool approval protocol - receive control_request and send denial
 #[tokio::test]
 async fn test_tool_approval_deny_flow() {
-    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload};
+    use claude_codes::ControlRequestPayload;
     use std::fs;
 
     println!("=== Testing tool approval deny flow ===");
@@ -1424,6 +1428,7 @@ async fn test_tool_approval_deny_flow() {
     // Create a client with permission_prompt_tool enabled
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .permission_prompt_tool("stdio")
         .spawn()
         .await
@@ -1558,7 +1563,7 @@ async fn test_tool_approval_deny_flow() {
 /// Test the Permission builder and allow_and_remember flow
 #[tokio::test]
 async fn test_tool_approval_allow_and_remember() {
-    use claude_codes::{ClaudeCliBuilder, ControlRequestPayload, Permission};
+    use claude_codes::{ControlRequestPayload, Permission};
     use std::fs;
 
     println!("=== Testing tool approval with allow_and_remember ===");
@@ -1571,6 +1576,7 @@ async fn test_tool_approval_allow_and_remember() {
     // Create a client with permission_prompt_tool enabled
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
+        .allow_recursion()
         .permission_prompt_tool("stdio")
         .spawn()
         .await
@@ -1801,8 +1807,6 @@ fn test_anthropic_error_integration() {
 /// Test that /clear resets the conversation and re-emits an init message
 #[tokio::test]
 async fn test_clear_resets_session() {
-    use claude_codes::ClaudeCliBuilder;
-
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
         .allow_recursion()
