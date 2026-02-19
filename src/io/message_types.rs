@@ -101,6 +101,15 @@ impl SystemMessage {
     }
 }
 
+/// Plugin info from the init message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginInfo {
+    /// Plugin name
+    pub name: String,
+    /// Path to the plugin on disk
+    pub path: String,
+}
+
 /// Init system message data - sent at session start
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitMessage {
@@ -118,6 +127,30 @@ pub struct InitMessage {
     /// MCP servers configured
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_servers: Vec<Value>,
+    /// Available slash commands (e.g., "compact", "cost", "review")
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slash_commands: Vec<String>,
+    /// Available agent types (e.g., "Bash", "Explore", "Plan")
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<String>,
+    /// Installed plugins
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugins: Vec<PluginInfo>,
+    /// Installed skills
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skills: Vec<Value>,
+    /// Claude Code CLI version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude_code_version: Option<String>,
+    /// How the API key was sourced (e.g., "none")
+    #[serde(skip_serializing_if = "Option::is_none", rename = "apiKeySource")]
+    pub api_key_source: Option<String>,
+    /// Output style (e.g., "default")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_style: Option<String>,
+    /// Permission mode (e.g., "default")
+    #[serde(skip_serializing_if = "Option::is_none", rename = "permissionMode")]
+    pub permission_mode: Option<String>,
 }
 
 /// Status system message - sent during operations like context compaction
@@ -232,7 +265,15 @@ mod tests {
             "cwd": "/home/user/project",
             "model": "claude-sonnet-4",
             "tools": ["Bash", "Read", "Write"],
-            "mcp_servers": []
+            "mcp_servers": [],
+            "slash_commands": ["compact", "cost", "review"],
+            "agents": ["Bash", "Explore", "Plan"],
+            "plugins": [{"name": "rust-analyzer-lsp", "path": "/home/user/.claude/plugins/rust-analyzer-lsp/1.0.0"}],
+            "skills": [],
+            "claude_code_version": "2.1.15",
+            "apiKeySource": "none",
+            "output_style": "default",
+            "permissionMode": "default"
         }"#;
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
@@ -246,6 +287,34 @@ mod tests {
             assert_eq!(init.cwd, Some("/home/user/project".to_string()));
             assert_eq!(init.model, Some("claude-sonnet-4".to_string()));
             assert_eq!(init.tools, vec!["Bash", "Read", "Write"]);
+            assert_eq!(init.slash_commands, vec!["compact", "cost", "review"]);
+            assert_eq!(init.agents, vec!["Bash", "Explore", "Plan"]);
+            assert_eq!(init.plugins.len(), 1);
+            assert_eq!(init.plugins[0].name, "rust-analyzer-lsp");
+            assert_eq!(init.claude_code_version, Some("2.1.15".to_string()));
+            assert_eq!(init.api_key_source, Some("none".to_string()));
+            assert_eq!(init.output_style, Some("default".to_string()));
+            assert_eq!(init.permission_mode, Some("default".to_string()));
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_init_from_real_capture() {
+        let json = include_str!("../../test_cases/tool_use_captures/tool_msg_0.json");
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            let init = sys.as_init().expect("Should parse real init capture");
+            assert_eq!(init.slash_commands.len(), 8);
+            assert!(init.slash_commands.contains(&"compact".to_string()));
+            assert!(init.slash_commands.contains(&"review".to_string()));
+            assert_eq!(init.agents.len(), 5);
+            assert!(init.agents.contains(&"Bash".to_string()));
+            assert!(init.agents.contains(&"Explore".to_string()));
+            assert_eq!(init.plugins.len(), 1);
+            assert_eq!(init.plugins[0].name, "rust-analyzer-lsp");
+            assert_eq!(init.claude_code_version, Some("2.1.15".to_string()));
         } else {
             panic!("Expected System message");
         }
