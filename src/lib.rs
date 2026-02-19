@@ -143,7 +143,9 @@ pub use io::{
 };
 
 // System message subtype types
-pub use io::{CompactBoundaryMessage, CompactMetadata, InitMessage, StatusMessage, SystemMessage};
+pub use io::{
+    CompactBoundaryMessage, CompactMetadata, InitMessage, PluginInfo, StatusMessage, SystemMessage,
+};
 
 // Rate limit types
 pub use io::{RateLimitEvent, RateLimitInfo};
