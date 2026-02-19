@@ -399,6 +399,8 @@ pub struct ClaudeCliBuilder {
     api_key: Option<String>,
     /// Tool for handling permission prompts (e.g., "stdio" for bidirectional control)
     permission_prompt_tool: Option<String>,
+    /// Allow spawning inside another Claude Code session by unsetting CLAUDECODE env var
+    allow_recursion: bool,
 }
 
 impl Default for ClaudeCliBuilder {
@@ -433,6 +435,7 @@ impl ClaudeCliBuilder {
             oauth_token: None,
             api_key: None,
             permission_prompt_tool: None,
+            allow_recursion: false,
         }
     }
 
@@ -608,6 +611,14 @@ impl ClaudeCliBuilder {
         self
     }
 
+    /// Allow spawning inside another Claude Code session by unsetting the
+    /// `CLAUDECODE` environment variable in the child process.
+    #[cfg(feature = "integration-tests")]
+    pub fn allow_recursion(mut self) -> Self {
+        self.allow_recursion = true;
+        self
+    }
+
     /// Build the command arguments (always includes JSON streaming flags)
     fn build_args(&self) -> Vec<String> {
         // Always add JSON streaming mode flags
@@ -740,16 +751,16 @@ impl ClaudeCliBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        // Set OAuth token environment variable if provided
-        if let Some(ref token) = self.oauth_token {
-            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
-            debug!("[CLI] Setting CLAUDE_CODE_OAUTH_TOKEN environment variable");
+        if self.allow_recursion {
+            cmd.env_remove("CLAUDECODE");
         }
 
-        // Set API key environment variable if provided
+        if let Some(ref token) = self.oauth_token {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
+        }
+
         if let Some(ref key) = self.api_key {
             cmd.env("ANTHROPIC_API_KEY", key);
-            debug!("[CLI] Setting ANTHROPIC_API_KEY environment variable");
         }
 
         let child = cmd.spawn().map_err(Error::Io)?;
@@ -767,12 +778,14 @@ impl ClaudeCliBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        // Set OAuth token environment variable if provided
+        if self.allow_recursion {
+            cmd.env_remove("CLAUDECODE");
+        }
+
         if let Some(ref token) = self.oauth_token {
             cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
         }
 
-        // Set API key environment variable if provided
         if let Some(ref key) = self.api_key {
             cmd.env("ANTHROPIC_API_KEY", key);
         }
@@ -784,7 +797,6 @@ impl ClaudeCliBuilder {
     pub fn spawn_sync(self) -> std::io::Result<std::process::Child> {
         let args = self.build_args();
 
-        // Log the full command being executed
         debug!(
             "[CLI] Executing sync command: {} {}",
             self.command.display(),
@@ -797,16 +809,16 @@ impl ClaudeCliBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        // Set OAuth token environment variable if provided
-        if let Some(ref token) = self.oauth_token {
-            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
-            debug!("[CLI] Setting CLAUDE_CODE_OAUTH_TOKEN environment variable");
+        if self.allow_recursion {
+            cmd.env_remove("CLAUDECODE");
         }
 
-        // Set API key environment variable if provided
+        if let Some(ref token) = self.oauth_token {
+            cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
+        }
+
         if let Some(ref key) = self.api_key {
             cmd.env("ANTHROPIC_API_KEY", key);
-            debug!("[CLI] Setting ANTHROPIC_API_KEY environment variable");
         }
 
         cmd.spawn()
