@@ -1797,3 +1797,93 @@ fn test_anthropic_error_integration() {
 
     println!("=== AnthropicError integration test passed ===");
 }
+
+/// Test that /clear resets the session and issues a new session ID
+#[tokio::test]
+async fn test_clear_issues_new_session_id() {
+    let mut client = AsyncClient::with_defaults()
+        .await
+        .expect("Failed to create async client");
+
+    // First query to establish a session
+    let mut stream = client
+        .query_stream("Say 'hello'.")
+        .await
+        .expect("Failed to send initial query");
+
+    let mut initial_session_id: Option<String> = None;
+
+    while let Some(result) = stream.next().await {
+        if let Ok(output) = result {
+            // Capture the session_id from any message that has one
+            if initial_session_id.is_none() {
+                if let Some(sid) = output.session_id() {
+                    initial_session_id = Some(sid.to_string());
+                }
+            }
+        }
+    }
+
+    let initial_session_id = initial_session_id.expect("Should have captured initial session_id");
+    println!("Initial session ID: {}", initial_session_id);
+
+    // Send /clear to reset the conversation
+    let mut stream = client
+        .query_stream("/clear")
+        .await
+        .expect("Failed to send /clear command");
+
+    // Consume /clear result
+    while let Some(_result) = stream.next().await {}
+
+    // Send another query after /clear
+    let mut stream = client
+        .query_stream("Say 'world'.")
+        .await
+        .expect("Failed to send post-clear query");
+
+    let mut post_clear_session_ids: Vec<String> = Vec::new();
+    let mut found_new_init = false;
+
+    while let Some(result) = stream.next().await {
+        if let Ok(output) = result {
+            // Check for a new system init message
+            if let ClaudeOutput::System(ref sys) = output {
+                if sys.is_init() {
+                    found_new_init = true;
+                    println!("Found new init message after /clear");
+                }
+            }
+
+            if let Some(sid) = output.session_id() {
+                let sid = sid.to_string();
+                if !post_clear_session_ids.contains(&sid) {
+                    post_clear_session_ids.push(sid);
+                }
+            }
+        }
+    }
+
+    println!("Post-clear session IDs: {:?}", post_clear_session_ids);
+    println!("Found new init: {}", found_new_init);
+
+    // After /clear, we should see a different session ID
+    assert!(
+        !post_clear_session_ids.is_empty(),
+        "Should have captured session IDs after /clear"
+    );
+
+    let has_new_session = post_clear_session_ids
+        .iter()
+        .any(|sid| sid != &initial_session_id);
+
+    assert!(
+        has_new_session,
+        "Should have a new session ID after /clear. Initial: {}, Post-clear: {:?}",
+        initial_session_id, post_clear_session_ids
+    );
+
+    println!("=== /clear session reset test passed ===");
+
+    client.shutdown().await.expect("Failed to shutdown client");
+}
