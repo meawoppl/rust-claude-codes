@@ -58,9 +58,12 @@ pub struct RateLimitInfo {
     /// Type of rate limit (e.g., "five_hour")
     #[serde(rename = "rateLimitType")]
     pub rate_limit_type: String,
+    /// Utilization of the rate limit (0.0 to 1.0)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utilization: Option<f64>,
     /// Overage status (e.g., "rejected", "allowed")
-    #[serde(rename = "overageStatus")]
-    pub overage_status: String,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "overageStatus")]
+    pub overage_status: Option<String>,
     /// Reason overage is disabled, if applicable
     #[serde(rename = "overageDisabledReason")]
     pub overage_disabled_reason: Option<String>,
@@ -89,7 +92,11 @@ mod tests {
         assert_eq!(evt.rate_limit_info.status, "allowed");
         assert_eq!(evt.rate_limit_info.resets_at, 1771390800);
         assert_eq!(evt.rate_limit_info.rate_limit_type, "five_hour");
-        assert_eq!(evt.rate_limit_info.overage_status, "rejected");
+        assert_eq!(evt.rate_limit_info.utilization, None);
+        assert_eq!(
+            evt.rate_limit_info.overage_status,
+            Some("rejected".to_string())
+        );
         assert_eq!(
             evt.rate_limit_info.overage_disabled_reason,
             Some("org_level_disabled".to_string())
@@ -110,5 +117,36 @@ mod tests {
         assert_eq!(evt.rate_limit_info.overage_disabled_reason, None);
         assert!(evt.rate_limit_info.is_using_overage);
         assert!(evt.uuid.is_none());
+    }
+
+    #[test]
+    fn test_deserialize_rate_limit_event_allowed_warning() {
+        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1700000000,"rateLimitType":"five_hour","utilization":0.85,"isUsingOverage":false},"uuid":"550e8400-e29b-41d4-a716-446655440000","session_id":"test-session-id"}"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let evt = output.as_rate_limit_event().unwrap();
+        assert_eq!(evt.rate_limit_info.status, "allowed_warning");
+        assert_eq!(evt.rate_limit_info.utilization, Some(0.85));
+        assert_eq!(evt.rate_limit_info.overage_status, None);
+        assert_eq!(evt.rate_limit_info.overage_disabled_reason, None);
+        assert!(!evt.rate_limit_info.is_using_overage);
+    }
+
+    #[test]
+    fn test_deserialize_rate_limit_event_rejected() {
+        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1700003600,"rateLimitType":"seven_day","isUsingOverage":false,"overageStatus":"rejected","overageDisabledReason":"out_of_credits"},"uuid":"660e8400-e29b-41d4-a716-446655440001","session_id":"test-session-id"}"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let evt = output.as_rate_limit_event().unwrap();
+        assert_eq!(evt.rate_limit_info.status, "rejected");
+        assert_eq!(evt.rate_limit_info.rate_limit_type, "seven_day");
+        assert_eq!(
+            evt.rate_limit_info.overage_status,
+            Some("rejected".to_string())
+        );
+        assert_eq!(
+            evt.rate_limit_info.overage_disabled_reason,
+            Some("out_of_credits".to_string())
+        );
     }
 }
