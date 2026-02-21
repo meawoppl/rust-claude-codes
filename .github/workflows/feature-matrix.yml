@@ -10,58 +10,84 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test-features:
-    name: Test Feature Combinations
+  test-claude-codes-features:
+    name: "claude-codes: ${{ matrix.features.name }}"
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features:
           - name: "types-only"
-            args: "--no-default-features --features types"
+            args: "-p claude-codes --no-default-features --features types"
           - name: "sync-client"
-            args: "--no-default-features --features sync-client"
-          - name: "async-client"  
-            args: "--no-default-features --features async-client"
+            args: "-p claude-codes --no-default-features --features sync-client"
+          - name: "async-client"
+            args: "-p claude-codes --no-default-features --features async-client"
           - name: "sync-and-async"
-            args: "--no-default-features --features sync-client,async-client"
+            args: "-p claude-codes --no-default-features --features sync-client,async-client"
           - name: "all-features"
-            args: ""  # Default includes all features
-          
+            args: "-p claude-codes"
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
         components: rustfmt, clippy
-    
+
     - name: Build with ${{ matrix.features.name }}
       run: cargo build ${{ matrix.features.args }}
-    
+
     - name: Test with ${{ matrix.features.name }}
       run: cargo test ${{ matrix.features.args }}
-    
-    - name: Check with ${{ matrix.features.name }}
-      run: cargo check ${{ matrix.features.args }}
-    
+
     - name: Clippy with ${{ matrix.features.name }}
       run: cargo clippy ${{ matrix.features.args }} -- -D warnings
 
-  wasm-compatibility:
-    name: Test WASM Compatibility
+  test-codex-codes:
+    name: "codex-codes: build & test"
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+
+    - name: Build
+      run: cargo build -p codex-codes
+
+    - name: Test
+      run: cargo test -p codex-codes
+
+    - name: Clippy
+      run: cargo clippy -p codex-codes -- -D warnings
+
+  wasm-compatibility:
+    name: "WASM: ${{ matrix.crate.name }}"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate:
+          - name: "claude-codes"
+            args: "-p claude-codes --no-default-features --features types"
+          - name: "codex-codes"
+            args: "-p codex-codes"
+
+    steps:
+    - uses: actions/checkout@v4
+
     - name: Setup Rust with WASM target
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
         target: wasm32-unknown-unknown
-    
-    - name: Build types-only for WASM
-      run: cargo build --target wasm32-unknown-unknown --no-default-features --features types
-    
+
+    - name: Build for WASM
+      run: cargo build --target wasm32-unknown-unknown ${{ matrix.crate.args }}
+
     - name: Check WASM compatibility
-      run: cargo check --target wasm32-unknown-unknown --no-default-features --features types
+      run: cargo check --target wasm32-unknown-unknown ${{ matrix.crate.args }}
