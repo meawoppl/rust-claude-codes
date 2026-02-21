@@ -49,16 +49,16 @@ jobs:
         run: cargo fmt --all -- --check
       
       - name: Run clippy
-        run: cargo clippy --all-targets -- -D warnings
-      
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
       - name: Run tests
-        run: cargo test --verbose
-      
+        run: cargo test --workspace --verbose
+
       - name: Build all examples
         run: ./build_examples.sh
-      
+
       - name: Build documentation
-        run: cargo doc --no-deps
+        run: cargo doc --workspace --no-deps
 
   check-json:
     name: Check JSON Formatting
@@ -145,4 +145,4 @@ jobs:
             ${{ runner.os }}-cargo-build-msrv-
       
       - name: Check MSRV
-        run: cargo check
+        run: cargo check --workspace
