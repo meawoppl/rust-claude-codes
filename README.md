@@ -41,11 +41,19 @@ claude-codes = { version = "2", default-features = false, features = ["types"] }
 
 ### codex-codes
 
-`codex-codes` is a pure types crate with no feature flags. It is WASM-compatible out of the box.
+`codex-codes` mirrors the same feature flag structure:
+
+| Feature | Description | WASM-compatible |
+|---------|-------------|-----------------|
+| `types` | Core message types and protocol structs only | Yes |
+| `sync-client` | Synchronous client with blocking I/O | No |
+| `async-client` | Asynchronous client using tokio | No |
+
+All features are enabled by default. For WASM or type-sharing use cases:
 
 ```toml
 [dependencies]
-codex-codes = "0.100"
+codex-codes = { version = "0.100", default-features = false, features = ["types"] }
 ```
 
 ## Testing Approach
@@ -72,9 +80,10 @@ rust-code-agent-sdks/
     test_cases/          # Real CLI captures and failure cases
     examples/            # async_client, sync_client, basic_repl
   codex-codes/           # Codex CLI protocol bindings
-    src/                 # Events, items, options types
+    src/                 # Types, sync/async clients, CLI builder
     tests/               # Integration tests
     test_cases/          # Real CLI captures
+    examples/            # async_client, sync_client, basic_repl
 ```
 
 See each crate's README for detailed usage:

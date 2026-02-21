@@ -19,6 +19,17 @@ pub enum SandboxMode {
     DangerFullAccess,
 }
 
+impl SandboxMode {
+    /// Get the CLI flag value for this sandbox mode.
+    pub fn as_cli_str(&self) -> &'static str {
+        match self {
+            SandboxMode::ReadOnly => "read-only",
+            SandboxMode::WorkspaceWrite => "workspace-write",
+            SandboxMode::DangerFullAccess => "danger-full-access",
+        }
+    }
+}
+
 /// Model reasoning effort level.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

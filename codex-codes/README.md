@@ -12,14 +12,118 @@ Part of the [rust-code-agent-sdks](https://github.com/meawoppl/rust-code-agent-s
 
 ## Overview
 
-This crate provides type-safe Rust representations of the Codex CLI's JSONL output format, mirroring the structure of the official [TypeScript SDK](https://github.com/openai/codex/tree/main/sdk/typescript). It is a pure types crate with no feature flags and is WASM-compatible out of the box.
+This crate provides type-safe Rust representations of the Codex CLI's JSONL output format, mirroring the structure of the official [TypeScript SDK](https://github.com/openai/codex/tree/main/sdk/typescript). It includes optional sync and async clients for spawning and communicating with the Codex CLI.
 
 **Tested against:** Codex CLI 0.104.0
 
 ## Installation
 
+### Default (All Features)
 ```bash
 cargo add codex-codes
+```
+
+Requires the [Codex CLI](https://github.com/openai/codex) (`codex` binary) to be installed and available in PATH.
+
+### Feature Flags
+
+| Feature | Description | WASM-compatible |
+|---------|-------------|-----------------|
+| `types` | Core message types only (minimal dependencies) | Yes |
+| `sync-client` | Synchronous client with blocking I/O | No |
+| `async-client` | Asynchronous client with tokio runtime | No |
+
+All features are enabled by default.
+
+#### Types Only (WASM-compatible)
+```toml
+[dependencies]
+codex-codes = { version = "0.100", default-features = false, features = ["types"] }
+```
+
+#### Sync Client Only
+```toml
+[dependencies]
+codex-codes = { version = "0.100", default-features = false, features = ["sync-client"] }
+```
+
+#### Async Client Only
+```toml
+[dependencies]
+codex-codes = { version = "0.100", default-features = false, features = ["async-client"] }
+```
+
+## Usage
+
+### Async Client
+
+```rust
+use codex_codes::AsyncClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = AsyncClient::exec("What is 2 + 2?").await?;
+
+    let mut stream = client.events();
+    while let Some(result) = stream.next().await {
+        let event = result?;
+        println!("Event: {}", event.event_type());
+    }
+
+    Ok(())
+}
+```
+
+### Sync Client
+
+```rust
+use codex_codes::SyncClient;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = SyncClient::exec("What is 2 + 2?")?;
+
+    for result in client.events() {
+        let event = result?;
+        println!("Event: {}", event.event_type());
+    }
+
+    Ok(())
+}
+```
+
+### Custom Builder
+
+```rust
+use codex_codes::{AsyncClient, CodexCliBuilder, SandboxMode};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let builder = CodexCliBuilder::new()
+        .model("o4-mini")
+        .sandbox(SandboxMode::ReadOnly)
+        .full_auto(true);
+
+    let mut client = AsyncClient::from_builder(builder, "List files in /tmp").await?;
+    let events = client.collect_all().await?;
+
+    for event in events {
+        println!("{}", event.event_type());
+    }
+
+    Ok(())
+}
+```
+
+### Raw Protocol Access
+
+```rust
+use codex_codes::{ThreadEvent, ThreadItem};
+
+let event_json = r#"{"type":"thread.started","thread_id":"th_abc"}"#;
+let event: ThreadEvent = serde_json::from_str(event_json).unwrap();
+
+let item_json = r#"{"type":"agent_message","id":"msg_1","text":"Hello!"}"#;
+let item: ThreadItem = serde_json::from_str(item_json).unwrap();
 ```
 
 ## Types
@@ -54,31 +158,12 @@ Discriminated union of all agent action items:
 - `ModelReasoningEffort` — Reasoning effort level
 - `WebSearchMode` — Web search behavior
 
-## Usage
+## Compatibility
 
-```rust
-use codex_codes::{ThreadEvent, ThreadItem};
+**Tested against:** Codex CLI 0.104.0
 
-let event_json = r#"{"type":"thread.started","thread_id":"th_abc"}"#;
-let event: ThreadEvent = serde_json::from_str(event_json).unwrap();
-
-let item_json = r#"{"type":"agent_message","id":"msg_1","text":"Hello!"}"#;
-let item: ThreadItem = serde_json::from_str(item_json).unwrap();
-```
-
-### Parsing a JSONL stream
-
-```rust
-use codex_codes::ThreadEvent;
-
-fn parse_stream(jsonl: &str) -> Vec<ThreadEvent> {
-    jsonl
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(|line| serde_json::from_str(line).unwrap())
-        .collect()
-}
-```
+The crate version tracks the Codex CLI version. If you're using a different CLI version, please report whether it works at:
+https://github.com/meawoppl/rust-code-agent-sdks/issues
 
 ## License
 

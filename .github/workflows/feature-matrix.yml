@@ -45,9 +45,21 @@ jobs:
     - name: Clippy with ${{ matrix.features.name }}
       run: cargo clippy ${{ matrix.features.args }} -- -D warnings
 
-  test-codex-codes:
-    name: "codex-codes: build & test"
+  test-codex-codes-features:
+    name: "codex-codes: ${{ matrix.features.name }}"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - name: "types-only"
+            args: "-p codex-codes --no-default-features --features types"
+          - name: "sync-client"
+            args: "-p codex-codes --no-default-features --features sync-client"
+          - name: "async-client"
+            args: "-p codex-codes --no-default-features --features async-client"
+          - name: "all-features"
+            args: "-p codex-codes"
+
     steps:
     - uses: actions/checkout@v4
 
@@ -57,14 +69,14 @@ jobs:
         toolchain: stable
         components: rustfmt, clippy
 
-    - name: Build
-      run: cargo build -p codex-codes
+    - name: Build with ${{ matrix.features.name }}
+      run: cargo build ${{ matrix.features.args }}
 
-    - name: Test
-      run: cargo test -p codex-codes
+    - name: Test with ${{ matrix.features.name }}
+      run: cargo test ${{ matrix.features.args }}
 
-    - name: Clippy
-      run: cargo clippy -p codex-codes -- -D warnings
+    - name: Clippy with ${{ matrix.features.name }}
+      run: cargo clippy ${{ matrix.features.args }} -- -D warnings
 
   wasm-compatibility:
     name: "WASM: ${{ matrix.crate.name }}"
@@ -75,7 +87,7 @@ jobs:
           - name: "claude-codes"
             args: "-p claude-codes --no-default-features --features types"
           - name: "codex-codes"
-            args: "-p codex-codes"
+            args: "-p codex-codes --no-default-features --features types"
 
     steps:
     - uses: actions/checkout@v4
