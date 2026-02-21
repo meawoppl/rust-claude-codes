@@ -1,0 +1,27 @@
+[package]
+name = "codex-codes"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
+description = "A tightly typed Rust interface for the OpenAI Codex CLI JSON protocol"
+documentation = "https://docs.rs/codex-codes"
+homepage = "https://github.com/meawoppl/rust-claude-codes"
+repository = "https://github.com/meawoppl/rust-claude-codes"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["codex", "openai", "ai", "json", "protocol"]
+categories = ["api-bindings", "encoding", "parsing"]
+exclude = [
+    "test_cases/",
+    ".claude/",
+    "*.sh",
+]
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+thiserror = "2.0.16"
+
+[dev-dependencies]
+serde_json = "1.0.143"

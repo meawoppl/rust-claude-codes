@@ -153,6 +153,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "codex-codes"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

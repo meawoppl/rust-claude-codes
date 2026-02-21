@@ -201,6 +201,10 @@ When updating the version number in `Cargo.toml`:
 
 This ensures the lockfile stays in sync with the version number.
 
+## Publishing
+- **NEVER use `cargo publish --allow-dirty`** — ensure the working tree is clean before publishing
+- If there are untracked files, either `.gitignore` them or clean them up first
+
 ## Dependency Management
 When adding or updating dependencies:
 - **ALWAYS use `cargo add` or `cargo remove` commands** instead of manually editing `Cargo.toml`

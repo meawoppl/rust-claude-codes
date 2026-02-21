@@ -1,3 +1,6 @@
+[workspace]
+members = ["codex-codes"]
+
 [package]
 name = "claude-codes"
 version = "2.1.46"
