@@ -1,0 +1,12 @@
+{"type":"thread.started","thread_id":"019c8143-abe2-7722-9bd1-fd70f687175b"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Confirming sequential command execution**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Running the three commands sequentially now and I'll report each output in order."}}
+{"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc 'echo step1'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc 'echo step1'","aggregated_output":"step1\n","exit_code":0,"status":"completed"}}
+{"type":"item.started","item":{"id":"item_3","type":"command_execution","command":"/bin/bash -lc 'echo step2'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"/bin/bash -lc 'echo step2'","aggregated_output":"step2\n","exit_code":0,"status":"completed"}}
+{"type":"item.started","item":{"id":"item_4","type":"command_execution","command":"/bin/bash -lc 'echo step3'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_4","type":"command_execution","command":"/bin/bash -lc 'echo step3'","aggregated_output":"step3\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"`echo step1` → `step1`  \n`echo step2` → `step2`  \n`echo step3` → `step3`"}}
+{"type":"turn.completed","usage":{"input_tokens":30669,"cached_input_tokens":28288,"output_tokens":205}}

@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"019c8143-0e53-7271-89e8-3eec4d067c77"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Preparing to execute command**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Running `exit 42` in a shell now and then I'll report the exact exit status."}}
+{"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc 'exit 42'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc 'exit 42'","aggregated_output":"","exit_code":42,"status":"failed"}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"The command exited with code `42`."}}
+{"type":"turn.completed","usage":{"input_tokens":15086,"cached_input_tokens":14080,"output_tokens":114}}

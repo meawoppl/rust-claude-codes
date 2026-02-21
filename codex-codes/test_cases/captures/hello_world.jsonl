@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019c8140-6f07-7fb1-86f8-4813739c32bb"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Preparing minimal output**"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"hello world"}}
+{"type":"turn.completed","usage":{"input_tokens":7464,"cached_input_tokens":6528,"output_tokens":25}}
