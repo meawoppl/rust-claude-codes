@@ -154,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "codex-codes"
-version = "0.0.1"
+version = "0.90.0"
 dependencies = [
  "serde",
  "serde_json",
