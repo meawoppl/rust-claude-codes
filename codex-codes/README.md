@@ -1,8 +1,26 @@
 # codex-codes
 
-A tightly typed Rust interface for the [OpenAI Codex CLI](https://github.com/openai/codex) JSON protocol.
+[![Crates.io](https://img.shields.io/crates/v/codex-codes.svg)](https://crates.io/crates/codex-codes)
+[![Documentation](https://docs.rs/codex-codes/badge.svg)](https://docs.rs/codex-codes)
+[![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml)
+[![License](https://img.shields.io/crates/l/codex-codes.svg)](../LICENSE)
+[![Downloads](https://img.shields.io/crates/d/codex-codes.svg)](https://crates.io/crates/codex-codes)
 
-This crate provides type-safe Rust representations of the Codex CLI's JSONL output format, mirroring the structure of the official [TypeScript SDK](https://github.com/openai/codex/tree/main/sdk/typescript).
+A typed Rust interface for the [OpenAI Codex CLI](https://github.com/openai/codex) JSONL protocol.
+
+Part of the [rust-code-agent-sdks](https://github.com/meawoppl/rust-code-agent-sdks) workspace.
+
+## Overview
+
+This crate provides type-safe Rust representations of the Codex CLI's JSONL output format, mirroring the structure of the official [TypeScript SDK](https://github.com/openai/codex/tree/main/sdk/typescript). It is a pure types crate with no feature flags and is WASM-compatible out of the box.
+
+**Tested against:** Codex CLI 0.104.0
+
+## Installation
+
+```bash
+cargo add codex-codes
+```
 
 ## Types
 
@@ -36,7 +54,7 @@ Discriminated union of all agent action items:
 - `ModelReasoningEffort` — Reasoning effort level
 - `WebSearchMode` — Web search behavior
 
-## Example
+## Usage
 
 ```rust
 use codex_codes::{ThreadEvent, ThreadItem};
@@ -48,6 +66,20 @@ let item_json = r#"{"type":"agent_message","id":"msg_1","text":"Hello!"}"#;
 let item: ThreadItem = serde_json::from_str(item_json).unwrap();
 ```
 
+### Parsing a JSONL stream
+
+```rust
+use codex_codes::ThreadEvent;
+
+fn parse_stream(jsonl: &str) -> Vec<ThreadEvent> {
+    jsonl
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+```
+
 ## License
 
-Apache-2.0
+Apache-2.0. See [LICENSE](../LICENSE).
