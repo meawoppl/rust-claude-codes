@@ -19,9 +19,31 @@ exclude = [
 ]
 
 [dependencies]
+log = { version = "0.4.29", optional = true }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 thiserror = "2.0.16"
+tokio = { version = "1.49.0", features = ["full"], optional = true }
 
 [dev-dependencies]
+env_logger = "0.11.9"
 serde_json = "1.0.143"
+tokio = { version = "1.49.0", features = ["full"] }
+
+[features]
+default = ["types", "sync-client", "async-client"]
+types = []
+sync-client = ["types", "dep:log"]
+async-client = ["types", "dep:tokio", "dep:log"]
+
+[[example]]
+name = "async_client"
+required-features = ["async-client"]
+
+[[example]]
+name = "basic_repl"
+required-features = ["async-client"]
+
+[[example]]
+name = "sync_client"
+required-features = ["sync-client"]
