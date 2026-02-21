@@ -7,7 +7,8 @@ echo "Building all examples..."
 echo ""
 
 FAILED=0
-EXAMPLES_DIR="examples"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXAMPLES_DIR="$SCRIPT_DIR/examples"
 
 # Check if examples directory exists
 if [ ! -d "$EXAMPLES_DIR" ]; then
@@ -21,7 +22,7 @@ for example in "$EXAMPLES_DIR"/*.rs; do
         example_name=$(basename "$example" .rs)
         echo "Building example: $example_name"
         
-        if cargo build --example "$example_name" 2>&1 | grep -q "error"; then
+        if cargo build -p claude-codes --example "$example_name" 2>&1 | grep -q "error"; then
             echo "  ❌ Failed to build $example_name"
             FAILED=1
         else
