@@ -109,6 +109,86 @@ jobs:
             exit 1
           fi
 
+  check-versions:
+    name: Check Version Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check version strings are in sync
+        run: |
+          set -e
+          FAILED=0
+
+          # Extract sources of truth
+          CLAUDE_VERSION=$(grep '^version' claude-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          CODEX_VERSION=$(grep '^version' codex-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          CLAUDE_TESTED=$(grep 'const TESTED_VERSION' claude-codes/src/version.rs | grep -oP '\d+\.\d+\.\d+')
+          CODEX_TESTED=$(grep 'Tested against.*Codex CLI' codex-codes/README.md | grep -oP '\d+\.\d+\.\d+')
+
+          echo "claude-codes version: $CLAUDE_VERSION"
+          echo "codex-codes version:  $CODEX_VERSION"
+          echo "Claude CLI tested:    $CLAUDE_TESTED"
+          echo "Codex CLI tested:     $CODEX_TESTED"
+          echo ""
+
+          # Check root README contains correct claude-codes version
+          if ! grep -q "claude-codes $CLAUDE_VERSION" README.md; then
+            echo "❌ README.md missing 'claude-codes $CLAUDE_VERSION'"
+            FAILED=1
+          else
+            echo "✅ README.md has claude-codes $CLAUDE_VERSION"
+          fi
+
+          # Check root README contains correct Claude CLI tested version
+          if ! grep -q "Claude CLI.*$CLAUDE_TESTED" README.md; then
+            echo "❌ README.md missing Claude CLI tested version $CLAUDE_TESTED"
+            FAILED=1
+          else
+            echo "✅ README.md has Claude CLI $CLAUDE_TESTED"
+          fi
+
+          # Check claude-codes README contains correct Claude CLI tested version
+          if ! grep -q "$CLAUDE_TESTED" claude-codes/README.md; then
+            echo "❌ claude-codes/README.md missing tested version $CLAUDE_TESTED"
+            FAILED=1
+          else
+            echo "✅ claude-codes/README.md has Claude CLI $CLAUDE_TESTED"
+          fi
+
+          # Check root README contains correct codex-codes version
+          if ! grep -q "$CODEX_VERSION" README.md; then
+            echo "❌ README.md missing codex-codes version $CODEX_VERSION"
+            FAILED=1
+          else
+            echo "✅ README.md has codex-codes $CODEX_VERSION"
+          fi
+
+          # Check root README contains correct Codex CLI tested version
+          if ! grep -q "Codex CLI.*$CODEX_TESTED" README.md; then
+            echo "❌ README.md missing Codex CLI tested version $CODEX_TESTED"
+            FAILED=1
+          else
+            echo "✅ README.md has Codex CLI $CODEX_TESTED"
+          fi
+
+          # Check codex-codes README contains correct Codex CLI tested version
+          if ! grep -q "$CODEX_TESTED" codex-codes/README.md; then
+            echo "❌ codex-codes/README.md missing tested version $CODEX_TESTED"
+            FAILED=1
+          else
+            echo "✅ codex-codes/README.md has Codex CLI $CODEX_TESTED"
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Version strings are out of sync. Update the READMEs to match."
+            exit 1
+          else
+            echo ""
+            echo "All version strings are consistent."
+          fi
+
   msrv:
     name: Minimum Supported Rust Version
     runs-on: ubuntu-latest
