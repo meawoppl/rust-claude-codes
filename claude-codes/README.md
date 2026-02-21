@@ -2,11 +2,13 @@
 
 [![Crates.io](https://img.shields.io/crates/v/claude-codes.svg)](https://crates.io/crates/claude-codes)
 [![Documentation](https://docs.rs/claude-codes/badge.svg)](https://docs.rs/claude-codes)
-[![CI](https://github.com/meawoppl/rust-claude-codes/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-claude-codes/actions/workflows/ci.yml)
-[![License](https://img.shields.io/crates/l/claude-codes.svg)](LICENSE)
+[![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml)
+[![License](https://img.shields.io/crates/l/claude-codes.svg)](../LICENSE)
 [![Downloads](https://img.shields.io/crates/d/claude-codes.svg)](https://crates.io/crates/claude-codes)
 
-A typed Rust interface for the Claude Code JSON protocol.
+A typed Rust interface for the [Claude Code](https://docs.anthropic.com/en/docs/claude-code) JSON protocol.
+
+Part of the [rust-code-agent-sdks](https://github.com/meawoppl/rust-code-agent-sdks) workspace.
 
 ## Overview
 
@@ -14,19 +16,9 @@ This library provides type-safe bindings for communicating with the Claude CLI v
 
 **Note:** The Claude CLI protocol is unstable and may change between versions. This crate tracks protocol changes and will warn if you're using an untested CLI version.
 
-## Features
-
-- Type-safe message encoding/decoding
-- JSON Lines protocol support with streaming
-- Async and sync client implementations
-- Image support (JPEG, PNG, GIF, WebP) with base64 encoding
-- Tool use blocks for Claude's tool capabilities
-- OAuth and API key authentication via environment variables
-- UUID-based session management
-
 ## Installation
 
-### Default Installation (All Features)
+### Default (All Features)
 ```bash
 cargo add claude-codes
 ```
@@ -35,16 +27,21 @@ Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) (`clau
 
 ### Feature Flags
 
-- **`types`** - Core message types only (WASM-compatible, minimal dependencies)
-- **`sync-client`** - Synchronous client with blocking I/O
-- **`async-client`** - Asynchronous client with tokio runtime
-- **Default** - All features enabled
+| Feature | Description | WASM-compatible |
+|---------|-------------|-----------------|
+| `types` | Core message types only (minimal dependencies) | Yes |
+| `sync-client` | Synchronous client with blocking I/O | No |
+| `async-client` | Asynchronous client with tokio runtime | No |
 
-#### Types Only
+All features are enabled by default.
+
+#### Types Only (WASM-compatible)
 ```toml
 [dependencies]
 claude-codes = { version = "2", default-features = false, features = ["types"] }
 ```
+
+This gives you access to all typed message structures (`ClaudeInput`, `ClaudeOutput`, `ContentBlock`, etc.) without pulling in tokio or other native-only dependencies. Useful for frontend apps, shared type definitions, or any WASM context needing Claude protocol types.
 
 #### Sync Client Only
 ```toml
@@ -57,21 +54,6 @@ claude-codes = { version = "2", default-features = false, features = ["sync-clie
 [dependencies]
 claude-codes = { version = "2", default-features = false, features = ["async-client"] }
 ```
-
-### WASM Support
-
-The `types` feature is fully compatible with `wasm32-unknown-unknown`, making it suitable for sharing Claude message types between native and browser/WASM code:
-
-```toml
-[dependencies]
-claude-codes = { version = "2", default-features = false, features = ["types"] }
-```
-
-This gives you access to all the typed message structures (`ClaudeInput`, `ClaudeOutput`, `ContentBlock`, etc.) without pulling in tokio or other native-only dependencies. Useful for:
-
-- Frontend applications that communicate with a Claude proxy
-- Shared type definitions across native backend and WASM frontend
-- Any WASM context needing Claude protocol types
 
 ## Usage
 
@@ -156,20 +138,11 @@ let serialized = Protocol::serialize(&output)?;
 
 ## Compatibility
 
-**Tested version:** Claude CLI 2.1.3
+**Tested against:** Claude CLI 2.1.47
 
-If you're using a different CLI version, please report whether it works at:
-https://github.com/meawoppl/rust-claude-codes/issues
-
-Include:
-- Your Claude CLI version (`claude --version`)
-- Whether messages serialized/deserialized correctly
-- Any errors encountered
+The crate version tracks the Claude CLI version. If you're using a different CLI version, please report whether it works at:
+https://github.com/meawoppl/rust-code-agent-sdks/issues
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
-
-## Contributing
-
-Contributions welcome. Any contribution submitted for inclusion will be licensed under Apache-2.0.
+Apache-2.0. See [LICENSE](../LICENSE).
