@@ -73,7 +73,7 @@ impl AsyncClient {
     /// Send a JSON-RPC request and wait for the matching response.
     ///
     /// Any notifications or server requests that arrive before the response
-    /// are buffered and can be retrieved via [`next_message`].
+    /// are buffered and can be retrieved via [`AsyncClient::next_message`].
     pub async fn request<P: Serialize, R: DeserializeOwned>(
         &mut self,
         method: &str,
