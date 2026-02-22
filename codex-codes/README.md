@@ -6,13 +6,13 @@
 [![License](https://img.shields.io/crates/l/codex-codes.svg)](../LICENSE)
 [![Downloads](https://img.shields.io/crates/d/codex-codes.svg)](https://crates.io/crates/codex-codes)
 
-A typed Rust interface for the [OpenAI Codex CLI](https://github.com/openai/codex) JSONL protocol.
+A typed Rust interface for the [OpenAI Codex CLI](https://github.com/openai/codex) app-server JSON-RPC protocol.
 
 Part of the [rust-code-agent-sdks](https://github.com/meawoppl/rust-code-agent-sdks) workspace.
 
 ## Overview
 
-This crate provides type-safe Rust representations of the Codex CLI's JSONL output format, mirroring the structure of the official [TypeScript SDK](https://github.com/openai/codex/tree/main/sdk/typescript). It includes optional sync and async clients for spawning and communicating with the Codex CLI.
+This crate provides type-safe Rust representations of the Codex CLI's JSON-RPC protocol, used by `codex app-server`. It includes optional sync and async clients for multi-turn conversations with the Codex agent.
 
 **Tested against:** Codex CLI 0.104.0
 
@@ -55,59 +55,71 @@ codex-codes = { version = "0.100", default-features = false, features = ["async-
 
 ## Usage
 
-### Async Client
+### Async Client (Multi-Turn)
 
 ```rust
-use codex_codes::AsyncClient;
+use codex_codes::{AsyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = AsyncClient::exec("What is 2 + 2?").await?;
+    let mut client = AsyncClient::start().await?;
 
-    let mut stream = client.events();
-    while let Some(result) = stream.next().await {
-        let event = result?;
-        println!("Event: {}", event.event_type());
+    // Start a thread
+    let thread = client.thread_start(&ThreadStartParams::default()).await?;
+
+    // Send a turn
+    client.turn_start(&TurnStartParams {
+        thread_id: thread.thread_id.clone(),
+        input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
+        model: None,
+        reasoning_effort: None,
+        sandbox_policy: None,
+    }).await?;
+
+    // Stream notifications
+    while let Some(msg) = client.next_message().await? {
+        match msg {
+            ServerMessage::Notification { method, params } => {
+                println!("{}: {:?}", method, params);
+                if method == "turn/completed" { break; }
+            }
+            ServerMessage::Request { id, method, .. } => {
+                // Handle approval requests
+                client.respond(id, &serde_json::json!({"decision": "accept"})).await?;
+            }
+        }
     }
 
+    client.shutdown().await?;
     Ok(())
 }
 ```
 
-### Sync Client
+### Sync Client (Multi-Turn)
 
 ```rust
-use codex_codes::SyncClient;
+use codex_codes::{SyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = SyncClient::exec("What is 2 + 2?")?;
+    let mut client = SyncClient::start()?;
+
+    let thread = client.thread_start(&ThreadStartParams::default())?;
+    client.turn_start(&TurnStartParams {
+        thread_id: thread.thread_id.clone(),
+        input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
+        model: None,
+        reasoning_effort: None,
+        sandbox_policy: None,
+    })?;
 
     for result in client.events() {
-        let event = result?;
-        println!("Event: {}", event.event_type());
-    }
-
-    Ok(())
-}
-```
-
-### Custom Builder
-
-```rust
-use codex_codes::{AsyncClient, CodexCliBuilder, SandboxMode};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let builder = CodexCliBuilder::new()
-        .model("o4-mini")
-        .sandbox(SandboxMode::ReadOnly)
-        .full_auto(true);
-
-    let mut client = AsyncClient::from_builder(builder, "List files in /tmp").await?;
-    let events = client.collect_all().await?;
-
-    for event in events {
-        println!("{}", event.event_type());
+        let msg = result?;
+        match &msg {
+            ServerMessage::Notification { method, .. } => {
+                if method == "turn/completed" { break; }
+            }
+            _ => {}
+        }
     }
 
     Ok(())
@@ -117,46 +129,67 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Raw Protocol Access
 
 ```rust
-use codex_codes::{ThreadEvent, ThreadItem};
+use codex_codes::{ThreadItem, JsonRpcMessage, RequestId};
 
-let event_json = r#"{"type":"thread.started","thread_id":"th_abc"}"#;
-let event: ThreadEvent = serde_json::from_str(event_json).unwrap();
-
+// Parse exec-format JSONL events
 let item_json = r#"{"type":"agent_message","id":"msg_1","text":"Hello!"}"#;
 let item: ThreadItem = serde_json::from_str(item_json).unwrap();
+
+// Parse app-server JSON-RPC messages
+let rpc_json = r#"{"id":1,"result":{"threadId":"th_abc"}}"#;
+let msg: JsonRpcMessage = serde_json::from_str(rpc_json).unwrap();
 ```
+
+## Protocol
+
+The crate supports two protocol modes:
+
+### App-Server JSON-RPC (Primary)
+
+The `codex app-server --listen stdio://` process speaks a JSON-RPC 2.0 protocol (without the `"jsonrpc":"2.0"` field) over newline-delimited stdio.
+
+**Lifecycle:** `thread/start` -> `turn/start` -> stream notifications -> `turn/completed` -> next `turn/start`
+
+**Approval flows:** The server sends requests back to the client for command execution and file change approvals.
+
+### Exec JSONL (Legacy)
+
+The `codex exec --json -` one-shot protocol emits `ThreadEvent` JSONL lines. These types are still available for parsing captures.
 
 ## Types
 
-### Events (`ThreadEvent`)
+### JSON-RPC (`jsonrpc` module)
 
-Discriminated union of all events emitted during thread execution:
+- `RequestId` -- String or integer request identifier
+- `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcError`, `JsonRpcNotification`
+- `JsonRpcMessage` -- Untagged union of all message types
 
-- `thread.started` — Thread initialized with an ID
-- `turn.started` / `turn.completed` / `turn.failed` — Turn lifecycle
-- `item.started` / `item.updated` / `item.completed` — Item lifecycle
-- `error` — Thread-level error
+### Protocol (`protocol` module)
+
+- Thread lifecycle: `ThreadStartParams/Response`, `ThreadArchiveParams/Response`
+- Turn lifecycle: `TurnStartParams/Response`, `TurnInterruptParams/Response`
+- Notifications: `TurnCompletedNotification`, `AgentMessageDeltaNotification`, etc.
+- Approvals: `CommandExecutionApprovalParams/Response`, `FileChangeApprovalParams/Response`
+- `UserInput`, `Turn`, `TurnStatus`, `ServerMessage`
 
 ### Items (`ThreadItem`)
 
-Discriminated union of all agent action items:
+Discriminated union of agent action items (shared between exec and app-server):
 
-- `agent_message` — Text output from the model
-- `reasoning` — Chain-of-thought reasoning
-- `command_execution` — Shell command with output and exit code
-- `file_change` — File modifications (add/delete/update)
-- `mcp_tool_call` — MCP tool invocation
-- `web_search` — Web search query
-- `todo_list` — Task tracking list
-- `error` — Error item
+- `agent_message` / `agentMessage` -- Text output from the model
+- `reasoning` -- Chain-of-thought reasoning
+- `command_execution` / `commandExecution` -- Shell command with output
+- `file_change` / `fileChange` -- File modifications
+- `mcp_tool_call` / `mcpToolCall` -- MCP tool invocation
+- `web_search` / `webSearch` -- Web search query
+- `todo_list` / `todoList` -- Task tracking list
+- `error` -- Error item
 
-### Options
+### Events (`ThreadEvent`) -- Exec Format
 
-- `ThreadOptions` — Per-thread configuration
-- `ApprovalMode` — Tool execution approval policy
-- `SandboxMode` — File system access control
-- `ModelReasoningEffort` — Reasoning effort level
-- `WebSearchMode` — Web search behavior
+- `thread.started`, `turn.started`, `turn.completed`, `turn.failed`
+- `item.started`, `item.updated`, `item.completed`
+- `error`
 
 ## Compatibility
 

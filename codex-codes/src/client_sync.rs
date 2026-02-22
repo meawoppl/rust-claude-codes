@@ -1,47 +1,111 @@
-//! Synchronous client for Codex CLI communication.
+//! Synchronous multi-turn client for the Codex app-server.
 //!
-//! Spawns `codex exec --json -`, writes the prompt to stdin, closes stdin,
-//! then reads JSONL events from stdout until the turn completes.
+//! Spawns `codex app-server --listen stdio://` and communicates over
+//! newline-delimited JSON-RPC. The connection stays open for multiple
+//! turns until explicitly shut down.
+//!
+//! This is the blocking counterpart to [`crate::client_async::AsyncClient`].
+//! Prefer the async client for applications that already use tokio.
+//!
+//! # Lifecycle
+//!
+//! 1. Create a client with [`SyncClient::start`]
+//! 2. Call [`SyncClient::thread_start`] to create a conversation session
+//! 3. Call [`SyncClient::turn_start`] to send user input
+//! 4. Iterate over [`SyncClient::events`] until `turn/completed`
+//! 5. Handle approval requests via [`SyncClient::respond`]
+//! 6. Repeat steps 3-5 for follow-up turns
+//!
+//! # Example
+//!
+//! ```ignore
+//! use codex_codes::{SyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
+//!
+//! let mut client = SyncClient::start()?;
+//! let thread = client.thread_start(&ThreadStartParams::default())?;
+//!
+//! client.turn_start(&TurnStartParams {
+//!     thread_id: thread.thread_id.clone(),
+//!     input: vec![UserInput::Text { text: "Hello!".into() }],
+//!     model: None,
+//!     reasoning_effort: None,
+//!     sandbox_policy: None,
+//! })?;
+//!
+//! for result in client.events() {
+//!     match result? {
+//!         ServerMessage::Notification { method, .. } => {
+//!             if method == "turn/completed" { break; }
+//!         }
+//!         _ => {}
+//!     }
+//! }
+//! ```
 
-use crate::cli::CodexCliBuilder;
+use crate::cli::AppServerBuilder;
 use crate::error::{Error, Result};
-use crate::io::events::ThreadEvent;
+use crate::jsonrpc::{JsonRpcError, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse, RequestId};
+use crate::protocol::{
+    ServerMessage, ThreadArchiveParams, ThreadArchiveResponse, ThreadStartParams,
+    ThreadStartResponse, TurnInterruptParams, TurnInterruptResponse, TurnStartParams,
+    TurnStartResponse,
+};
 use log::{debug, warn};
-use std::io::{BufRead, BufReader, Write};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::collections::VecDeque;
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::Child;
 
 /// Buffer size for reading stdout (10MB).
 const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
 
-/// Synchronous client for one-shot Codex queries.
+/// Synchronous multi-turn client for the Codex app-server.
 ///
-/// Each query spawns a fresh `codex exec --json -` process, writes the prompt
-/// to stdin, closes stdin, then reads JSONL [`ThreadEvent`]s from stdout.
+/// Communicates with a long-lived `codex app-server` process via
+/// newline-delimited JSON-RPC over stdio. Manages request/response
+/// correlation and buffers incoming notifications that arrive while
+/// waiting for RPC responses.
+///
+/// The client automatically kills the app-server process when dropped.
 pub struct SyncClient {
     child: Child,
-    stdout: BufReader<std::process::ChildStdout>,
-    finished: bool,
+    writer: BufWriter<std::process::ChildStdin>,
+    reader: BufReader<std::process::ChildStdout>,
+    next_id: i64,
+    buffered: VecDeque<ServerMessage>,
 }
 
 impl SyncClient {
-    /// Spawn a client from a builder and prompt.
-    pub fn from_builder(builder: CodexCliBuilder, prompt: &str) -> Result<Self> {
+    /// Start an app-server with default settings.
+    ///
+    /// Spawns `codex app-server --listen stdio://` and returns a connected client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `codex` CLI is not installed, the version is
+    /// incompatible, or the process fails to start.
+    pub fn start() -> Result<Self> {
+        Self::start_with(AppServerBuilder::new())
+    }
+
+    /// Start an app-server with a custom [`AppServerBuilder`].
+    ///
+    /// Use this to configure a custom binary path or working directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the process fails to start or stdio pipes
+    /// cannot be established.
+    pub fn start_with(builder: AppServerBuilder) -> Result<Self> {
         crate::version::check_codex_version()?;
 
         let mut child = builder.spawn_sync().map_err(Error::Io)?;
 
-        // Write prompt to stdin and close it
-        {
-            let stdin = child
-                .stdin
-                .take()
-                .ok_or_else(|| Error::Protocol("Failed to get stdin".to_string()))?;
-            let mut writer = std::io::BufWriter::new(stdin);
-            writer.write_all(prompt.as_bytes()).map_err(Error::Io)?;
-            writer.flush().map_err(Error::Io)?;
-            // stdin is dropped here, closing the pipe
-        }
-
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| Error::Protocol("Failed to get stdin".to_string()))?;
         let stdout = child
             .stdout
             .take()
@@ -49,33 +113,233 @@ impl SyncClient {
 
         Ok(Self {
             child,
-            stdout: BufReader::with_capacity(STDOUT_BUFFER_SIZE, stdout),
-            finished: false,
+            writer: BufWriter::new(stdin),
+            reader: BufReader::with_capacity(STDOUT_BUFFER_SIZE, stdout),
+            next_id: 1,
+            buffered: VecDeque::new(),
         })
     }
 
-    /// One-shot query with default settings.
-    pub fn exec(prompt: &str) -> Result<Self> {
-        Self::from_builder(CodexCliBuilder::new().full_auto(true), prompt)
+    /// Send a JSON-RPC request and wait for the matching response.
+    ///
+    /// Any notifications or server requests that arrive before the response
+    /// are buffered and can be retrieved via [`SyncClient::next_message`].
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::JsonRpc`] if the server returns a JSON-RPC error
+    /// - [`Error::ServerClosed`] if the connection drops before a response arrives
+    /// - [`Error::Json`] if response deserialization fails
+    pub fn request<P: Serialize, R: DeserializeOwned>(
+        &mut self,
+        method: &str,
+        params: &P,
+    ) -> Result<R> {
+        let id = RequestId::Integer(self.next_id);
+        self.next_id += 1;
+
+        let req = JsonRpcRequest {
+            id: id.clone(),
+            method: method.to_string(),
+            params: Some(serde_json::to_value(params).map_err(Error::Json)?),
+        };
+
+        self.send_raw(&req)?;
+
+        loop {
+            let msg = self.read_message()?;
+            match msg {
+                JsonRpcMessage::Response(resp) if resp.id == id => {
+                    let result: R = serde_json::from_value(resp.result).map_err(Error::Json)?;
+                    return Ok(result);
+                }
+                JsonRpcMessage::Error(err) if err.id == id => {
+                    return Err(Error::JsonRpc {
+                        code: err.error.code,
+                        message: err.error.message,
+                    });
+                }
+                JsonRpcMessage::Notification(notif) => {
+                    self.buffered.push_back(ServerMessage::Notification {
+                        method: notif.method,
+                        params: notif.params,
+                    });
+                }
+                JsonRpcMessage::Request(req) => {
+                    self.buffered.push_back(ServerMessage::Request {
+                        id: req.id,
+                        method: req.method,
+                        params: req.params,
+                    });
+                }
+                JsonRpcMessage::Response(resp) => {
+                    warn!(
+                        "[CLIENT] Unexpected response for id={}, expected id={}",
+                        resp.id, id
+                    );
+                }
+                JsonRpcMessage::Error(err) => {
+                    warn!(
+                        "[CLIENT] Unexpected error for id={}, expected id={}",
+                        err.id, id
+                    );
+                }
+            }
+        }
     }
 
-    /// One-shot query with a custom builder.
-    pub fn exec_with(builder: CodexCliBuilder, prompt: &str) -> Result<Self> {
-        Self::from_builder(builder, prompt)
+    /// Start a new thread (conversation session).
+    ///
+    /// A thread must be created before any turns can be started. The returned
+    /// [`ThreadStartResponse`] contains the `thread_id` needed for subsequent calls.
+    pub fn thread_start(&mut self, params: &ThreadStartParams) -> Result<ThreadStartResponse> {
+        self.request(crate::protocol::methods::THREAD_START, params)
     }
 
-    /// Read the next event from the stream.
-    pub fn next_event(&mut self) -> Result<Option<ThreadEvent>> {
-        if self.finished {
-            return Ok(None);
+    /// Start a new turn within a thread.
+    ///
+    /// Sends user input to the agent. After calling this, use [`SyncClient::events`]
+    /// or [`SyncClient::next_message`] to consume notifications until `turn/completed`.
+    pub fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
+        self.request(crate::protocol::methods::TURN_START, params)
+    }
+
+    /// Interrupt an active turn.
+    pub fn turn_interrupt(
+        &mut self,
+        params: &TurnInterruptParams,
+    ) -> Result<TurnInterruptResponse> {
+        self.request(crate::protocol::methods::TURN_INTERRUPT, params)
+    }
+
+    /// Archive a thread.
+    pub fn thread_archive(
+        &mut self,
+        params: &ThreadArchiveParams,
+    ) -> Result<ThreadArchiveResponse> {
+        self.request(crate::protocol::methods::THREAD_ARCHIVE, params)
+    }
+
+    /// Respond to a server-to-client request (e.g., approval flow).
+    ///
+    /// When the server sends a [`ServerMessage::Request`], it expects a response.
+    /// Use this method with the request's `id` and a result payload. For command
+    /// approval, pass a [`CommandExecutionApprovalResponse`](crate::CommandExecutionApprovalResponse).
+    /// For file change approval, pass a [`FileChangeApprovalResponse`](crate::FileChangeApprovalResponse).
+    pub fn respond<R: Serialize>(&mut self, id: RequestId, result: &R) -> Result<()> {
+        let resp = JsonRpcResponse {
+            id,
+            result: serde_json::to_value(result).map_err(Error::Json)?,
+        };
+        self.send_raw(&resp)
+    }
+
+    /// Respond to a server-to-client request with an error.
+    pub fn respond_error(&mut self, id: RequestId, code: i64, message: &str) -> Result<()> {
+        let err = JsonRpcError {
+            id,
+            error: crate::jsonrpc::JsonRpcErrorData {
+                code,
+                message: message.to_string(),
+                data: None,
+            },
+        };
+        self.send_raw(&err)
+    }
+
+    /// Read the next incoming server message (notification or server request).
+    ///
+    /// Returns buffered messages first (from notifications that arrived during
+    /// a [`SyncClient::request`] call), then reads from the wire.
+    ///
+    /// Returns `Ok(None)` when the app-server closes the connection (EOF).
+    pub fn next_message(&mut self) -> Result<Option<ServerMessage>> {
+        if let Some(msg) = self.buffered.pop_front() {
+            return Ok(Some(msg));
         }
 
         loop {
+            let msg = match self.read_message_opt()? {
+                Some(m) => m,
+                None => return Ok(None),
+            };
+
+            match msg {
+                JsonRpcMessage::Notification(notif) => {
+                    return Ok(Some(ServerMessage::Notification {
+                        method: notif.method,
+                        params: notif.params,
+                    }));
+                }
+                JsonRpcMessage::Request(req) => {
+                    return Ok(Some(ServerMessage::Request {
+                        id: req.id,
+                        method: req.method,
+                        params: req.params,
+                    }));
+                }
+                JsonRpcMessage::Response(resp) => {
+                    warn!(
+                        "[CLIENT] Unexpected response (no pending request): id={}",
+                        resp.id
+                    );
+                }
+                JsonRpcMessage::Error(err) => {
+                    warn!(
+                        "[CLIENT] Unexpected error (no pending request): id={} code={}",
+                        err.id, err.error.code
+                    );
+                }
+            }
+        }
+    }
+
+    /// Return an iterator over [`ServerMessage`]s.
+    ///
+    /// The iterator yields `Result<ServerMessage>` and terminates when the
+    /// connection closes (EOF). This is the idiomatic way to consume a turn's
+    /// notifications in synchronous code.
+    pub fn events(&mut self) -> EventIterator<'_> {
+        EventIterator { client: self }
+    }
+
+    /// Shut down the child process.
+    ///
+    /// Kills the process if it's still running. Called automatically on [`Drop`].
+    pub fn shutdown(&mut self) -> Result<()> {
+        debug!("[CLIENT] Shutting down");
+        match self.child.try_wait() {
+            Ok(Some(_)) => Ok(()),
+            Ok(None) => {
+                self.child.kill().map_err(Error::Io)?;
+                self.child.wait().map_err(Error::Io)?;
+                Ok(())
+            }
+            Err(e) => Err(Error::Io(e)),
+        }
+    }
+
+    // -- internal --
+
+    fn send_raw<T: Serialize>(&mut self, msg: &T) -> Result<()> {
+        let json = serde_json::to_string(msg).map_err(Error::Json)?;
+        debug!("[CLIENT] Sending: {}", json);
+        self.writer.write_all(json.as_bytes()).map_err(Error::Io)?;
+        self.writer.write_all(b"\n").map_err(Error::Io)?;
+        self.writer.flush().map_err(Error::Io)?;
+        Ok(())
+    }
+
+    fn read_message(&mut self) -> Result<JsonRpcMessage> {
+        self.read_message_opt()?.ok_or(Error::ServerClosed)
+    }
+
+    fn read_message_opt(&mut self) -> Result<Option<JsonRpcMessage>> {
+        loop {
             let mut line = String::new();
-            match self.stdout.read_line(&mut line) {
+            match self.reader.read_line(&mut line) {
                 Ok(0) => {
                     debug!("[CLIENT] Stream closed (EOF)");
-                    self.finished = true;
                     return Ok(None);
                 }
                 Ok(_) => {
@@ -86,16 +350,11 @@ impl SyncClient {
 
                     debug!("[CLIENT] Received: {}", trimmed);
 
-                    match serde_json::from_str::<ThreadEvent>(trimmed) {
-                        Ok(event) => {
-                            if matches!(event, ThreadEvent::TurnCompleted(_)) {
-                                self.finished = true;
-                            }
-                            return Ok(Some(event));
-                        }
+                    match serde_json::from_str::<JsonRpcMessage>(trimmed) {
+                        Ok(msg) => return Ok(Some(msg)),
                         Err(e) => {
                             warn!(
-                                "[CLIENT] Failed to deserialize event. \
+                                "[CLIENT] Failed to deserialize message. \
                                  Please report this at https://github.com/meawoppl/rust-code-agent-sdks/issues"
                             );
                             warn!("[CLIENT] Parse error: {}", e);
@@ -109,45 +368,10 @@ impl SyncClient {
                 }
                 Err(e) => {
                     debug!("[CLIENT] Error reading stdout: {}", e);
-                    self.finished = true;
                     return Err(Error::Io(e));
                 }
             }
         }
-    }
-
-    /// Collect all remaining events into a vector.
-    pub fn collect_all(&mut self) -> Result<Vec<ThreadEvent>> {
-        let mut events = Vec::new();
-        while let Some(event) = self.next_event()? {
-            events.push(event);
-        }
-        Ok(events)
-    }
-
-    /// Return an iterator over events.
-    pub fn events(&mut self) -> EventIterator<'_> {
-        EventIterator { client: self }
-    }
-
-    /// Shut down the child process.
-    pub fn shutdown(&mut self) -> Result<()> {
-        debug!("[CLIENT] Shutting down");
-        // The child may have already exited since stdin was closed
-        match self.child.try_wait() {
-            Ok(Some(_)) => Ok(()),
-            Ok(None) => {
-                self.child.kill().map_err(Error::Io)?;
-                self.child.wait().map_err(Error::Io)?;
-                Ok(())
-            }
-            Err(e) => Err(Error::Io(e)),
-        }
-    }
-
-    /// Check if the stream has finished.
-    pub fn is_finished(&self) -> bool {
-        self.finished
     }
 }
 
@@ -159,17 +383,17 @@ impl Drop for SyncClient {
     }
 }
 
-/// Iterator over [`ThreadEvent`]s from a [`SyncClient`].
+/// Iterator over [`ServerMessage`]s from a [`SyncClient`].
 pub struct EventIterator<'a> {
     client: &'a mut SyncClient,
 }
 
 impl Iterator for EventIterator<'_> {
-    type Item = Result<ThreadEvent>;
+    type Item = Result<ServerMessage>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.client.next_event() {
-            Ok(Some(event)) => Some(Ok(event)),
+        match self.client.next_message() {
+            Ok(Some(msg)) => Some(Ok(msg)),
             Ok(None) => None,
             Err(e) => Some(Err(e)),
         }

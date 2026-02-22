@@ -1,27 +1,26 @@
-//! Interactive REPL for the Codex CLI using the async client.
+//! Interactive REPL for the Codex CLI using the async app-server client.
 //!
-//! Each query spawns a fresh `codex exec --json -` process.
+//! Maintains a single persistent thread across the session.
 //! Type your prompt and press Enter. Type "exit" to quit.
 
-use codex_codes::{AsyncClient, CodexCliBuilder, ThreadEvent, ThreadItem};
-use log::{debug, error};
-use std::env;
+use codex_codes::{
+    protocol::methods, AsyncClient, CommandApprovalDecision, CommandExecutionApprovalResponse,
+    FileChangeApprovalDecision, FileChangeApprovalResponse, ServerMessage, ThreadStartParams,
+    TurnStartParams, UserInput,
+};
 use std::io::{self, Write};
-use tokio::io::AsyncBufReadExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
-    let model = args.get(1).cloned();
-
-    println!("\nCodex REPL");
-    println!("==========");
-    if let Some(ref m) = model {
-        println!("Using model: {}", m);
-    }
+    println!("\nCodex REPL (app-server)");
+    println!("======================");
     println!("Type your queries and press Enter. Type 'exit' to quit.\n");
+
+    let mut client = AsyncClient::start().await?;
+    let thread = client.thread_start(&ThreadStartParams::default()).await?;
+    println!("Thread: {}\n", thread.thread_id);
 
     loop {
         print!("> ");
@@ -39,132 +38,129 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let mut builder = CodexCliBuilder::new().full_auto(true);
-        if let Some(ref m) = model {
-            builder = builder.model(m.as_str());
-        }
-
-        let mut client = match AsyncClient::from_builder(builder, input).await {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Failed to start Codex: {}", e);
-                continue;
-            }
-        };
-
-        // Drain stderr in the background
-        if let Some(mut stderr) = client.take_stderr() {
-            tokio::spawn(async move {
-                let mut line = String::new();
-                loop {
-                    line.clear();
-                    match stderr.read_line(&mut line).await {
-                        Ok(0) => break,
-                        Ok(_) => {
-                            if !line.trim().is_empty() {
-                                error!("Codex stderr: {}", line.trim());
-                            }
-                        }
-                        Err(e) => {
-                            error!("Error reading stderr: {}", e);
-                            break;
-                        }
-                    }
-                }
-            });
-        }
+        // Start a new turn with the user's input
+        client
+            .turn_start(&TurnStartParams {
+                thread_id: thread.thread_id.clone(),
+                input: vec![UserInput::Text {
+                    text: input.to_string(),
+                }],
+                model: None,
+                reasoning_effort: None,
+                sandbox_policy: None,
+            })
+            .await?;
 
         println!("\n--- Response ---");
 
-        let mut stream = client.events();
-        while let Some(result) = stream.next().await {
-            match result {
-                Ok(event) => {
-                    debug!("Event: {:?}", std::mem::discriminant(&event));
-                    handle_event(&event);
+        // Stream events until the turn completes
+        loop {
+            let msg = match client.next_message().await? {
+                Some(m) => m,
+                None => {
+                    eprintln!("[connection closed]");
+                    return Ok(());
                 }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    break;
-                }
+            };
+
+            match msg {
+                ServerMessage::Notification { method, params } => match method.as_str() {
+                    methods::AGENT_MESSAGE_DELTA => {
+                        if let Some(ref p) = params {
+                            if let Some(delta) = p.get("delta").and_then(|d| d.as_str()) {
+                                print!("{}", delta);
+                                io::stdout().flush()?;
+                            }
+                        }
+                    }
+                    methods::CMD_OUTPUT_DELTA => {
+                        if let Some(ref p) = params {
+                            if let Some(delta) = p.get("delta").and_then(|d| d.as_str()) {
+                                print!("{}", delta);
+                                io::stdout().flush()?;
+                            }
+                        }
+                    }
+                    methods::REASONING_DELTA => {
+                        if let Some(ref p) = params {
+                            if let Some(delta) = p.get("delta").and_then(|d| d.as_str()) {
+                                print!("[thinking] {}", delta);
+                            }
+                        }
+                    }
+                    methods::ITEM_STARTED => {
+                        if let Some(ref p) = params {
+                            if let Some(item) = p.get("item") {
+                                if let Some(ty) = item.get("type").and_then(|t| t.as_str()) {
+                                    match ty {
+                                        "commandExecution" | "command_execution" => {
+                                            if let Some(cmd) =
+                                                item.get("command").and_then(|c| c.as_str())
+                                            {
+                                                println!("\n[Command: {}]", cmd);
+                                            }
+                                        }
+                                        "fileChange" | "file_change" => {
+                                            println!("\n[File change]");
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    methods::TURN_COMPLETED => {
+                        println!();
+                        break;
+                    }
+                    methods::ERROR => {
+                        if let Some(ref p) = params {
+                            if let Some(error) = p.get("error").and_then(|e| e.as_str()) {
+                                eprintln!("\n[Error: {}]", error);
+                            }
+                        }
+                    }
+                    _ => {
+                        log::debug!("Notification: {}", method);
+                    }
+                },
+                ServerMessage::Request { id, method, params } => match method.as_str() {
+                    methods::CMD_EXEC_APPROVAL => {
+                        if let Some(ref p) = params {
+                            if let Some(cmd) = p.get("command").and_then(|c| c.as_str()) {
+                                println!("\n[Approving command: {}]", cmd);
+                            }
+                        }
+                        client
+                            .respond(
+                                id,
+                                &CommandExecutionApprovalResponse {
+                                    decision: CommandApprovalDecision::Accept,
+                                },
+                            )
+                            .await?;
+                    }
+                    methods::FILE_CHANGE_APPROVAL => {
+                        println!("\n[Approving file change]");
+                        client
+                            .respond(
+                                id,
+                                &FileChangeApprovalResponse {
+                                    decision: FileChangeApprovalDecision::Accept,
+                                },
+                            )
+                            .await?;
+                    }
+                    _ => {
+                        eprintln!("[unhandled server request: {}]", method);
+                    }
+                },
             }
         }
 
         println!("--- End ---\n");
     }
 
+    client.shutdown().await?;
     Ok(())
-}
-
-fn handle_event(event: &ThreadEvent) {
-    match event {
-        ThreadEvent::ThreadStarted(e) => {
-            debug!("[thread.started] id={}", e.thread_id);
-        }
-        ThreadEvent::TurnStarted(_) => {
-            debug!("[turn.started]");
-        }
-        ThreadEvent::ItemStarted(_) => {}
-        ThreadEvent::ItemUpdated(e) => match &e.item {
-            ThreadItem::AgentMessage(msg) => {
-                println!("{}", msg.text);
-            }
-            ThreadItem::CommandExecution(cmd) => {
-                println!("\n[Command: {}]", cmd.command);
-                for line in cmd.aggregated_output.lines() {
-                    println!("  {}", line);
-                }
-                match cmd.status {
-                    codex_codes::CommandExecutionStatus::Completed => {
-                        if let Some(code) = cmd.exit_code {
-                            if code != 0 {
-                                println!("  (exit code: {})", code);
-                            }
-                        }
-                    }
-                    codex_codes::CommandExecutionStatus::Failed => {
-                        println!("  (FAILED, exit code: {:?})", cmd.exit_code);
-                    }
-                    _ => {}
-                }
-            }
-            ThreadItem::FileChange(fc) => {
-                for change in &fc.changes {
-                    println!("\n[File: {} ({:?})]", change.path, change.kind);
-                }
-            }
-            ThreadItem::Reasoning(r) => {
-                println!("\n[Thinking]\n{}", r.text);
-            }
-            ThreadItem::McpToolCall(mcp) => {
-                println!("\n[MCP: {}::{}]", mcp.server, mcp.tool);
-            }
-            ThreadItem::WebSearch(ws) => {
-                println!("\n[Web search: {}]", ws.query);
-            }
-            ThreadItem::TodoList(todo) => {
-                println!("\n[Todo list: {} items]", todo.items.len());
-                for item in &todo.items {
-                    let check = if item.completed { "x" } else { " " };
-                    println!("  [{}] {}", check, item.text);
-                }
-            }
-            ThreadItem::Error(err) => {
-                eprintln!("\n[Error: {}]", err.message);
-            }
-        },
-        ThreadEvent::ItemCompleted(_) => {}
-        ThreadEvent::TurnCompleted(e) => {
-            println!(
-                "\n[Tokens: {} in / {} out]",
-                e.usage.input_tokens, e.usage.output_tokens
-            );
-        }
-        ThreadEvent::TurnFailed(e) => {
-            eprintln!("\n[Turn failed: {}]", e.error.message);
-        }
-        ThreadEvent::Error(e) => {
-            eprintln!("\n[Error: {}]", e.message);
-        }
-    }
 }

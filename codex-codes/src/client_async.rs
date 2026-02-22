@@ -1,138 +1,340 @@
-//! Asynchronous client for Codex CLI communication.
+//! Asynchronous multi-turn client for the Codex app-server.
 //!
-//! Spawns `codex exec --json -`, writes the prompt to stdin, closes stdin,
-//! then reads JSONL events from stdout until the turn completes.
+//! Spawns `codex app-server --listen stdio://` and communicates over
+//! newline-delimited JSON-RPC. The connection stays open for multiple
+//! turns until explicitly shut down.
+//!
+//! # Lifecycle
+//!
+//! 1. Create a client with [`AsyncClient::start`] (spawns the app-server process)
+//! 2. Call [`AsyncClient::thread_start`] to create a conversation session
+//! 3. Call [`AsyncClient::turn_start`] to send user input
+//! 4. Consume [`AsyncClient::next_message`] to stream notifications
+//! 5. Handle approval requests via [`AsyncClient::respond`]
+//! 6. Repeat steps 3-5 for follow-up turns
+//! 7. The client kills the app-server on [`Drop`]
+//!
+//! # Example
+//!
+//! ```ignore
+//! use codex_codes::{AsyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
+//!
+//! let mut client = AsyncClient::start().await?;
+//! let thread = client.thread_start(&ThreadStartParams::default()).await?;
+//!
+//! client.turn_start(&TurnStartParams {
+//!     thread_id: thread.thread_id.clone(),
+//!     input: vec![UserInput::Text { text: "Hello!".into() }],
+//!     model: None,
+//!     reasoning_effort: None,
+//!     sandbox_policy: None,
+//! }).await?;
+//!
+//! while let Some(msg) = client.next_message().await? {
+//!     match msg {
+//!         ServerMessage::Notification { method, params } => {
+//!             if method == "turn/completed" { break; }
+//!         }
+//!         ServerMessage::Request { id, method, .. } => {
+//!             client.respond(id, &serde_json::json!({"decision": "accept"})).await?;
+//!         }
+//!     }
+//! }
+//! ```
 
-use crate::cli::CodexCliBuilder;
+use crate::cli::AppServerBuilder;
 use crate::error::{Error, Result};
-use crate::io::events::ThreadEvent;
+use crate::jsonrpc::{JsonRpcError, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse, RequestId};
+use crate::protocol::{
+    ServerMessage, ThreadArchiveParams, ThreadArchiveResponse, ThreadStartParams,
+    ThreadStartResponse, TurnInterruptParams, TurnInterruptResponse, TurnStartParams,
+    TurnStartResponse,
+};
 use log::{debug, error, warn};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicI64, Ordering};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::process::{Child, ChildStderr};
 
 /// Buffer size for reading stdout (10MB).
 const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
 
-/// Asynchronous client for one-shot Codex queries.
+/// Asynchronous multi-turn client for the Codex app-server.
 ///
-/// Each query spawns a fresh `codex exec --json -` process, writes the prompt
-/// to stdin, closes stdin, then reads JSONL [`ThreadEvent`]s from stdout.
+/// Communicates with a long-lived `codex app-server` process via
+/// newline-delimited JSON-RPC over stdio. Manages request/response
+/// correlation and buffers incoming notifications that arrive while
+/// waiting for RPC responses.
+///
+/// The client automatically kills the app-server process when dropped.
 pub struct AsyncClient {
     child: Child,
-    stdout: BufReader<tokio::process::ChildStdout>,
+    writer: BufWriter<tokio::process::ChildStdin>,
+    reader: BufReader<tokio::process::ChildStdout>,
     stderr: Option<BufReader<ChildStderr>>,
-    finished: bool,
+    next_id: AtomicI64,
+    /// Buffered incoming messages (notifications/server requests) that arrived
+    /// while waiting for a response to a client request.
+    buffered: VecDeque<ServerMessage>,
 }
 
 impl AsyncClient {
-    /// Spawn a client from a builder and prompt.
-    pub async fn from_builder(builder: CodexCliBuilder, prompt: &str) -> Result<Self> {
+    /// Start an app-server with default settings.
+    ///
+    /// Spawns `codex app-server --listen stdio://` and returns a connected client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `codex` CLI is not installed, the version is
+    /// incompatible, or the process fails to start.
+    pub async fn start() -> Result<Self> {
+        Self::start_with(AppServerBuilder::new()).await
+    }
+
+    /// Start an app-server with a custom [`AppServerBuilder`].
+    ///
+    /// Use this to configure a custom binary path or working directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the process fails to start or stdio pipes
+    /// cannot be established.
+    pub async fn start_with(builder: AppServerBuilder) -> Result<Self> {
         crate::version::check_codex_version_async().await?;
 
         let mut child = builder.spawn().await?;
 
-        // Write prompt to stdin and close it
-        {
-            let mut stdin = child
-                .stdin
-                .take()
-                .ok_or_else(|| Error::Protocol("Failed to get stdin".to_string()))?;
-            stdin
-                .write_all(prompt.as_bytes())
-                .await
-                .map_err(Error::Io)?;
-            stdin.flush().await.map_err(Error::Io)?;
-            // stdin is dropped here, closing the pipe
-        }
-
-        let stdout = BufReader::with_capacity(
-            STDOUT_BUFFER_SIZE,
-            child
-                .stdout
-                .take()
-                .ok_or_else(|| Error::Protocol("Failed to get stdout".to_string()))?,
-        );
-
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| Error::Protocol("Failed to get stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::Protocol("Failed to get stdout".to_string()))?;
         let stderr = child.stderr.take().map(BufReader::new);
 
         Ok(Self {
             child,
-            stdout,
+            writer: BufWriter::new(stdin),
+            reader: BufReader::with_capacity(STDOUT_BUFFER_SIZE, stdout),
             stderr,
-            finished: false,
+            next_id: AtomicI64::new(1),
+            buffered: VecDeque::new(),
         })
     }
 
-    /// One-shot query with default settings.
-    pub async fn exec(prompt: &str) -> Result<Self> {
-        Self::from_builder(CodexCliBuilder::new().full_auto(true), prompt).await
-    }
+    /// Send a JSON-RPC request and wait for the matching response.
+    ///
+    /// Any notifications or server requests that arrive before the response
+    /// are buffered and can be retrieved via [`AsyncClient::next_message`].
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::JsonRpc`] if the server returns a JSON-RPC error
+    /// - [`Error::ServerClosed`] if the connection drops before a response arrives
+    /// - [`Error::Json`] if response deserialization fails
+    pub async fn request<P: Serialize, R: DeserializeOwned>(
+        &mut self,
+        method: &str,
+        params: &P,
+    ) -> Result<R> {
+        let id = RequestId::Integer(self.next_id.fetch_add(1, Ordering::Relaxed));
 
-    /// One-shot query with a custom builder.
-    pub async fn exec_with(builder: CodexCliBuilder, prompt: &str) -> Result<Self> {
-        Self::from_builder(builder, prompt).await
-    }
+        let req = JsonRpcRequest {
+            id: id.clone(),
+            method: method.to_string(),
+            params: Some(serde_json::to_value(params).map_err(Error::Json)?),
+        };
 
-    /// Read the next event from the stream.
-    pub async fn next_event(&mut self) -> Result<Option<ThreadEvent>> {
-        if self.finished {
-            return Ok(None);
-        }
+        self.send_raw(&req).await?;
 
-        let mut line = String::new();
-
+        // Read lines until we get a response matching our id
         loop {
-            line.clear();
-            let bytes_read = self.stdout.read_line(&mut line).await.map_err(Error::Io)?;
-
-            if bytes_read == 0 {
-                debug!("[CLIENT] Stream closed (EOF)");
-                self.finished = true;
-                return Ok(None);
-            }
-
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            debug!("[CLIENT] Received: {}", trimmed);
-
-            match serde_json::from_str::<ThreadEvent>(trimmed) {
-                Ok(event) => {
-                    if matches!(event, ThreadEvent::TurnCompleted(_)) {
-                        self.finished = true;
-                    }
-                    return Ok(Some(event));
+            let msg = self.read_message().await?;
+            match msg {
+                JsonRpcMessage::Response(resp) if resp.id == id => {
+                    let result: R = serde_json::from_value(resp.result).map_err(Error::Json)?;
+                    return Ok(result);
                 }
-                Err(e) => {
+                JsonRpcMessage::Error(err) if err.id == id => {
+                    return Err(Error::JsonRpc {
+                        code: err.error.code,
+                        message: err.error.message,
+                    });
+                }
+                // Buffer notifications and server requests
+                JsonRpcMessage::Notification(notif) => {
+                    self.buffered.push_back(ServerMessage::Notification {
+                        method: notif.method,
+                        params: notif.params,
+                    });
+                }
+                JsonRpcMessage::Request(req) => {
+                    self.buffered.push_back(ServerMessage::Request {
+                        id: req.id,
+                        method: req.method,
+                        params: req.params,
+                    });
+                }
+                // Response/error for a different id — unexpected
+                JsonRpcMessage::Response(resp) => {
                     warn!(
-                        "[CLIENT] Failed to deserialize event. \
-                         Please report this at https://github.com/meawoppl/rust-code-agent-sdks/issues"
+                        "[CLIENT] Unexpected response for id={}, expected id={}",
+                        resp.id, id
                     );
-                    warn!("[CLIENT] Parse error: {}", e);
-                    warn!("[CLIENT] Raw: {}", trimmed);
-                    return Err(Error::Deserialization(format!("{} (raw: {})", e, trimmed)));
+                }
+                JsonRpcMessage::Error(err) => {
+                    warn!(
+                        "[CLIENT] Unexpected error for id={}, expected id={}",
+                        err.id, id
+                    );
                 }
             }
         }
     }
 
-    /// Collect all remaining events into a vector.
-    pub async fn collect_all(&mut self) -> Result<Vec<ThreadEvent>> {
-        let mut events = Vec::new();
-        while let Some(event) = self.next_event().await? {
-            events.push(event);
-        }
-        Ok(events)
+    /// Start a new thread (conversation session).
+    ///
+    /// A thread must be created before any turns can be started. The returned
+    /// [`ThreadStartResponse`] contains the `thread_id` needed for subsequent calls.
+    pub async fn thread_start(
+        &mut self,
+        params: &ThreadStartParams,
+    ) -> Result<ThreadStartResponse> {
+        self.request(crate::protocol::methods::THREAD_START, params)
+            .await
     }
 
-    /// Return an async event stream.
+    /// Start a new turn within a thread.
+    ///
+    /// Sends user input to the agent. After calling this, use [`AsyncClient::next_message`]
+    /// to stream notifications until `turn/completed` arrives.
+    pub async fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
+        self.request(crate::protocol::methods::TURN_START, params)
+            .await
+    }
+
+    /// Interrupt an active turn.
+    pub async fn turn_interrupt(
+        &mut self,
+        params: &TurnInterruptParams,
+    ) -> Result<TurnInterruptResponse> {
+        self.request(crate::protocol::methods::TURN_INTERRUPT, params)
+            .await
+    }
+
+    /// Archive a thread.
+    pub async fn thread_archive(
+        &mut self,
+        params: &ThreadArchiveParams,
+    ) -> Result<ThreadArchiveResponse> {
+        self.request(crate::protocol::methods::THREAD_ARCHIVE, params)
+            .await
+    }
+
+    /// Respond to a server-to-client request (e.g., approval flow).
+    ///
+    /// When the server sends a [`ServerMessage::Request`], it expects a response.
+    /// Use this method with the request's `id` and a result payload. For command
+    /// approval, pass a [`CommandExecutionApprovalResponse`](crate::CommandExecutionApprovalResponse).
+    /// For file change approval, pass a [`FileChangeApprovalResponse`](crate::FileChangeApprovalResponse).
+    pub async fn respond<R: Serialize>(&mut self, id: RequestId, result: &R) -> Result<()> {
+        let resp = JsonRpcResponse {
+            id,
+            result: serde_json::to_value(result).map_err(Error::Json)?,
+        };
+        self.send_raw(&resp).await
+    }
+
+    /// Respond to a server-to-client request with an error.
+    pub async fn respond_error(&mut self, id: RequestId, code: i64, message: &str) -> Result<()> {
+        let err = JsonRpcError {
+            id,
+            error: crate::jsonrpc::JsonRpcErrorData {
+                code,
+                message: message.to_string(),
+                data: None,
+            },
+        };
+        self.send_raw(&err).await
+    }
+
+    /// Read the next incoming server message (notification or server request).
+    ///
+    /// Returns buffered messages first (from notifications that arrived during
+    /// an [`AsyncClient::request`] call), then reads from the wire.
+    ///
+    /// Returns `Ok(None)` when the app-server closes the connection (EOF).
+    ///
+    /// # Typical notification methods
+    ///
+    /// | Method | Meaning |
+    /// |--------|---------|
+    /// | `turn/started` | Agent began processing |
+    /// | `item/agentMessage/delta` | Streaming text chunk |
+    /// | `item/commandExecution/outputDelta` | Command output chunk |
+    /// | `item/started` / `item/completed` | Item lifecycle |
+    /// | `turn/completed` | Agent finished the turn |
+    /// | `error` | Server-side error |
+    pub async fn next_message(&mut self) -> Result<Option<ServerMessage>> {
+        // Drain buffered messages first
+        if let Some(msg) = self.buffered.pop_front() {
+            return Ok(Some(msg));
+        }
+
+        // Read from the wire
+        loop {
+            let msg = match self.read_message_opt().await? {
+                Some(m) => m,
+                None => return Ok(None),
+            };
+
+            match msg {
+                JsonRpcMessage::Notification(notif) => {
+                    return Ok(Some(ServerMessage::Notification {
+                        method: notif.method,
+                        params: notif.params,
+                    }));
+                }
+                JsonRpcMessage::Request(req) => {
+                    return Ok(Some(ServerMessage::Request {
+                        id: req.id,
+                        method: req.method,
+                        params: req.params,
+                    }));
+                }
+                // Unexpected responses without a pending request
+                JsonRpcMessage::Response(resp) => {
+                    warn!(
+                        "[CLIENT] Unexpected response (no pending request): id={}",
+                        resp.id
+                    );
+                }
+                JsonRpcMessage::Error(err) => {
+                    warn!(
+                        "[CLIENT] Unexpected error (no pending request): id={} code={}",
+                        err.id, err.error.code
+                    );
+                }
+            }
+        }
+    }
+
+    /// Return an async event stream over [`ServerMessage`]s.
+    ///
+    /// Wraps [`AsyncClient::next_message`] in a stream-like API. Call
+    /// [`EventStream::next`] in a loop, or [`EventStream::collect`] to
+    /// gather all messages until EOF.
     pub fn events(&mut self) -> EventStream<'_> {
         EventStream { client: self }
     }
 
     /// Take the stderr reader (can only be called once).
+    ///
+    /// Useful for logging or diagnostics. Returns `None` on subsequent calls.
     pub fn take_stderr(&mut self) -> Option<BufReader<ChildStderr>> {
         self.stderr.take()
     }
@@ -147,16 +349,66 @@ impl AsyncClient {
         self.child.try_wait().ok().flatten().is_none()
     }
 
-    /// Check if the stream has finished.
-    pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-
-    /// Shut down the child process.
+    /// Shut down the app-server process.
+    ///
+    /// Consumes the client. If you don't call this explicitly, the
+    /// [`Drop`] implementation will kill the process automatically.
     pub async fn shutdown(mut self) -> Result<()> {
         debug!("[CLIENT] Shutting down");
         self.child.kill().await.map_err(Error::Io)?;
         Ok(())
+    }
+
+    // -- internal --
+
+    async fn send_raw<T: Serialize>(&mut self, msg: &T) -> Result<()> {
+        let json = serde_json::to_string(msg).map_err(Error::Json)?;
+        debug!("[CLIENT] Sending: {}", json);
+        self.writer
+            .write_all(json.as_bytes())
+            .await
+            .map_err(Error::Io)?;
+        self.writer.write_all(b"\n").await.map_err(Error::Io)?;
+        self.writer.flush().await.map_err(Error::Io)?;
+        Ok(())
+    }
+
+    async fn read_message(&mut self) -> Result<JsonRpcMessage> {
+        self.read_message_opt().await?.ok_or(Error::ServerClosed)
+    }
+
+    async fn read_message_opt(&mut self) -> Result<Option<JsonRpcMessage>> {
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            let bytes_read = self.reader.read_line(&mut line).await.map_err(Error::Io)?;
+
+            if bytes_read == 0 {
+                debug!("[CLIENT] Stream closed (EOF)");
+                return Ok(None);
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            debug!("[CLIENT] Received: {}", trimmed);
+
+            match serde_json::from_str::<JsonRpcMessage>(trimmed) {
+                Ok(msg) => return Ok(Some(msg)),
+                Err(e) => {
+                    warn!(
+                        "[CLIENT] Failed to deserialize message. \
+                         Please report this at https://github.com/meawoppl/rust-code-agent-sdks/issues"
+                    );
+                    warn!("[CLIENT] Parse error: {}", e);
+                    warn!("[CLIENT] Raw: {}", trimmed);
+                    return Err(Error::Deserialization(format!("{} (raw: {})", e, trimmed)));
+                }
+            }
+        }
     }
 }
 
@@ -164,34 +416,34 @@ impl Drop for AsyncClient {
     fn drop(&mut self) {
         if self.is_alive() {
             if let Err(e) = self.child.start_kill() {
-                error!("Failed to kill Codex process on drop: {}", e);
+                error!("Failed to kill app-server process on drop: {}", e);
             }
         }
     }
 }
 
-/// Async stream of [`ThreadEvent`]s from an [`AsyncClient`].
+/// Async stream of [`ServerMessage`]s from an [`AsyncClient`].
 pub struct EventStream<'a> {
     client: &'a mut AsyncClient,
 }
 
 impl EventStream<'_> {
-    /// Get the next event.
-    pub async fn next(&mut self) -> Option<Result<ThreadEvent>> {
-        match self.client.next_event().await {
-            Ok(Some(event)) => Some(Ok(event)),
+    /// Get the next server message.
+    pub async fn next(&mut self) -> Option<Result<ServerMessage>> {
+        match self.client.next_message().await {
+            Ok(Some(msg)) => Some(Ok(msg)),
             Ok(None) => None,
             Err(e) => Some(Err(e)),
         }
     }
 
-    /// Collect all remaining events.
-    pub async fn collect(mut self) -> Result<Vec<ThreadEvent>> {
-        let mut events = Vec::new();
+    /// Collect all remaining messages.
+    pub async fn collect(mut self) -> Result<Vec<ServerMessage>> {
+        let mut msgs = Vec::new();
         while let Some(result) = self.next().await {
-            events.push(result?);
+            msgs.push(result?);
         }
-        Ok(events)
+        Ok(msgs)
     }
 }
 
