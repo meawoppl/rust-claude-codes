@@ -20,6 +20,12 @@ pub enum Error {
     #[error("Process exited with status {0}: {1}")]
     ProcessFailed(i32, String),
 
+    #[error("JSON-RPC error ({code}): {message}")]
+    JsonRpc { code: i64, message: String },
+
+    #[error("Server closed connection")]
+    ServerClosed,
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }

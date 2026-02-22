@@ -5,9 +5,14 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommandExecutionStatus {
+    #[serde(alias = "inProgress")]
     InProgress,
+    #[serde(alias = "completed")]
     Completed,
+    #[serde(alias = "failed")]
     Failed,
+    #[serde(alias = "declined")]
+    Declined,
 }
 
 /// A command execution item.
@@ -25,8 +30,11 @@ pub struct CommandExecutionItem {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PatchChangeKind {
+    #[serde(alias = "add")]
     Add,
+    #[serde(alias = "delete")]
     Delete,
+    #[serde(alias = "update")]
     Update,
 }
 
@@ -41,7 +49,9 @@ pub struct FileUpdateChange {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PatchApplyStatus {
+    #[serde(alias = "completed")]
     Completed,
+    #[serde(alias = "failed")]
     Failed,
 }
 
@@ -57,8 +67,11 @@ pub struct FileChangeItem {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum McpToolCallStatus {
+    #[serde(alias = "inProgress")]
     InProgress,
+    #[serde(alias = "completed")]
     Completed,
+    #[serde(alias = "failed")]
     Failed,
 }
 
@@ -135,13 +148,21 @@ pub struct TodoListItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ThreadItem {
+    #[serde(alias = "agentMessage")]
     AgentMessage(AgentMessageItem),
+    #[serde(alias = "reasoning")]
     Reasoning(ReasoningItem),
+    #[serde(alias = "commandExecution")]
     CommandExecution(CommandExecutionItem),
+    #[serde(alias = "fileChange")]
     FileChange(FileChangeItem),
+    #[serde(alias = "mcpToolCall")]
     McpToolCall(McpToolCallItem),
+    #[serde(alias = "webSearch")]
     WebSearch(WebSearchItem),
+    #[serde(alias = "todoList")]
     TodoList(TodoListItem),
+    #[serde(alias = "error")]
     Error(ErrorItem),
 }
 
@@ -205,5 +226,35 @@ mod tests {
         let json = r#"{"type":"mcp_tool_call","id":"mcp_1","server":"my-server","tool":"my-tool","arguments":{"key":"value"},"status":"completed","result":{"content":[],"structured_content":null}}"#;
         let item: ThreadItem = serde_json::from_str(json).unwrap();
         assert!(matches!(item, ThreadItem::McpToolCall(ref m) if m.tool == "my-tool"));
+    }
+
+    #[test]
+    fn test_deserialize_camel_case_agent_message() {
+        let json = r#"{"type":"agentMessage","id":"msg_1","text":"Hello"}"#;
+        let item: ThreadItem = serde_json::from_str(json).unwrap();
+        assert!(matches!(item, ThreadItem::AgentMessage(ref m) if m.text == "Hello"));
+    }
+
+    #[test]
+    fn test_deserialize_camel_case_command_execution() {
+        let json = r#"{"type":"commandExecution","id":"cmd_1","command":"ls","aggregated_output":"","status":"completed"}"#;
+        let item: ThreadItem = serde_json::from_str(json).unwrap();
+        assert!(matches!(item, ThreadItem::CommandExecution(_)));
+    }
+
+    #[test]
+    fn test_deserialize_camel_case_file_change() {
+        let json = r#"{"type":"fileChange","id":"fc_1","changes":[],"status":"completed"}"#;
+        let item: ThreadItem = serde_json::from_str(json).unwrap();
+        assert!(matches!(item, ThreadItem::FileChange(_)));
+    }
+
+    #[test]
+    fn test_command_execution_status_declined() {
+        let json = r#"{"type":"command_execution","id":"cmd_1","command":"rm -rf /","aggregated_output":"","status":"declined"}"#;
+        let item: ThreadItem = serde_json::from_str(json).unwrap();
+        assert!(
+            matches!(item, ThreadItem::CommandExecution(ref c) if c.status == CommandExecutionStatus::Declined)
+        );
     }
 }

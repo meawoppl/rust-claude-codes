@@ -1,21 +1,47 @@
-//! Example of using the asynchronous Codex client.
+//! Example of using the asynchronous Codex app-server client.
+//!
+//! Starts a thread, sends a single turn, and prints streaming notifications
+//! until the turn completes.
 
-use codex_codes::{AsyncClient, ThreadEvent, ThreadItem};
+use codex_codes::{
+    protocol::methods, AsyncClient, ServerMessage, ThreadStartParams, TurnStartParams, UserInput,
+};
 use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    println!("Sending query: What is the capital of France?");
-    println!("Waiting for response...\n");
+    println!("Starting Codex app-server...");
+    let mut client = AsyncClient::start().await?;
 
-    let mut client = AsyncClient::exec("What is the capital of France?").await?;
+    // Start a thread
+    let thread = client.thread_start(&ThreadStartParams::default()).await?;
+    println!("Thread started: {}", thread.thread_id);
 
+    // Start a turn with a question
+    println!("\nSending query: What is the capital of France?\n");
+    client
+        .turn_start(&TurnStartParams {
+            thread_id: thread.thread_id.clone(),
+            input: vec![UserInput::Text {
+                text: "What is the capital of France?".to_string(),
+            }],
+            model: None,
+            reasoning_effort: None,
+            sandbox_policy: None,
+        })
+        .await?;
+
+    // Stream notifications until the turn completes
     let mut stream = client.events();
     while let Some(result) = stream.next().await {
         match result {
-            Ok(event) => handle_event(&event),
+            Ok(msg) => {
+                if handle_message(&msg) {
+                    break;
+                }
+            }
             Err(e) => {
                 eprintln!("Error: {}", e);
                 break;
@@ -24,47 +50,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     println!("\nDone.");
+    client.shutdown().await?;
     Ok(())
 }
 
-fn handle_event(event: &ThreadEvent) {
-    match event {
-        ThreadEvent::ThreadStarted(e) => {
-            println!("[thread.started] id={}", e.thread_id);
-        }
-        ThreadEvent::TurnStarted(_) => {
-            println!("[turn.started]");
-        }
-        ThreadEvent::ItemStarted(_) => {}
-        ThreadEvent::ItemUpdated(e) => match &e.item {
-            ThreadItem::AgentMessage(msg) => {
-                println!("  Agent: {}", msg.text);
-            }
-            ThreadItem::CommandExecution(cmd) => {
-                println!("  Command: {}", cmd.command);
-                for line in cmd.aggregated_output.lines().take(5) {
-                    println!("    > {}", line);
+/// Handle a server message. Returns true if the turn is complete.
+fn handle_message(msg: &ServerMessage) -> bool {
+    match msg {
+        ServerMessage::Notification { method, params } => {
+            match method.as_str() {
+                methods::AGENT_MESSAGE_DELTA => {
+                    if let Some(params) = params {
+                        if let Some(delta) = params.get("delta").and_then(|d| d.as_str()) {
+                            print!("{}", delta);
+                        }
+                    }
+                }
+                methods::TURN_STARTED => {
+                    println!("[turn started]");
+                }
+                methods::TURN_COMPLETED => {
+                    println!("\n[turn completed]");
+                    return true;
+                }
+                methods::ITEM_STARTED => {
+                    // Items starting — could inspect the item type
+                }
+                methods::ITEM_COMPLETED => {
+                    // Items completing
+                }
+                methods::ERROR => {
+                    if let Some(params) = params {
+                        if let Some(error) = params.get("error").and_then(|e| e.as_str()) {
+                            eprintln!("[error] {}", error);
+                        }
+                    }
+                }
+                _ => {
+                    log::debug!("Notification: {}", method);
                 }
             }
-            ThreadItem::FileChange(fc) => {
-                for change in &fc.changes {
-                    println!("  File change: {} ({:?})", change.path, change.kind);
-                }
-            }
-            _ => {}
-        },
-        ThreadEvent::ItemCompleted(_) => {}
-        ThreadEvent::TurnCompleted(e) => {
-            println!(
-                "\n[turn.completed] tokens: {} in / {} out",
-                e.usage.input_tokens, e.usage.output_tokens
-            );
+            false
         }
-        ThreadEvent::TurnFailed(e) => {
-            eprintln!("[turn.failed] {}", e.error.message);
-        }
-        ThreadEvent::Error(e) => {
-            eprintln!("[error] {}", e.message);
+        ServerMessage::Request { method, .. } => {
+            eprintln!("[server request: {}] (unhandled)", method);
+            false
         }
     }
 }
