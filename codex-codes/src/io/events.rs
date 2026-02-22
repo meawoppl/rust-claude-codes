@@ -1,3 +1,20 @@
+//! Exec-format JSONL event types.
+//!
+//! These types represent the events emitted by `codex exec --json -`, where
+//! each line is a JSON object with a `"type"` field. They are distinct from
+//! the app-server's JSON-RPC notifications, but share the same [`ThreadItem`]
+//! types.
+//!
+//! # Example
+//!
+//! ```
+//! use codex_codes::ThreadEvent;
+//!
+//! let json = r#"{"type":"thread.started","thread_id":"th_abc"}"#;
+//! let event: ThreadEvent = serde_json::from_str(json).unwrap();
+//! assert_eq!(event.event_type(), "thread.started");
+//! ```
+
 use serde::{Deserialize, Serialize};
 
 use super::items::ThreadItem;
@@ -62,7 +79,10 @@ pub struct ThreadErrorEvent {
     pub message: String,
 }
 
-/// All possible events emitted during a Codex thread execution.
+/// All possible events emitted during a Codex exec-format thread execution.
+///
+/// Each variant corresponds to a `"type"` value in the JSONL output.
+/// Use [`ThreadEvent::event_type`] to get the type string.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ThreadEvent {

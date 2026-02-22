@@ -3,6 +3,44 @@
 //! Spawns `codex app-server --listen stdio://` and communicates over
 //! newline-delimited JSON-RPC. The connection stays open for multiple
 //! turns until explicitly shut down.
+//!
+//! This is the blocking counterpart to [`crate::client_async::AsyncClient`].
+//! Prefer the async client for applications that already use tokio.
+//!
+//! # Lifecycle
+//!
+//! 1. Create a client with [`SyncClient::start`]
+//! 2. Call [`SyncClient::thread_start`] to create a conversation session
+//! 3. Call [`SyncClient::turn_start`] to send user input
+//! 4. Iterate over [`SyncClient::events`] until `turn/completed`
+//! 5. Handle approval requests via [`SyncClient::respond`]
+//! 6. Repeat steps 3-5 for follow-up turns
+//!
+//! # Example
+//!
+//! ```ignore
+//! use codex_codes::{SyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
+//!
+//! let mut client = SyncClient::start()?;
+//! let thread = client.thread_start(&ThreadStartParams::default())?;
+//!
+//! client.turn_start(&TurnStartParams {
+//!     thread_id: thread.thread_id.clone(),
+//!     input: vec![UserInput::Text { text: "Hello!".into() }],
+//!     model: None,
+//!     reasoning_effort: None,
+//!     sandbox_policy: None,
+//! })?;
+//!
+//! for result in client.events() {
+//!     match result? {
+//!         ServerMessage::Notification { method, .. } => {
+//!             if method == "turn/completed" { break; }
+//!         }
+//!         _ => {}
+//!     }
+//! }
+//! ```
 
 use crate::cli::AppServerBuilder;
 use crate::error::{Error, Result};
@@ -25,7 +63,11 @@ const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
 /// Synchronous multi-turn client for the Codex app-server.
 ///
 /// Communicates with a long-lived `codex app-server` process via
-/// newline-delimited JSON-RPC over stdio.
+/// newline-delimited JSON-RPC over stdio. Manages request/response
+/// correlation and buffers incoming notifications that arrive while
+/// waiting for RPC responses.
+///
+/// The client automatically kills the app-server process when dropped.
 pub struct SyncClient {
     child: Child,
     writer: BufWriter<std::process::ChildStdin>,
@@ -36,11 +78,25 @@ pub struct SyncClient {
 
 impl SyncClient {
     /// Start an app-server with default settings.
+    ///
+    /// Spawns `codex app-server --listen stdio://` and returns a connected client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `codex` CLI is not installed, the version is
+    /// incompatible, or the process fails to start.
     pub fn start() -> Result<Self> {
         Self::start_with(AppServerBuilder::new())
     }
 
-    /// Start an app-server with a custom builder.
+    /// Start an app-server with a custom [`AppServerBuilder`].
+    ///
+    /// Use this to configure a custom binary path or working directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the process fails to start or stdio pipes
+    /// cannot be established.
     pub fn start_with(builder: AppServerBuilder) -> Result<Self> {
         crate::version::check_codex_version()?;
 
@@ -65,6 +121,15 @@ impl SyncClient {
     }
 
     /// Send a JSON-RPC request and wait for the matching response.
+    ///
+    /// Any notifications or server requests that arrive before the response
+    /// are buffered and can be retrieved via [`SyncClient::next_message`].
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::JsonRpc`] if the server returns a JSON-RPC error
+    /// - [`Error::ServerClosed`] if the connection drops before a response arrives
+    /// - [`Error::Json`] if response deserialization fails
     pub fn request<P: Serialize, R: DeserializeOwned>(
         &mut self,
         method: &str,
@@ -123,12 +188,18 @@ impl SyncClient {
         }
     }
 
-    /// Start a new thread.
+    /// Start a new thread (conversation session).
+    ///
+    /// A thread must be created before any turns can be started. The returned
+    /// [`ThreadStartResponse`] contains the `thread_id` needed for subsequent calls.
     pub fn thread_start(&mut self, params: &ThreadStartParams) -> Result<ThreadStartResponse> {
         self.request(crate::protocol::methods::THREAD_START, params)
     }
 
     /// Start a new turn within a thread.
+    ///
+    /// Sends user input to the agent. After calling this, use [`SyncClient::events`]
+    /// or [`SyncClient::next_message`] to consume notifications until `turn/completed`.
     pub fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
         self.request(crate::protocol::methods::TURN_START, params)
     }
@@ -150,6 +221,11 @@ impl SyncClient {
     }
 
     /// Respond to a server-to-client request (e.g., approval flow).
+    ///
+    /// When the server sends a [`ServerMessage::Request`], it expects a response.
+    /// Use this method with the request's `id` and a result payload. For command
+    /// approval, pass a [`CommandExecutionApprovalResponse`](crate::CommandExecutionApprovalResponse).
+    /// For file change approval, pass a [`FileChangeApprovalResponse`](crate::FileChangeApprovalResponse).
     pub fn respond<R: Serialize>(&mut self, id: RequestId, result: &R) -> Result<()> {
         let resp = JsonRpcResponse {
             id,
@@ -173,7 +249,10 @@ impl SyncClient {
 
     /// Read the next incoming server message (notification or server request).
     ///
-    /// Returns `None` if the connection is closed (EOF).
+    /// Returns buffered messages first (from notifications that arrived during
+    /// a [`SyncClient::request`] call), then reads from the wire.
+    ///
+    /// Returns `Ok(None)` when the app-server closes the connection (EOF).
     pub fn next_message(&mut self) -> Result<Option<ServerMessage>> {
         if let Some(msg) = self.buffered.pop_front() {
             return Ok(Some(msg));
@@ -215,12 +294,18 @@ impl SyncClient {
         }
     }
 
-    /// Return an iterator over server messages.
+    /// Return an iterator over [`ServerMessage`]s.
+    ///
+    /// The iterator yields `Result<ServerMessage>` and terminates when the
+    /// connection closes (EOF). This is the idiomatic way to consume a turn's
+    /// notifications in synchronous code.
     pub fn events(&mut self) -> EventIterator<'_> {
         EventIterator { client: self }
     }
 
     /// Shut down the child process.
+    ///
+    /// Kills the process if it's still running. Called automatically on [`Drop`].
     pub fn shutdown(&mut self) -> Result<()> {
         debug!("[CLIENT] Shutting down");
         match self.child.try_wait() {

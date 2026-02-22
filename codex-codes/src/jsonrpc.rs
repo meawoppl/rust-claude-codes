@@ -3,6 +3,26 @@
 //! Based on the codex-rs `jsonrpc_lite` implementation. Note: the Codex app-server
 //! does NOT include the `"jsonrpc": "2.0"` field in messages, despite following the
 //! JSON-RPC 2.0 pattern.
+//!
+//! # Wire format
+//!
+//! Messages are newline-delimited JSON objects. Each message is one of:
+//! - **Request** — has `id` + `method` (+ optional `params`)
+//! - **Response** — has `id` + `result`
+//! - **Error** — has `id` + `error` (with `code`, `message`, optional `data`)
+//! - **Notification** — has `method` (+ optional `params`), no `id`
+//!
+//! Use [`JsonRpcMessage`] to deserialize any incoming line, then match on the variant.
+//!
+//! # Example
+//!
+//! ```
+//! use codex_codes::JsonRpcMessage;
+//!
+//! let line = r#"{"id":1,"result":{"threadId":"th_abc"}}"#;
+//! let msg: JsonRpcMessage = serde_json::from_str(line).unwrap();
+//! assert!(matches!(msg, JsonRpcMessage::Response(_)));
+//! ```
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -10,6 +30,7 @@ use serde_json::Value;
 /// A JSON-RPC request/response identifier.
 ///
 /// Can be either a string or an integer, matching the codex-rs `RequestId` type.
+/// The client uses integer IDs; the server may use either form.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RequestId {

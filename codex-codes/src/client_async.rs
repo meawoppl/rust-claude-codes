@@ -3,6 +3,44 @@
 //! Spawns `codex app-server --listen stdio://` and communicates over
 //! newline-delimited JSON-RPC. The connection stays open for multiple
 //! turns until explicitly shut down.
+//!
+//! # Lifecycle
+//!
+//! 1. Create a client with [`AsyncClient::start`] (spawns the app-server process)
+//! 2. Call [`AsyncClient::thread_start`] to create a conversation session
+//! 3. Call [`AsyncClient::turn_start`] to send user input
+//! 4. Consume [`AsyncClient::next_message`] to stream notifications
+//! 5. Handle approval requests via [`AsyncClient::respond`]
+//! 6. Repeat steps 3-5 for follow-up turns
+//! 7. The client kills the app-server on [`Drop`]
+//!
+//! # Example
+//!
+//! ```ignore
+//! use codex_codes::{AsyncClient, ThreadStartParams, TurnStartParams, UserInput, ServerMessage};
+//!
+//! let mut client = AsyncClient::start().await?;
+//! let thread = client.thread_start(&ThreadStartParams::default()).await?;
+//!
+//! client.turn_start(&TurnStartParams {
+//!     thread_id: thread.thread_id.clone(),
+//!     input: vec![UserInput::Text { text: "Hello!".into() }],
+//!     model: None,
+//!     reasoning_effort: None,
+//!     sandbox_policy: None,
+//! }).await?;
+//!
+//! while let Some(msg) = client.next_message().await? {
+//!     match msg {
+//!         ServerMessage::Notification { method, params } => {
+//!             if method == "turn/completed" { break; }
+//!         }
+//!         ServerMessage::Request { id, method, .. } => {
+//!             client.respond(id, &serde_json::json!({"decision": "accept"})).await?;
+//!         }
+//!     }
+//! }
+//! ```
 
 use crate::cli::AppServerBuilder;
 use crate::error::{Error, Result};
@@ -26,7 +64,11 @@ const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
 /// Asynchronous multi-turn client for the Codex app-server.
 ///
 /// Communicates with a long-lived `codex app-server` process via
-/// newline-delimited JSON-RPC over stdio.
+/// newline-delimited JSON-RPC over stdio. Manages request/response
+/// correlation and buffers incoming notifications that arrive while
+/// waiting for RPC responses.
+///
+/// The client automatically kills the app-server process when dropped.
 pub struct AsyncClient {
     child: Child,
     writer: BufWriter<tokio::process::ChildStdin>,
@@ -40,11 +82,25 @@ pub struct AsyncClient {
 
 impl AsyncClient {
     /// Start an app-server with default settings.
+    ///
+    /// Spawns `codex app-server --listen stdio://` and returns a connected client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `codex` CLI is not installed, the version is
+    /// incompatible, or the process fails to start.
     pub async fn start() -> Result<Self> {
         Self::start_with(AppServerBuilder::new()).await
     }
 
-    /// Start an app-server with a custom builder.
+    /// Start an app-server with a custom [`AppServerBuilder`].
+    ///
+    /// Use this to configure a custom binary path or working directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the process fails to start or stdio pipes
+    /// cannot be established.
     pub async fn start_with(builder: AppServerBuilder) -> Result<Self> {
         crate::version::check_codex_version_async().await?;
 
@@ -74,6 +130,12 @@ impl AsyncClient {
     ///
     /// Any notifications or server requests that arrive before the response
     /// are buffered and can be retrieved via [`AsyncClient::next_message`].
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::JsonRpc`] if the server returns a JSON-RPC error
+    /// - [`Error::ServerClosed`] if the connection drops before a response arrives
+    /// - [`Error::Json`] if response deserialization fails
     pub async fn request<P: Serialize, R: DeserializeOwned>(
         &mut self,
         method: &str,
@@ -134,7 +196,10 @@ impl AsyncClient {
         }
     }
 
-    /// Start a new thread.
+    /// Start a new thread (conversation session).
+    ///
+    /// A thread must be created before any turns can be started. The returned
+    /// [`ThreadStartResponse`] contains the `thread_id` needed for subsequent calls.
     pub async fn thread_start(
         &mut self,
         params: &ThreadStartParams,
@@ -144,6 +209,9 @@ impl AsyncClient {
     }
 
     /// Start a new turn within a thread.
+    ///
+    /// Sends user input to the agent. After calling this, use [`AsyncClient::next_message`]
+    /// to stream notifications until `turn/completed` arrives.
     pub async fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
         self.request(crate::protocol::methods::TURN_START, params)
             .await
@@ -168,6 +236,11 @@ impl AsyncClient {
     }
 
     /// Respond to a server-to-client request (e.g., approval flow).
+    ///
+    /// When the server sends a [`ServerMessage::Request`], it expects a response.
+    /// Use this method with the request's `id` and a result payload. For command
+    /// approval, pass a [`CommandExecutionApprovalResponse`](crate::CommandExecutionApprovalResponse).
+    /// For file change approval, pass a [`FileChangeApprovalResponse`](crate::FileChangeApprovalResponse).
     pub async fn respond<R: Serialize>(&mut self, id: RequestId, result: &R) -> Result<()> {
         let resp = JsonRpcResponse {
             id,
@@ -191,7 +264,21 @@ impl AsyncClient {
 
     /// Read the next incoming server message (notification or server request).
     ///
-    /// Returns `None` if the connection is closed (EOF).
+    /// Returns buffered messages first (from notifications that arrived during
+    /// an [`AsyncClient::request`] call), then reads from the wire.
+    ///
+    /// Returns `Ok(None)` when the app-server closes the connection (EOF).
+    ///
+    /// # Typical notification methods
+    ///
+    /// | Method | Meaning |
+    /// |--------|---------|
+    /// | `turn/started` | Agent began processing |
+    /// | `item/agentMessage/delta` | Streaming text chunk |
+    /// | `item/commandExecution/outputDelta` | Command output chunk |
+    /// | `item/started` / `item/completed` | Item lifecycle |
+    /// | `turn/completed` | Agent finished the turn |
+    /// | `error` | Server-side error |
     pub async fn next_message(&mut self) -> Result<Option<ServerMessage>> {
         // Drain buffered messages first
         if let Some(msg) = self.buffered.pop_front() {
@@ -236,12 +323,18 @@ impl AsyncClient {
         }
     }
 
-    /// Return an async event stream.
+    /// Return an async event stream over [`ServerMessage`]s.
+    ///
+    /// Wraps [`AsyncClient::next_message`] in a stream-like API. Call
+    /// [`EventStream::next`] in a loop, or [`EventStream::collect`] to
+    /// gather all messages until EOF.
     pub fn events(&mut self) -> EventStream<'_> {
         EventStream { client: self }
     }
 
     /// Take the stderr reader (can only be called once).
+    ///
+    /// Useful for logging or diagnostics. Returns `None` on subsequent calls.
     pub fn take_stderr(&mut self) -> Option<BufReader<ChildStderr>> {
         self.stderr.take()
     }
@@ -257,6 +350,9 @@ impl AsyncClient {
     }
 
     /// Shut down the app-server process.
+    ///
+    /// Consumes the client. If you don't call this explicitly, the
+    /// [`Drop`] implementation will kill the process automatically.
     pub async fn shutdown(mut self) -> Result<()> {
         debug!("[CLIENT] Shutting down");
         self.child.kill().await.map_err(Error::Io)?;

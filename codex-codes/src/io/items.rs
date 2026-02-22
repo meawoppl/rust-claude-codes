@@ -1,26 +1,43 @@
+//! Thread item types shared between the exec and app-server protocols.
+//!
+//! A [`ThreadItem`] represents a single unit of work within a turn — an agent
+//! message, a command execution, a file change, etc. Items are emitted via
+//! `item/started` and `item/completed` notifications and included in the
+//! final [`Turn`](crate::Turn) when a turn completes.
+//!
+//! Both snake_case (exec protocol) and camelCase (app-server protocol) type
+//! tags are accepted via serde aliases.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Status of a command execution.
+/// Status of a command execution within a [`CommandExecutionItem`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommandExecutionStatus {
+    /// The command is currently running.
     #[serde(alias = "inProgress")]
     InProgress,
+    /// The command finished successfully.
     #[serde(alias = "completed")]
     Completed,
+    /// The command failed (non-zero exit code or error).
     #[serde(alias = "failed")]
     Failed,
+    /// The user declined the approval request for this command.
     #[serde(alias = "declined")]
     Declined,
 }
 
-/// A command execution item.
+/// A command execution item — a shell command the agent ran.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionItem {
     pub id: String,
+    /// The shell command that was executed.
     pub command: String,
+    /// Combined stdout/stderr output from the command.
     pub aggregated_output: String,
+    /// Exit code, if the command has finished.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exit_code: Option<i32>,
     pub status: CommandExecutionStatus,
@@ -145,23 +162,39 @@ pub struct TodoListItem {
 }
 
 /// All possible thread item types emitted by the Codex CLI.
+///
+/// Items are the core building blocks of a turn. Each variant represents
+/// a different kind of work the agent performed. Items arrive via
+/// `item/started` and `item/completed` notifications and are collected
+/// in the final [`Turn`](crate::Turn).
+///
+/// Accepts both snake_case (`agent_message`) and camelCase (`agentMessage`)
+/// type tags for compatibility with the exec and app-server protocols.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ThreadItem {
+    /// Text output from the agent.
     #[serde(alias = "agentMessage")]
     AgentMessage(AgentMessageItem),
+    /// Chain-of-thought reasoning from the model.
     #[serde(alias = "reasoning")]
     Reasoning(ReasoningItem),
+    /// A shell command the agent executed.
     #[serde(alias = "commandExecution")]
     CommandExecution(CommandExecutionItem),
+    /// File modifications the agent applied.
     #[serde(alias = "fileChange")]
     FileChange(FileChangeItem),
+    /// An MCP tool call to an external server.
     #[serde(alias = "mcpToolCall")]
     McpToolCall(McpToolCallItem),
+    /// A web search the agent performed.
     #[serde(alias = "webSearch")]
     WebSearch(WebSearchItem),
+    /// A todo list the agent maintains.
     #[serde(alias = "todoList")]
     TodoList(TodoListItem),
+    /// An error that occurred during processing.
     #[serde(alias = "error")]
     Error(ErrorItem),
 }

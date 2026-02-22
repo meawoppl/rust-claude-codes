@@ -2,7 +2,35 @@
 //!
 //! These types represent the JSON-RPC request parameters, response payloads,
 //! and notification bodies used by `codex app-server`. All wire types use
-//! camelCase field names.
+//! camelCase field names via `#[serde(rename_all = "camelCase")]`.
+//!
+//! # Organization
+//!
+//! - **Request/Response pairs** — [`ThreadStartParams`]/[`ThreadStartResponse`],
+//!   [`TurnStartParams`]/[`TurnStartResponse`], etc.
+//! - **Server notifications** — Structs like [`TurnCompletedNotification`],
+//!   [`AgentMessageDeltaNotification`] that can be deserialized from the `params`
+//!   field of a [`ServerMessage::Notification`]
+//! - **Approval flow types** — [`CommandExecutionApprovalParams`] and
+//!   [`FileChangeApprovalParams`] for server-to-client requests that need a response
+//! - **Method constants** — The [`methods`] module contains all JSON-RPC method
+//!   name strings
+//!
+//! # Parsing notifications
+//!
+//! ```
+//! use codex_codes::protocol::{methods, TurnCompletedNotification};
+//! use serde_json::Value;
+//!
+//! fn handle_notification(method: &str, params: Option<Value>) {
+//!     if method == methods::TURN_COMPLETED {
+//!         if let Some(p) = params {
+//!             let notif: TurnCompletedNotification = serde_json::from_value(p).unwrap();
+//!             println!("Turn {} completed", notif.turn_id);
+//!         }
+//!     }
+//! }
+//! ```
 
 use crate::io::items::ThreadItem;
 use crate::jsonrpc::RequestId;
@@ -13,13 +41,23 @@ use serde_json::Value;
 // User input
 // ---------------------------------------------------------------------------
 
-/// User input sent as part of a turn.
+/// User input sent as part of a [`TurnStartParams`].
+///
+/// # Example
+///
+/// ```
+/// use codex_codes::UserInput;
+///
+/// let text = UserInput::Text { text: "What is 2+2?".into() };
+/// let json = serde_json::to_string(&text).unwrap();
+/// assert!(json.contains(r#""type":"text""#));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum UserInput {
-    /// Text input.
+    /// Text input from the user.
     Text { text: String },
-    /// Pre-encoded image (data URI).
+    /// Pre-encoded image as a data URI (e.g., `data:image/png;base64,...`).
     Image { data: String },
 }
 
@@ -28,11 +66,15 @@ pub enum UserInput {
 // ---------------------------------------------------------------------------
 
 /// Parameters for `thread/start`.
+///
+/// Use `ThreadStartParams::default()` for a basic thread with no custom instructions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadStartParams {
+    /// Optional system instructions for the agent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instructions: Option<String>,
+    /// Optional tool definitions to make available to the agent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<Value>>,
 }
@@ -61,15 +103,23 @@ pub struct ThreadArchiveResponse {}
 // ---------------------------------------------------------------------------
 
 /// Parameters for `turn/start`.
+///
+/// Starts a new agent turn within an existing thread. The agent processes the
+/// input and streams notifications until the turn completes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnStartParams {
+    /// The thread ID from [`ThreadStartResponse`].
     pub thread_id: String,
+    /// One or more user inputs (text and/or images).
     pub input: Vec<UserInput>,
+    /// Override the model for this turn (e.g., `"o4-mini"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Override reasoning effort for this turn (e.g., `"low"`, `"medium"`, `"high"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
+    /// Override sandbox policy for this turn.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sandbox_policy: Option<Value>,
 }
@@ -95,13 +145,17 @@ pub struct TurnInterruptResponse {}
 // Turn status & data types
 // ---------------------------------------------------------------------------
 
-/// Status of a turn.
+/// Status of a turn within a [`Turn`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TurnStatus {
+    /// The agent finished normally.
     Completed,
+    /// The turn was interrupted by the client via `turn/interrupt`.
     Interrupted,
+    /// The turn failed with an error (see [`Turn::error`]).
     Failed,
+    /// The turn is still being processed.
     InProgress,
 }
 
@@ -114,14 +168,20 @@ pub struct TurnError {
     pub codex_error_info: Option<Value>,
 }
 
-/// A completed turn with its items and status.
+/// A completed turn with its items and final status.
+///
+/// Included in [`TurnCompletedNotification`] when a turn finishes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Turn {
+    /// Unique turn identifier.
     pub id: String,
+    /// All items produced during this turn (messages, commands, file changes, etc.).
     #[serde(default)]
     pub items: Vec<ThreadItem>,
+    /// Final status of the turn.
     pub status: TurnStatus,
+    /// Error details if `status` is [`TurnStatus::Failed`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<TurnError>,
 }
@@ -130,12 +190,17 @@ pub struct Turn {
 // Token usage
 // ---------------------------------------------------------------------------
 
-/// Token usage for a thread.
+/// Cumulative token usage for a thread.
+///
+/// Sent via [`ThreadTokenUsageUpdatedNotification`] after each turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenUsage {
+    /// Total input tokens consumed.
     pub input_tokens: u64,
+    /// Total output tokens generated.
     pub output_tokens: u64,
+    /// Input tokens served from cache.
     #[serde(default)]
     pub cached_input_tokens: u64,
 }
@@ -144,13 +209,17 @@ pub struct TokenUsage {
 // Thread status
 // ---------------------------------------------------------------------------
 
-/// Status of a thread.
+/// Status of a thread, sent via [`ThreadStatusChangedNotification`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ThreadStatus {
+    /// Thread is not yet loaded.
     NotLoaded,
+    /// Thread is idle (no active turn).
     Idle,
+    /// Thread has an active turn being processed.
     Active,
+    /// Thread encountered an unrecoverable error.
     SystemError,
 }
 
@@ -270,24 +339,39 @@ pub struct ThreadTokenUsageUpdatedNotification {
 // ---------------------------------------------------------------------------
 
 /// Decision for command execution approval.
+///
+/// Sent as part of [`CommandExecutionApprovalResponse`] when responding to
+/// a command approval request from the server.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CommandApprovalDecision {
+    /// Allow this specific command to execute.
     Accept,
+    /// Allow this command and similar future commands in this session.
     AcceptForSession,
+    /// Reject this command.
     Decline,
+    /// Cancel the entire turn.
     Cancel,
 }
 
 /// Parameters for `item/commandExecution/requestApproval` (server → client).
+///
+/// The server sends this as a [`ServerMessage::Request`] when the agent wants
+/// to execute a command that requires user approval. Respond with
+/// [`CommandExecutionApprovalResponse`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecutionApprovalParams {
     pub thread_id: String,
     pub turn_id: String,
+    /// Unique identifier for this tool call.
     pub call_id: String,
+    /// The shell command the agent wants to run.
     pub command: String,
+    /// Working directory for the command.
     pub cwd: String,
+    /// Human-readable explanation of why the command is needed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -300,23 +384,37 @@ pub struct CommandExecutionApprovalResponse {
 }
 
 /// Decision for file change approval.
+///
+/// Sent as part of [`FileChangeApprovalResponse`] when responding to
+/// a file change approval request from the server.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum FileChangeApprovalDecision {
+    /// Allow this specific file change.
     Accept,
+    /// Allow this and similar future file changes in this session.
     AcceptForSession,
+    /// Reject this file change.
     Decline,
+    /// Cancel the entire turn.
     Cancel,
 }
 
 /// Parameters for `item/fileChange/requestApproval` (server → client).
+///
+/// The server sends this as a [`ServerMessage::Request`] when the agent wants
+/// to modify files and requires user approval. Respond with
+/// [`FileChangeApprovalResponse`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChangeApprovalParams {
     pub thread_id: String,
     pub turn_id: String,
+    /// Unique identifier for this tool call.
     pub call_id: String,
+    /// The proposed file changes (structure varies by patch format).
     pub changes: Value,
+    /// Human-readable explanation of why the changes are needed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -333,14 +431,26 @@ pub struct FileChangeApprovalResponse {
 // ---------------------------------------------------------------------------
 
 /// An incoming message from the app-server that the client should handle.
+///
+/// This is what [`AsyncClient::next_message`](crate::AsyncClient::next_message) and
+/// [`SyncClient::next_message`](crate::SyncClient::next_message) return.
+///
+/// # Handling
+///
+/// - **Notifications** are informational — no response is needed. Match on the `method`
+///   field and deserialize `params` into the appropriate notification type.
+/// - **Requests** require a response via `client.respond(id, &result)`. Currently
+///   used for approval flows (`item/commandExecution/requestApproval` and
+///   `item/fileChange/requestApproval`).
 #[derive(Debug, Clone)]
 pub enum ServerMessage {
-    /// A notification (no response needed).
+    /// A notification (no response needed). Deserialize `params` based on `method`.
     Notification {
         method: String,
         params: Option<Value>,
     },
     /// A request from the server that needs a response (e.g., approval flow).
+    /// Use the client's `respond()` method with the `id`.
     Request {
         id: RequestId,
         method: String,
@@ -353,6 +463,9 @@ pub enum ServerMessage {
 // ---------------------------------------------------------------------------
 
 /// JSON-RPC method names used by the app-server protocol.
+///
+/// Use these constants when matching on [`ServerMessage::Notification`] or
+/// [`ServerMessage::Request`] method fields to avoid typos.
 pub mod methods {
     // Client → server requests
     pub const THREAD_START: &str = "thread/start";
