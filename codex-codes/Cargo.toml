@@ -1,6 +1,6 @@
 [package]
 name = "codex-codes"
-version = "0.100.1"
+version = "0.101.0"
 edition = "2021"
 rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
@@ -35,6 +35,7 @@ default = ["types", "sync-client", "async-client"]
 types = []
 sync-client = ["types", "dep:log"]
 async-client = ["types", "dep:tokio", "dep:log"]
+integration-tests = ["async-client", "sync-client"]
 
 [[example]]
 name = "async_client"

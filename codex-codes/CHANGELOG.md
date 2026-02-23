@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.101.0] - 2026-02-23
+
+### Added
+
+- **`initialize` handshake** — `AsyncClient::start()` and `SyncClient::start()` now send the required `initialize` request followed by an `initialized` notification before returning, fixing compatibility with Codex CLI 0.104.0+ which requires this handshake before accepting other methods (#87)
+- **`InitializeParams`, `InitializeResponse`, `ClientInfo`, `InitializeCapabilities`** — New protocol types for the initialization handshake
+- **`AsyncClient::spawn()` / `SyncClient::spawn()`** — Low-level constructors that skip automatic initialization, for callers that need custom `InitializeParams`
+- **`AsyncClient::initialize()` / `SyncClient::initialize()`** — Explicit initialization method for use with `spawn()`
+- **`methods::INITIALIZE` / `methods::INITIALIZED`** — Method name constants for the initialization handshake
+- **`ThreadInfo`** — New struct for thread metadata returned inside `ThreadStartResponse`
+- **Integration tests** — Live client tests against a real Codex app-server process (behind `integration-tests` feature flag)
+
+### Changed
+
+- **`ThreadStartResponse`** — Updated to match the actual app-server wire format: now contains a `thread: ThreadInfo` field with the thread ID and metadata, plus optional `model` field. Use `response.thread_id()` to get the thread ID.
+
+### Breaking
+
+- `ThreadStartResponse.thread_id` field replaced by `ThreadStartResponse.thread_id()` method
+
 ## [0.100.1] - 2026-02-21
 
 ### Changed

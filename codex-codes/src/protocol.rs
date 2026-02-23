@@ -62,6 +62,58 @@ pub enum UserInput {
 }
 
 // ---------------------------------------------------------------------------
+// Initialization handshake
+// ---------------------------------------------------------------------------
+
+/// Client info sent during the `initialize` handshake.
+///
+/// Identifies the connecting client to the app-server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientInfo {
+    /// Client application name (e.g., `"my-codex-app"`).
+    pub name: String,
+    /// Client version string (e.g., `"1.0.0"`).
+    pub version: String,
+    /// Human-readable display name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+/// Client capabilities negotiated during `initialize`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeCapabilities {
+    /// Opt into receiving experimental API methods and fields.
+    #[serde(default)]
+    pub experimental_api: bool,
+    /// Notification method names to suppress for this connection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opt_out_notification_methods: Option<Vec<String>>,
+}
+
+/// Parameters for the `initialize` request.
+///
+/// Must be the first request sent after connecting to the app-server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeParams {
+    /// Information about the connecting client.
+    pub client_info: ClientInfo,
+    /// Optional client capabilities.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<InitializeCapabilities>,
+}
+
+/// Response from the `initialize` request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeResponse {
+    /// The server's user-agent string.
+    pub user_agent: String,
+}
+
+// ---------------------------------------------------------------------------
 // Thread lifecycle requests
 // ---------------------------------------------------------------------------
 
@@ -79,11 +131,36 @@ pub struct ThreadStartParams {
     pub tools: Option<Vec<Value>>,
 }
 
+/// Thread metadata returned inside a [`ThreadStartResponse`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadInfo {
+    /// Unique thread identifier.
+    pub id: String,
+    /// All other fields are captured but not typed.
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
 /// Response from `thread/start`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadStartResponse {
-    pub thread_id: String,
+    /// The created thread.
+    pub thread: ThreadInfo,
+    /// The model assigned to this thread.
+    #[serde(default)]
+    pub model: Option<String>,
+    /// All other fields are captured but not typed.
+    #[serde(flatten)]
+    pub extra: Value,
+}
+
+impl ThreadStartResponse {
+    /// Convenience accessor for the thread ID.
+    pub fn thread_id(&self) -> &str {
+        &self.thread.id
+    }
 }
 
 /// Parameters for `thread/archive`.
@@ -468,6 +545,8 @@ pub enum ServerMessage {
 /// [`ServerMessage::Request`] method fields to avoid typos.
 pub mod methods {
     // Client → server requests
+    pub const INITIALIZE: &str = "initialize";
+    pub const INITIALIZED: &str = "initialized";
     pub const THREAD_START: &str = "thread/start";
     pub const THREAD_ARCHIVE: &str = "thread/archive";
     pub const TURN_START: &str = "turn/start";
@@ -498,6 +577,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_initialize_params() {
+        let params = InitializeParams {
+            client_info: ClientInfo {
+                name: "my-app".to_string(),
+                version: "1.0.0".to_string(),
+                title: Some("My App".to_string()),
+            },
+            capabilities: None,
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        assert!(json.contains("clientInfo"));
+        assert!(json.contains("my-app"));
+        assert!(!json.contains("capabilities"));
+    }
+
+    #[test]
+    fn test_initialize_response() {
+        let json = r#"{"userAgent":"codex-cli/0.104.0"}"#;
+        let resp: InitializeResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.user_agent, "codex-cli/0.104.0");
+    }
+
+    #[test]
+    fn test_initialize_capabilities() {
+        let params = InitializeParams {
+            client_info: ClientInfo {
+                name: "test".to_string(),
+                version: "0.1.0".to_string(),
+                title: None,
+            },
+            capabilities: Some(InitializeCapabilities {
+                experimental_api: true,
+                opt_out_notification_methods: Some(vec!["thread/started".to_string()]),
+            }),
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        assert!(json.contains("experimentalApi"));
+        assert!(json.contains("optOutNotificationMethods"));
+    }
+
+    #[test]
     fn test_user_input_text() {
         let input = UserInput::Text {
             text: "Hello".to_string(),
@@ -521,9 +641,10 @@ mod tests {
 
     #[test]
     fn test_thread_start_response() {
-        let json = r#"{"threadId":"th_abc123"}"#;
+        let json = r#"{"thread":{"id":"th_abc123"},"model":"gpt-4","approvalPolicy":"never","cwd":"/tmp","modelProvider":"openai","sandbox":{}}"#;
         let resp: ThreadStartResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(resp.thread_id, "th_abc123");
+        assert_eq!(resp.thread_id(), "th_abc123");
+        assert_eq!(resp.model.as_deref(), Some("gpt-4"));
     }
 
     #[test]

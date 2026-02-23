@@ -6,7 +6,7 @@
 //!
 //! # Lifecycle
 //!
-//! 1. Create a client with [`AsyncClient::start`] (spawns the app-server process)
+//! 1. Create a client with [`AsyncClient::start`] (spawns and initializes the app-server)
 //! 2. Call [`AsyncClient::thread_start`] to create a conversation session
 //! 3. Call [`AsyncClient::turn_start`] to send user input
 //! 4. Consume [`AsyncClient::next_message`] to stream notifications
@@ -23,7 +23,7 @@
 //! let thread = client.thread_start(&ThreadStartParams::default()).await?;
 //!
 //! client.turn_start(&TurnStartParams {
-//!     thread_id: thread.thread_id.clone(),
+//!     thread_id: thread.thread_id().to_string(),
 //!     input: vec![UserInput::Text { text: "Hello!".into() }],
 //!     model: None,
 //!     reasoning_effort: None,
@@ -44,11 +44,13 @@
 
 use crate::cli::AppServerBuilder;
 use crate::error::{Error, Result};
-use crate::jsonrpc::{JsonRpcError, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse, RequestId};
+use crate::jsonrpc::{
+    JsonRpcError, JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse, RequestId,
+};
 use crate::protocol::{
-    ServerMessage, ThreadArchiveParams, ThreadArchiveResponse, ThreadStartParams,
-    ThreadStartResponse, TurnInterruptParams, TurnInterruptResponse, TurnStartParams,
-    TurnStartResponse,
+    ClientInfo, InitializeParams, InitializeResponse, ServerMessage, ThreadArchiveParams,
+    ThreadArchiveResponse, ThreadStartParams, ThreadStartResponse, TurnInterruptParams,
+    TurnInterruptResponse, TurnStartParams, TurnStartResponse,
 };
 use log::{debug, error, warn};
 use serde::de::DeserializeOwned;
@@ -83,25 +85,49 @@ pub struct AsyncClient {
 impl AsyncClient {
     /// Start an app-server with default settings.
     ///
-    /// Spawns `codex app-server --listen stdio://` and returns a connected client.
+    /// Spawns `codex app-server --listen stdio://`, performs the required
+    /// `initialize` handshake, and returns a connected client ready for
+    /// `thread_start()`.
     ///
     /// # Errors
     ///
     /// Returns an error if the `codex` CLI is not installed, the version is
-    /// incompatible, or the process fails to start.
+    /// incompatible, the process fails to start, or the initialization
+    /// handshake fails.
     pub async fn start() -> Result<Self> {
         Self::start_with(AppServerBuilder::new()).await
     }
 
     /// Start an app-server with a custom [`AppServerBuilder`].
     ///
+    /// Performs the required `initialize` handshake before returning.
     /// Use this to configure a custom binary path or working directory.
     ///
     /// # Errors
     ///
-    /// Returns an error if the process fails to start or stdio pipes
-    /// cannot be established.
+    /// Returns an error if the process fails to start, stdio pipes
+    /// cannot be established, or the initialization handshake fails.
     pub async fn start_with(builder: AppServerBuilder) -> Result<Self> {
+        let mut client = Self::spawn(builder).await?;
+        client
+            .initialize(&InitializeParams {
+                client_info: ClientInfo {
+                    name: "codex-codes".to_string(),
+                    version: env!("CARGO_PKG_VERSION").to_string(),
+                    title: None,
+                },
+                capabilities: None,
+            })
+            .await?;
+        Ok(client)
+    }
+
+    /// Spawn an app-server without performing the `initialize` handshake.
+    ///
+    /// Use this if you need to send a custom [`InitializeParams`] (e.g., with
+    /// specific capabilities). You **must** call [`AsyncClient::initialize`]
+    /// before any other requests.
+    pub async fn spawn(builder: AppServerBuilder) -> Result<Self> {
         crate::version::check_codex_version_async().await?;
 
         let mut child = builder.spawn().await?;
@@ -235,6 +261,20 @@ impl AsyncClient {
             .await
     }
 
+    /// Perform the `initialize` handshake with the app-server.
+    ///
+    /// Sends `initialize` with the given params and then sends the
+    /// `initialized` notification. This must be the first request after
+    /// spawning the process.
+    pub async fn initialize(&mut self, params: &InitializeParams) -> Result<InitializeResponse> {
+        let resp: InitializeResponse = self
+            .request(crate::protocol::methods::INITIALIZE, params)
+            .await?;
+        self.send_notification(crate::protocol::methods::INITIALIZED)
+            .await?;
+        Ok(resp)
+    }
+
     /// Respond to a server-to-client request (e.g., approval flow).
     ///
     /// When the server sends a [`ServerMessage::Request`], it expects a response.
@@ -360,6 +400,14 @@ impl AsyncClient {
     }
 
     // -- internal --
+
+    async fn send_notification(&mut self, method: &str) -> Result<()> {
+        let notif = JsonRpcNotification {
+            method: method.to_string(),
+            params: None,
+        };
+        self.send_raw(&notif).await
+    }
 
     async fn send_raw<T: Serialize>(&mut self, msg: &T) -> Result<()> {
         let json = serde_json::to_string(msg).map_err(Error::Json)?;
