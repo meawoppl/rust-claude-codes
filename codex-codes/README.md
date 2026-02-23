@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Send a turn
     client.turn_start(&TurnStartParams {
-        thread_id: thread.thread_id.clone(),
+        thread_id: thread.thread_id().to_string(),
         input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
         model: None,
         reasoning_effort: None,
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let thread = client.thread_start(&ThreadStartParams::default())?;
     client.turn_start(&TurnStartParams {
-        thread_id: thread.thread_id.clone(),
+        thread_id: thread.thread_id().to_string(),
         input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
         model: None,
         reasoning_effort: None,
@@ -148,7 +148,7 @@ The crate supports two protocol modes:
 
 The `codex app-server --listen stdio://` process speaks a JSON-RPC 2.0 protocol (without the `"jsonrpc":"2.0"` field) over newline-delimited stdio.
 
-**Lifecycle:** `thread/start` -> `turn/start` -> stream notifications -> `turn/completed` -> next `turn/start`
+**Lifecycle:** `initialize` -> `thread/start` -> `turn/start` -> stream notifications -> `turn/completed` -> next `turn/start`
 
 **Approval flows:** The server sends requests back to the client for command execution and file change approvals.
 

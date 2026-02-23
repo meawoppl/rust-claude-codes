@@ -26,7 +26,7 @@
 //!
 //!     // Send a turn (a user message that triggers an agent response)
 //!     client.turn_start(&TurnStartParams {
-//!         thread_id: thread.thread_id.clone(),
+//!         thread_id: thread.thread_id().to_string(),
 //!         input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
 //!         model: None,
 //!         reasoning_effort: None,
@@ -61,7 +61,7 @@
 //!     let thread = client.thread_start(&ThreadStartParams::default())?;
 //!
 //!     client.turn_start(&TurnStartParams {
-//!         thread_id: thread.thread_id.clone(),
+//!         thread_id: thread.thread_id().to_string(),
 //!         input: vec![UserInput::Text { text: "What is 2 + 2?".into() }],
 //!         model: None,
 //!         reasoning_effort: None,
@@ -99,14 +99,15 @@
 //! The Codex app-server communicates via newline-delimited JSON-RPC 2.0 over stdio
 //! (without the standard `"jsonrpc":"2.0"` field). The conversation lifecycle is:
 //!
-//! 1. **Start a thread** — `thread/start` creates a conversation session
-//! 2. **Start a turn** — `turn/start` sends user input, triggering agent work
-//! 3. **Stream notifications** — The server emits `item/agentMessage/delta`,
+//! 1. **Initialize** — `initialize` + `initialized` handshake (handled automatically by `start()`)
+//! 2. **Start a thread** — `thread/start` creates a conversation session
+//! 3. **Start a turn** — `turn/start` sends user input, triggering agent work
+//! 4. **Stream notifications** — The server emits `item/agentMessage/delta`,
 //!    `item/commandExecution/outputDelta`, etc. as the agent works
-//! 4. **Handle approvals** — The server may send requests like
+//! 5. **Handle approvals** — The server may send requests like
 //!    `item/commandExecution/requestApproval` that require a response
-//! 5. **Turn completes** — `turn/completed` signals the agent is done
-//! 6. **Repeat** — Send another `turn/start` for follow-up questions
+//! 6. **Turn completes** — `turn/completed` signals the agent is done
+//! 7. **Repeat** — Send another `turn/start` for follow-up questions
 //!
 //! # Feature Flags
 //!
@@ -200,12 +201,13 @@ pub use jsonrpc::{
 
 // App-server protocol types (always available)
 pub use protocol::{
-    AgentMessageDeltaNotification, CmdOutputDeltaNotification, CommandApprovalDecision,
+    AgentMessageDeltaNotification, ClientInfo, CmdOutputDeltaNotification, CommandApprovalDecision,
     CommandExecutionApprovalParams, CommandExecutionApprovalResponse, ErrorNotification,
     FileChangeApprovalDecision, FileChangeApprovalParams, FileChangeApprovalResponse,
-    FileChangeOutputDeltaNotification, ItemCompletedNotification, ItemStartedNotification,
+    FileChangeOutputDeltaNotification, InitializeCapabilities, InitializeParams,
+    InitializeResponse, ItemCompletedNotification, ItemStartedNotification,
     ReasoningDeltaNotification, ServerMessage, ThreadArchiveParams, ThreadArchiveResponse,
-    ThreadStartParams, ThreadStartResponse, ThreadStartedNotification, ThreadStatus,
+    ThreadInfo, ThreadStartParams, ThreadStartResponse, ThreadStartedNotification, ThreadStatus,
     ThreadStatusChangedNotification, ThreadTokenUsageUpdatedNotification, TokenUsage, Turn,
     TurnCompletedNotification, TurnError, TurnInterruptParams, TurnInterruptResponse,
     TurnStartParams, TurnStartResponse, TurnStartedNotification, TurnStatus, UserInput,

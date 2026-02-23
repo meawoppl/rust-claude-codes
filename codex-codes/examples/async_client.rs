@@ -17,13 +17,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Start a thread
     let thread = client.thread_start(&ThreadStartParams::default()).await?;
-    println!("Thread started: {}", thread.thread_id);
+    println!("Thread started: {}", thread.thread_id());
 
     // Start a turn with a question
     println!("\nSending query: What is the capital of France?\n");
     client
         .turn_start(&TurnStartParams {
-            thread_id: thread.thread_id.clone(),
+            thread_id: thread.thread_id().to_string(),
             input: vec![UserInput::Text {
                 text: "What is the capital of France?".to_string(),
             }],

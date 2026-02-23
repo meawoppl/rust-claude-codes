@@ -20,7 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut client = AsyncClient::start().await?;
     let thread = client.thread_start(&ThreadStartParams::default()).await?;
-    println!("Thread: {}\n", thread.thread_id);
+    let thread_id = thread.thread_id().to_string();
+    println!("Thread: {}\n", thread_id);
 
     loop {
         print!("> ");
@@ -41,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Start a new turn with the user's input
         client
             .turn_start(&TurnStartParams {
-                thread_id: thread.thread_id.clone(),
+                thread_id: thread_id.clone(),
                 input: vec![UserInput::Text {
                     text: input.to_string(),
                 }],
