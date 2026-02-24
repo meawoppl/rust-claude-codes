@@ -99,6 +99,45 @@ impl SystemMessage {
         }
         serde_json::from_value(self.data.clone()).ok()
     }
+
+    /// Check if this is a task_started message
+    pub fn is_task_started(&self) -> bool {
+        self.subtype == "task_started"
+    }
+
+    /// Check if this is a task_progress message
+    pub fn is_task_progress(&self) -> bool {
+        self.subtype == "task_progress"
+    }
+
+    /// Check if this is a task_notification message
+    pub fn is_task_notification(&self) -> bool {
+        self.subtype == "task_notification"
+    }
+
+    /// Try to parse as a task_started message
+    pub fn as_task_started(&self) -> Option<TaskStartedMessage> {
+        if self.subtype != "task_started" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
+    /// Try to parse as a task_progress message
+    pub fn as_task_progress(&self) -> Option<TaskProgressMessage> {
+        if self.subtype != "task_progress" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
+    /// Try to parse as a task_notification message
+    pub fn as_task_notification(&self) -> Option<TaskNotificationMessage> {
+        if self.subtype != "task_notification" {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
 }
 
 /// Plugin info from the init message
@@ -184,6 +223,80 @@ pub struct CompactMetadata {
     pub pre_tokens: u64,
     /// What triggered the compaction ("auto" or "manual")
     pub trigger: String,
+}
+
+// ---------------------------------------------------------------------------
+// Task system message types (task_started, task_progress, task_notification)
+// ---------------------------------------------------------------------------
+
+/// Cumulative usage statistics for a background task.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskUsage {
+    /// Wall-clock milliseconds since the task started.
+    pub duration_ms: u64,
+    /// Total number of tool calls made so far.
+    pub tool_uses: u64,
+    /// Total tokens consumed so far.
+    pub total_tokens: u64,
+}
+
+/// The kind of background task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskType {
+    /// A sub-agent task (e.g., Explore, Plan).
+    LocalAgent,
+    /// A background bash command.
+    LocalBash,
+}
+
+/// Completion status of a background task.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    Completed,
+    Failed,
+}
+
+/// `task_started` system message — emitted once when a background task begins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskStartedMessage {
+    pub session_id: String,
+    pub task_id: String,
+    pub task_type: TaskType,
+    pub tool_use_id: String,
+    pub description: String,
+    pub uuid: String,
+}
+
+/// `task_progress` system message — emitted periodically as a background
+/// agent task executes tools. Not emitted for `local_bash` tasks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskProgressMessage {
+    pub session_id: String,
+    pub task_id: String,
+    pub tool_use_id: String,
+    pub description: String,
+    pub last_tool_name: String,
+    pub usage: TaskUsage,
+    pub uuid: String,
+}
+
+/// `task_notification` system message — emitted once when a background
+/// task completes or fails.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskNotificationMessage {
+    pub session_id: String,
+    pub task_id: String,
+    pub status: TaskStatus,
+    pub summary: String,
+    pub output_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<TaskUsage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
 }
 
 /// Assistant message
@@ -361,6 +474,170 @@ mod tests {
         if let ClaudeOutput::System(sys) = output {
             let status = sys.as_status().expect("Should parse as status");
             assert_eq!(status.status, None);
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_task_started() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "task_started",
+            "session_id": "9abbc466-dad0-4b8e-b6b0-cad5eb7a16b9",
+            "task_id": "b6daf3f",
+            "task_type": "local_bash",
+            "tool_use_id": "toolu_011rfSTFumpJZdCCfzeD7jaS",
+            "description": "Wait for CI on PR #12",
+            "uuid": "c4243261-c128-4747-b8c3-5e1c7c10eeb8"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_task_started());
+            assert!(!sys.is_task_progress());
+            assert!(!sys.is_task_notification());
+
+            let task = sys.as_task_started().expect("Should parse as task_started");
+            assert_eq!(task.session_id, "9abbc466-dad0-4b8e-b6b0-cad5eb7a16b9");
+            assert_eq!(task.task_id, "b6daf3f");
+            assert_eq!(task.task_type, super::TaskType::LocalBash);
+            assert_eq!(task.tool_use_id, "toolu_011rfSTFumpJZdCCfzeD7jaS");
+            assert_eq!(task.description, "Wait for CI on PR #12");
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_task_started_agent() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "task_started",
+            "session_id": "bff4f716-17c1-4255-ab7b-eea9d33824e3",
+            "task_id": "a4a7e0906e5fc64cc",
+            "task_type": "local_agent",
+            "tool_use_id": "toolu_01SFz9FwZ1cYgCSy8vRM7wep",
+            "description": "Explore Scene/ArrayScene duplication",
+            "uuid": "85a39f5a-e4d4-47f7-9a6d-1125f1a8035f"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            let task = sys.as_task_started().expect("Should parse as task_started");
+            assert_eq!(task.task_type, super::TaskType::LocalAgent);
+            assert_eq!(task.task_id, "a4a7e0906e5fc64cc");
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_task_progress() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "task_progress",
+            "session_id": "bff4f716-17c1-4255-ab7b-eea9d33824e3",
+            "task_id": "a4a7e0906e5fc64cc",
+            "tool_use_id": "toolu_01SFz9FwZ1cYgCSy8vRM7wep",
+            "description": "Reading src/jplephem/chebyshev.rs",
+            "last_tool_name": "Read",
+            "usage": {
+                "duration_ms": 13996,
+                "tool_uses": 9,
+                "total_tokens": 38779
+            },
+            "uuid": "85a39f5a-e4d4-47f7-9a6d-1125f1a8035f"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_task_progress());
+            assert!(!sys.is_task_started());
+
+            let progress = sys
+                .as_task_progress()
+                .expect("Should parse as task_progress");
+            assert_eq!(progress.task_id, "a4a7e0906e5fc64cc");
+            assert_eq!(progress.description, "Reading src/jplephem/chebyshev.rs");
+            assert_eq!(progress.last_tool_name, "Read");
+            assert_eq!(progress.usage.duration_ms, 13996);
+            assert_eq!(progress.usage.tool_uses, 9);
+            assert_eq!(progress.usage.total_tokens, 38779);
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_task_notification_completed() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "task_notification",
+            "session_id": "bff4f716-17c1-4255-ab7b-eea9d33824e3",
+            "task_id": "a0ba761e9dc9c316f",
+            "tool_use_id": "toolu_01Ho6XVXFLVNjTQ9YqowdBXW",
+            "status": "completed",
+            "summary": "Agent \"Write Hipparcos data source doc\" completed",
+            "output_file": "",
+            "usage": {
+                "duration_ms": 172300,
+                "tool_uses": 11,
+                "total_tokens": 42005
+            },
+            "uuid": "269f49b9-218d-4c8d-9f7e-3a5383a0c5b2"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            assert!(sys.is_task_notification());
+
+            let notif = sys
+                .as_task_notification()
+                .expect("Should parse as task_notification");
+            assert_eq!(notif.status, super::TaskStatus::Completed);
+            assert_eq!(
+                notif.summary,
+                "Agent \"Write Hipparcos data source doc\" completed"
+            );
+            assert_eq!(notif.output_file, Some("".to_string()));
+            assert_eq!(
+                notif.tool_use_id,
+                Some("toolu_01Ho6XVXFLVNjTQ9YqowdBXW".to_string())
+            );
+            let usage = notif.usage.expect("Should have usage");
+            assert_eq!(usage.duration_ms, 172300);
+            assert_eq!(usage.tool_uses, 11);
+            assert_eq!(usage.total_tokens, 42005);
+        } else {
+            panic!("Expected System message");
+        }
+    }
+
+    #[test]
+    fn test_system_message_task_notification_failed_no_usage() {
+        let json = r#"{
+            "type": "system",
+            "subtype": "task_notification",
+            "session_id": "ea629737-3c36-48a8-a1c4-ad761ad35784",
+            "task_id": "b98f6a3",
+            "status": "failed",
+            "summary": "Background command \"Run FSM calibration\" failed with exit code 1",
+            "output_file": "/tmp/claude-1000/tasks/b98f6a3.output"
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        if let ClaudeOutput::System(sys) = output {
+            let notif = sys
+                .as_task_notification()
+                .expect("Should parse as task_notification");
+            assert_eq!(notif.status, super::TaskStatus::Failed);
+            assert!(notif.tool_use_id.is_none());
+            assert!(notif.usage.is_none());
+            assert_eq!(
+                notif.output_file,
+                Some("/tmp/claude-1000/tasks/b98f6a3.output".to_string())
+            );
         } else {
             panic!("Expected System message");
         }

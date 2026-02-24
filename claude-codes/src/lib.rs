@@ -145,6 +145,8 @@ pub use io::{
 // System message subtype types
 pub use io::{
     CompactBoundaryMessage, CompactMetadata, InitMessage, PluginInfo, StatusMessage, SystemMessage,
+    TaskNotificationMessage, TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType,
+    TaskUsage,
 };
 
 // Rate limit types

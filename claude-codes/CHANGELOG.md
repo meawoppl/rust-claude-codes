@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.47] - 2026-02-24
+
+### Added
+
+- **`TaskStartedMessage`** — Typed struct for `task_started` system messages emitted when a background task (agent or bash) begins
+- **`TaskProgressMessage`** — Typed struct for `task_progress` system messages with tool name, description, and cumulative usage stats
+- **`TaskNotificationMessage`** — Typed struct for `task_notification` system messages emitted when a background task completes or fails
+- **`TaskUsage`** — Cumulative usage statistics (`duration_ms`, `tool_uses`, `total_tokens`)
+- **`TaskType`** enum — `LocalAgent` or `LocalBash`
+- **`TaskStatus`** enum — `Completed` or `Failed`
+- **`SystemMessage` helpers** — `is_task_started()`, `is_task_progress()`, `is_task_notification()` and corresponding `as_task_*()` methods
+
 ## [2.1.46] - 2026-02-20
 
 ### Fixed
