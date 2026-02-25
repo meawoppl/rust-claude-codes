@@ -633,8 +633,8 @@ async fn test_mixed_content_blocks() {
         }),
         ContentBlock::Image(claude_codes::io::ImageBlock {
             source: claude_codes::io::ImageSource {
-                source_type: "base64".to_string(),
-                media_type: "image/png".to_string(),
+                source_type: claude_codes::ImageSourceType::Base64,
+                media_type: claude_codes::MediaType::Png,
                 data: base64_image,
             },
         }),
@@ -723,11 +723,16 @@ fn test_media_type_validation() {
     let fake_data = "fake_base64_data".to_string();
 
     // Valid media types should work
-    let valid_types = vec!["image/jpeg", "image/png", "image/gif", "image/webp"];
+    let valid_types = vec![
+        claude_codes::MediaType::Jpeg,
+        claude_codes::MediaType::Png,
+        claude_codes::MediaType::Gif,
+        claude_codes::MediaType::Webp,
+    ];
     for media_type in valid_types {
         let result = ClaudeInput::user_message_with_image(
             fake_data.clone(),
-            media_type.to_string(),
+            media_type.clone(),
             None,
             session_id,
         );
@@ -736,16 +741,16 @@ fn test_media_type_validation() {
 
     // Invalid media types should fail
     let invalid_types = vec![
-        "image/bmp",
-        "image/tiff",
-        "video/mp4",
-        "text/plain",
-        "application/pdf",
+        claude_codes::MediaType::Unknown("image/bmp".to_string()),
+        claude_codes::MediaType::Unknown("image/tiff".to_string()),
+        claude_codes::MediaType::Unknown("video/mp4".to_string()),
+        claude_codes::MediaType::Unknown("text/plain".to_string()),
+        claude_codes::MediaType::Unknown("application/pdf".to_string()),
     ];
     for media_type in invalid_types {
         let result = ClaudeInput::user_message_with_image(
             fake_data.clone(),
-            media_type.to_string(),
+            media_type.clone(),
             None,
             session_id,
         );
@@ -1709,7 +1714,9 @@ async fn test_tool_approval_allow_and_remember() {
 /// Test Permission struct construction and serialization
 #[test]
 fn test_permission_struct_integration() {
-    use claude_codes::{Permission, PermissionSuggestion};
+    use claude_codes::{
+        Permission, PermissionDestination, PermissionModeName, PermissionSuggestion, PermissionType,
+    };
 
     // Test Permission::allow_tool
     let perm = Permission::allow_tool("Bash", "npm test");
@@ -1720,7 +1727,10 @@ fn test_permission_struct_integration() {
     assert!(json.contains("\"ruleContent\":\"npm test\""));
 
     // Test Permission::set_mode
-    let mode_perm = Permission::set_mode("acceptEdits", "session");
+    let mode_perm = Permission::set_mode(
+        PermissionModeName::AcceptEdits,
+        PermissionDestination::Session,
+    );
     let mode_json = serde_json::to_string(&mode_perm).expect("Failed to serialize mode Permission");
     println!("Permission::set_mode JSON: {}", mode_json);
     assert!(mode_json.contains("\"type\":\"setMode\""));
@@ -1728,15 +1738,15 @@ fn test_permission_struct_integration() {
 
     // Test Permission::from_suggestion
     let suggestion = PermissionSuggestion {
-        suggestion_type: "setMode".to_string(),
-        destination: "session".to_string(),
-        mode: Some("acceptEdits".to_string()),
+        suggestion_type: PermissionType::SetMode,
+        destination: PermissionDestination::Session,
+        mode: Some(PermissionModeName::AcceptEdits),
         behavior: None,
         rules: None,
     };
     let from_suggestion = Permission::from_suggestion(&suggestion);
-    assert_eq!(from_suggestion.permission_type, "setMode");
-    assert_eq!(from_suggestion.mode, Some("acceptEdits".to_string()));
+    assert_eq!(from_suggestion.permission_type, PermissionType::SetMode);
+    assert_eq!(from_suggestion.mode, Some(PermissionModeName::AcceptEdits));
 
     println!("=== Permission struct integration test passed ===");
 }

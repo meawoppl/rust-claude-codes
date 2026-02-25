@@ -24,9 +24,10 @@
 //! }
 //! ```
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt;
 
 // ============================================================================
 // Individual Tool Input Structs
@@ -147,9 +148,9 @@ pub struct GrepInput {
     #[serde(rename = "-C", skip_serializing_if = "Option::is_none")]
     pub context: Option<u32>,
 
-    /// Output mode: "content", "files_with_matches", or "count"
+    /// Output mode: content, files_with_matches, or count
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub output_mode: Option<String>,
+    pub output_mode: Option<GrepOutputMode>,
 
     /// Enable multiline mode
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,7 +175,7 @@ pub struct TaskInput {
     pub prompt: String,
 
     /// The type of specialized agent to use
-    pub subagent_type: String,
+    pub subagent_type: SubagentType,
 
     /// Whether to run the agent in the background
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -225,14 +226,281 @@ pub struct TodoWriteInput {
     pub todos: Vec<TodoItem>,
 }
 
+/// Status of a todo item.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TodoStatus {
+    Pending,
+    InProgress,
+    Completed,
+    /// A status not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl TodoStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Pending => "pending",
+            Self::InProgress => "in_progress",
+            Self::Completed => "completed",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for TodoStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for TodoStatus {
+    fn from(s: &str) -> Self {
+        match s {
+            "pending" => Self::Pending,
+            "in_progress" => Self::InProgress,
+            "completed" => Self::Completed,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for TodoStatus {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TodoStatus {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Output mode for the Grep tool.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GrepOutputMode {
+    /// Show matching lines with context.
+    Content,
+    /// Show only file paths containing matches.
+    FilesWithMatches,
+    /// Show match counts per file.
+    Count,
+    /// A mode not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl GrepOutputMode {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Content => "content",
+            Self::FilesWithMatches => "files_with_matches",
+            Self::Count => "count",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for GrepOutputMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for GrepOutputMode {
+    fn from(s: &str) -> Self {
+        match s {
+            "content" => Self::Content,
+            "files_with_matches" => Self::FilesWithMatches,
+            "count" => Self::Count,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for GrepOutputMode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for GrepOutputMode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Type of specialized subagent for the Task tool.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SubagentType {
+    /// Command execution specialist.
+    Bash,
+    /// Fast codebase exploration agent.
+    Explore,
+    /// Software architect agent for planning.
+    Plan,
+    /// General-purpose agent.
+    GeneralPurpose,
+    /// A subagent type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl SubagentType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Bash => "Bash",
+            Self::Explore => "Explore",
+            Self::Plan => "Plan",
+            Self::GeneralPurpose => "general-purpose",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for SubagentType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for SubagentType {
+    fn from(s: &str) -> Self {
+        match s {
+            "Bash" => Self::Bash,
+            "Explore" => Self::Explore,
+            "Plan" => Self::Plan,
+            "general-purpose" => Self::GeneralPurpose,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for SubagentType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for SubagentType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Type of Jupyter notebook cell.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NotebookCellType {
+    /// Code cell.
+    Code,
+    /// Markdown cell.
+    Markdown,
+    /// A cell type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl NotebookCellType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Code => "code",
+            Self::Markdown => "markdown",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for NotebookCellType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for NotebookCellType {
+    fn from(s: &str) -> Self {
+        match s {
+            "code" => Self::Code,
+            "markdown" => Self::Markdown,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for NotebookCellType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for NotebookCellType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Type of edit to perform on a notebook cell.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NotebookEditMode {
+    /// Replace the cell's content.
+    Replace,
+    /// Insert a new cell.
+    Insert,
+    /// Delete the cell.
+    Delete,
+    /// An edit mode not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl NotebookEditMode {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Replace => "replace",
+            Self::Insert => "insert",
+            Self::Delete => "delete",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for NotebookEditMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for NotebookEditMode {
+    fn from(s: &str) -> Self {
+        match s {
+            "replace" => Self::Replace,
+            "insert" => Self::Insert,
+            "delete" => Self::Delete,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for NotebookEditMode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for NotebookEditMode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
 /// A single todo item in a task list.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TodoItem {
     /// The task description (imperative form)
     pub content: String,
 
-    /// Current status: "pending", "in_progress", or "completed"
-    pub status: String,
+    /// Current status
+    pub status: TodoStatus,
 
     /// The present continuous form shown during execution
     #[serde(rename = "activeForm")]
@@ -305,11 +573,11 @@ pub struct NotebookEditInput {
 
     /// The type of the cell (code or markdown)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cell_type: Option<String>,
+    pub cell_type: Option<NotebookCellType>,
 
     /// The type of edit to make (replace, insert, delete)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub edit_mode: Option<String>,
+    pub edit_mode: Option<NotebookEditMode>,
 }
 
 /// Input for the TaskOutput tool - retrieves output from background tasks.
@@ -847,7 +1115,7 @@ mod tests {
         let input: TaskInput = serde_json::from_value(json).unwrap();
         assert_eq!(input.description, "Search codebase");
         assert_eq!(input.prompt, "Find all usages of foo()");
-        assert_eq!(input.subagent_type, "Explore");
+        assert_eq!(input.subagent_type, SubagentType::Explore);
         assert_eq!(input.run_in_background, Some(true));
     }
 
@@ -898,8 +1166,8 @@ mod tests {
         let input: TodoWriteInput = serde_json::from_value(json).unwrap();
         assert_eq!(input.todos.len(), 2);
         assert_eq!(input.todos[0].content, "Fix the bug");
-        assert_eq!(input.todos[0].status, "in_progress");
-        assert_eq!(input.todos[1].status, "pending");
+        assert_eq!(input.todos[0].status, TodoStatus::InProgress);
+        assert_eq!(input.todos[1].status, TodoStatus::Pending);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::fmt;
 
@@ -18,6 +18,70 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+/// Known Anthropic API error types.
+///
+/// Maps to the `type` field inside an error response from the Anthropic API.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ApiErrorType {
+    /// Internal server error (HTTP 500)
+    ApiError,
+    /// Service overloaded (HTTP 529)
+    OverloadedError,
+    /// Bad request (HTTP 400)
+    InvalidRequestError,
+    /// Invalid API key (HTTP 401)
+    AuthenticationError,
+    /// Too many requests (HTTP 429)
+    RateLimitError,
+    /// An error type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl ApiErrorType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::ApiError => "api_error",
+            Self::OverloadedError => "overloaded_error",
+            Self::InvalidRequestError => "invalid_request_error",
+            Self::AuthenticationError => "authentication_error",
+            Self::RateLimitError => "rate_limit_error",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for ApiErrorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for ApiErrorType {
+    fn from(s: &str) -> Self {
+        match s {
+            "api_error" => Self::ApiError,
+            "overloaded_error" => Self::OverloadedError,
+            "invalid_request_error" => Self::InvalidRequestError,
+            "authentication_error" => Self::AuthenticationError,
+            "rate_limit_error" => Self::RateLimitError,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for ApiErrorType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ApiErrorType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
 
 /// API error message from Anthropic.
 ///
@@ -62,36 +126,36 @@ pub struct AnthropicError {
 impl AnthropicError {
     /// Check if this is an overloaded error (HTTP 529)
     pub fn is_overloaded(&self) -> bool {
-        self.error.error_type == "overloaded_error"
+        self.error.error_type == ApiErrorType::OverloadedError
     }
 
     /// Check if this is a server error (HTTP 500)
     pub fn is_server_error(&self) -> bool {
-        self.error.error_type == "api_error"
+        self.error.error_type == ApiErrorType::ApiError
     }
 
     /// Check if this is an invalid request error (HTTP 400)
     pub fn is_invalid_request(&self) -> bool {
-        self.error.error_type == "invalid_request_error"
+        self.error.error_type == ApiErrorType::InvalidRequestError
     }
 
     /// Check if this is an authentication error (HTTP 401)
     pub fn is_authentication_error(&self) -> bool {
-        self.error.error_type == "authentication_error"
+        self.error.error_type == ApiErrorType::AuthenticationError
     }
 
     /// Check if this is a rate limit error (HTTP 429)
     pub fn is_rate_limited(&self) -> bool {
-        self.error.error_type == "rate_limit_error"
+        self.error.error_type == ApiErrorType::RateLimitError
     }
 }
 
 /// Details of an Anthropic API error.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AnthropicErrorDetails {
-    /// The type of error (e.g., "api_error", "overloaded_error", "invalid_request_error")
+    /// The type of error
     #[serde(rename = "type")]
-    pub error_type: String,
+    pub error_type: ApiErrorType,
     /// Human-readable error message
     pub message: String,
 }
@@ -117,7 +181,7 @@ mod tests {
         assert_eq!(output.message_type(), "error");
 
         if let ClaudeOutput::Error(err) = output {
-            assert_eq!(err.error.error_type, "api_error");
+            assert_eq!(err.error.error_type, ApiErrorType::ApiError);
             assert_eq!(err.error.message, "Internal server error");
             assert_eq!(
                 err.request_id,
@@ -218,7 +282,7 @@ mod tests {
 
         let err = output.as_anthropic_error();
         assert!(err.is_some());
-        assert_eq!(err.unwrap().error.error_type, "api_error");
+        assert_eq!(err.unwrap().error.error_type, ApiErrorType::ApiError);
 
         // Non-error should return None
         let result_json = r#"{
@@ -239,7 +303,7 @@ mod tests {
     fn test_anthropic_error_roundtrip() {
         let error = AnthropicError {
             error: AnthropicErrorDetails {
-                error_type: "api_error".to_string(),
+                error_type: ApiErrorType::ApiError,
                 message: "Test error".to_string(),
             },
             request_id: Some("req_123".to_string()),

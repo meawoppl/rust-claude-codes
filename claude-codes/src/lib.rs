@@ -121,8 +121,8 @@ pub mod version;
 // Core exports always available
 pub use error::{Error, Result};
 pub use io::{
-    AnthropicError, AnthropicErrorDetails, AssistantMessageContent, ClaudeInput, ClaudeOutput,
-    ParseError,
+    AnthropicError, AnthropicErrorDetails, ApiErrorType, AssistantMessageContent, ClaudeInput,
+    ClaudeOutput, ParseError,
 };
 pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};
@@ -130,27 +130,32 @@ pub use types::*;
 
 // Content block types for message parsing
 pub use io::{
-    ContentBlock, ImageBlock, ImageSource, TextBlock, ThinkingBlock, ToolResultBlock,
-    ToolResultContent,
+    ContentBlock, ImageBlock, ImageSource, ImageSourceType, MediaType, TextBlock, ThinkingBlock,
+    ToolResultBlock, ToolResultContent,
 };
 
 // Control protocol types for tool permission handling
 pub use io::{
     ControlRequest, ControlRequestMessage, ControlRequestPayload, ControlResponse,
     ControlResponseMessage, ControlResponsePayload, HookCallbackRequest, InitializeRequest,
-    McpMessageRequest, Permission, PermissionDenial, PermissionResult, PermissionRule,
-    PermissionSuggestion, ToolPermissionRequest, ToolUseBlock,
+    McpMessageRequest, Permission, PermissionBehavior, PermissionDenial, PermissionDestination,
+    PermissionModeName, PermissionResult, PermissionRule, PermissionSuggestion, PermissionType,
+    ToolPermissionRequest, ToolUseBlock,
 };
 
-// System message subtype types
+// System message and assistant message types
 pub use io::{
-    CompactBoundaryMessage, CompactMetadata, InitMessage, PluginInfo, StatusMessage, SystemMessage,
-    TaskNotificationMessage, TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType,
-    TaskUsage,
+    ApiKeySource, CompactBoundaryMessage, CompactMetadata, CompactionTrigger, InitMessage,
+    InitPermissionMode, MessageRole, OutputStyle, PluginInfo, StatusMessage, StatusMessageStatus,
+    StopReason, SystemMessage, SystemSubtype, TaskNotificationMessage, TaskProgressMessage,
+    TaskStartedMessage, TaskStatus, TaskType, TaskUsage,
 };
 
 // Rate limit types
-pub use io::{RateLimitEvent, RateLimitInfo};
+pub use io::{
+    OverageDisabledReason, OverageStatus, RateLimitEvent, RateLimitInfo, RateLimitStatus,
+    RateLimitWindow,
+};
 
 // Usage types
 pub use io::{AssistantUsage, CacheCreationDetails};
@@ -158,9 +163,10 @@ pub use io::{AssistantUsage, CacheCreationDetails};
 // Typed tool input types
 pub use tool_inputs::{
     AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
-    ExitPlanModeInput, GlobInput, GrepInput, KillShellInput, NotebookEditInput, Question,
-    QuestionMetadata, QuestionOption, ReadInput, SkillInput, TaskInput, TaskOutputInput, TodoItem,
-    TodoWriteInput, ToolInput, WebFetchInput, WebSearchInput, WriteInput,
+    ExitPlanModeInput, GlobInput, GrepInput, GrepOutputMode, KillShellInput, NotebookCellType,
+    NotebookEditInput, NotebookEditMode, Question, QuestionMetadata, QuestionOption, ReadInput,
+    SkillInput, SubagentType, TaskInput, TaskOutputInput, TodoItem, TodoStatus, TodoWriteInput,
+    ToolInput, WebFetchInput, WebSearchInput, WriteInput,
 };
 
 // Client exports
