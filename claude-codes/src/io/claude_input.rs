@@ -29,7 +29,7 @@ impl ClaudeInput {
     pub fn user_message(text: impl Into<String>, session_id: Uuid) -> Self {
         ClaudeInput::User(UserMessage {
             message: MessageContent {
-                role: "user".to_string(),
+                role: super::MessageRole::User,
                 content: vec![ContentBlock::Text(TextBlock { text: text.into() })],
             },
             session_id: Some(session_id),
@@ -40,7 +40,7 @@ impl ClaudeInput {
     pub fn user_message_blocks(blocks: Vec<ContentBlock>, session_id: Uuid) -> Self {
         ClaudeInput::User(UserMessage {
             message: MessageContent {
-                role: "user".to_string(),
+                role: super::MessageRole::User,
                 content: blocks,
             },
             session_id: Some(session_id),

@@ -1,5 +1,213 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::fmt;
+
+// ============================================================================
+// Permission Enums
+// ============================================================================
+
+/// The type of a permission grant.
+///
+/// Determines whether the permission adds rules for specific tools
+/// or sets a broad mode.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionType {
+    /// Add fine-grained rules for specific tools.
+    AddRules,
+    /// Set a broad permission mode (e.g., accept all edits).
+    SetMode,
+    /// A type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl PermissionType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::AddRules => "addRules",
+            Self::SetMode => "setMode",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for PermissionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for PermissionType {
+    fn from(s: &str) -> Self {
+        match s {
+            "addRules" => Self::AddRules,
+            "setMode" => Self::SetMode,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for PermissionType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PermissionType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Where a permission applies.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionDestination {
+    /// Applies only to the current session.
+    Session,
+    /// Persists across sessions for the project.
+    Project,
+    /// A destination not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl PermissionDestination {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Session => "session",
+            Self::Project => "project",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for PermissionDestination {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for PermissionDestination {
+    fn from(s: &str) -> Self {
+        match s {
+            "session" => Self::Session,
+            "project" => Self::Project,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for PermissionDestination {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PermissionDestination {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// The behavior of a permission rule.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionBehavior {
+    /// Allow the tool action.
+    Allow,
+    /// Deny the tool action.
+    Deny,
+    /// A behavior not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl PermissionBehavior {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Allow => "allow",
+            Self::Deny => "deny",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for PermissionBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for PermissionBehavior {
+    fn from(s: &str) -> Self {
+        match s {
+            "allow" => Self::Allow,
+            "deny" => Self::Deny,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for PermissionBehavior {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PermissionBehavior {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Named permission modes that can be set via `setMode`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionModeName {
+    /// Accept all file edits without prompting.
+    AcceptEdits,
+    /// Bypass all permission checks.
+    BypassPermissions,
+    /// A mode not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl PermissionModeName {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::AcceptEdits => "acceptEdits",
+            Self::BypassPermissions => "bypassPermissions",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for PermissionModeName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for PermissionModeName {
+    fn from(s: &str) -> Self {
+        match s {
+            "acceptEdits" => Self::AcceptEdits,
+            "bypassPermissions" => Self::BypassPermissions,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for PermissionModeName {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PermissionModeName {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
 
 // ============================================================================
 // Control Protocol Types (for bidirectional tool approval)
@@ -40,27 +248,27 @@ pub enum ControlRequestPayload {
 /// # Example
 ///
 /// ```
-/// use claude_codes::Permission;
+/// use claude_codes::{Permission, PermissionModeName, PermissionDestination};
 ///
 /// // Grant permission for a specific bash command
 /// let perm = Permission::allow_tool("Bash", "npm test");
 ///
 /// // Grant permission to set a mode for the session
-/// let mode_perm = Permission::set_mode("acceptEdits", "session");
+/// let mode_perm = Permission::set_mode(PermissionModeName::AcceptEdits, PermissionDestination::Session);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Permission {
-    /// The type of permission (e.g., "addRules", "setMode")
+    /// The type of permission (e.g., addRules, setMode)
     #[serde(rename = "type")]
-    pub permission_type: String,
-    /// Where to apply this permission (e.g., "session", "project")
-    pub destination: String,
+    pub permission_type: PermissionType,
+    /// Where to apply this permission (e.g., session, project)
+    pub destination: PermissionDestination,
     /// The permission mode (for setMode type)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
-    /// The behavior (for addRules type, e.g., "allow", "deny")
+    pub mode: Option<PermissionModeName>,
+    /// The behavior (for addRules type, e.g., allow, deny)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub behavior: Option<String>,
+    pub behavior: Option<PermissionBehavior>,
     /// The rules to add (for addRules type)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<Vec<PermissionRule>>,
@@ -92,10 +300,10 @@ impl Permission {
     /// ```
     pub fn allow_tool(tool_name: impl Into<String>, rule_content: impl Into<String>) -> Self {
         Permission {
-            permission_type: "addRules".to_string(),
-            destination: "session".to_string(),
+            permission_type: PermissionType::AddRules,
+            destination: PermissionDestination::Session,
             mode: None,
-            behavior: Some("allow".to_string()),
+            behavior: Some(PermissionBehavior::Allow),
             rules: Some(vec![PermissionRule {
                 tool_name: tool_name.into(),
                 rule_content: rule_content.into(),
@@ -107,21 +315,21 @@ impl Permission {
     ///
     /// # Example
     /// ```
-    /// use claude_codes::Permission;
+    /// use claude_codes::{Permission, PermissionDestination};
     ///
     /// // Allow for the entire project, not just session
-    /// let perm = Permission::allow_tool_with_destination("Bash", "npm test", "project");
+    /// let perm = Permission::allow_tool_with_destination("Bash", "npm test", PermissionDestination::Project);
     /// ```
     pub fn allow_tool_with_destination(
         tool_name: impl Into<String>,
         rule_content: impl Into<String>,
-        destination: impl Into<String>,
+        destination: PermissionDestination,
     ) -> Self {
         Permission {
-            permission_type: "addRules".to_string(),
-            destination: destination.into(),
+            permission_type: PermissionType::AddRules,
+            destination,
             mode: None,
-            behavior: Some("allow".to_string()),
+            behavior: Some(PermissionBehavior::Allow),
             rules: Some(vec![PermissionRule {
                 tool_name: tool_name.into(),
                 rule_content: rule_content.into(),
@@ -133,16 +341,16 @@ impl Permission {
     ///
     /// # Example
     /// ```
-    /// use claude_codes::Permission;
+    /// use claude_codes::{Permission, PermissionModeName, PermissionDestination};
     ///
     /// // Accept all edits for this session
-    /// let perm = Permission::set_mode("acceptEdits", "session");
+    /// let perm = Permission::set_mode(PermissionModeName::AcceptEdits, PermissionDestination::Session);
     /// ```
-    pub fn set_mode(mode: impl Into<String>, destination: impl Into<String>) -> Self {
+    pub fn set_mode(mode: PermissionModeName, destination: PermissionDestination) -> Self {
         Permission {
-            permission_type: "setMode".to_string(),
-            destination: destination.into(),
-            mode: Some(mode.into()),
+            permission_type: PermissionType::SetMode,
+            destination,
+            mode: Some(mode),
             behavior: None,
             rules: None,
         }
@@ -154,13 +362,13 @@ impl Permission {
     ///
     /// # Example
     /// ```
-    /// use claude_codes::{Permission, PermissionSuggestion};
+    /// use claude_codes::{Permission, PermissionSuggestion, PermissionType, PermissionDestination, PermissionModeName};
     ///
     /// // Convert a suggestion to a permission for the response
     /// let suggestion = PermissionSuggestion {
-    ///     suggestion_type: "setMode".to_string(),
-    ///     destination: "session".to_string(),
-    ///     mode: Some("acceptEdits".to_string()),
+    ///     suggestion_type: PermissionType::SetMode,
+    ///     destination: PermissionDestination::Session,
+    ///     mode: Some(PermissionModeName::AcceptEdits),
     ///     behavior: None,
     ///     rules: None,
     /// };
@@ -199,17 +407,17 @@ impl Permission {
 /// Use the helper methods to access common fields.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PermissionSuggestion {
-    /// The type of suggestion (e.g., "setMode", "addRules")
+    /// The type of suggestion (e.g., setMode, addRules)
     #[serde(rename = "type")]
-    pub suggestion_type: String,
-    /// Where to apply this permission (e.g., "session", "project")
-    pub destination: String,
+    pub suggestion_type: PermissionType,
+    /// Where to apply this permission (e.g., session, project)
+    pub destination: PermissionDestination,
     /// The permission mode (for setMode type)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
-    /// The behavior (for addRules type, e.g., "allow")
+    pub mode: Option<PermissionModeName>,
+    /// The behavior (for addRules type, e.g., allow)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub behavior: Option<String>,
+    pub behavior: Option<PermissionBehavior>,
     /// The rules to add (for addRules type)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<Vec<Value>>,
@@ -905,22 +1113,28 @@ mod tests {
                 assert_eq!(perm_req.permission_suggestions.len(), 2);
                 assert_eq!(
                     perm_req.permission_suggestions[0].suggestion_type,
-                    "setMode"
+                    PermissionType::SetMode
                 );
                 assert_eq!(
                     perm_req.permission_suggestions[0].mode,
-                    Some("acceptEdits".to_string())
+                    Some(PermissionModeName::AcceptEdits)
                 );
-                assert_eq!(perm_req.permission_suggestions[0].destination, "session");
+                assert_eq!(
+                    perm_req.permission_suggestions[0].destination,
+                    PermissionDestination::Session
+                );
                 assert_eq!(
                     perm_req.permission_suggestions[1].suggestion_type,
-                    "setMode"
+                    PermissionType::SetMode
                 );
                 assert_eq!(
                     perm_req.permission_suggestions[1].mode,
-                    Some("bypassPermissions".to_string())
+                    Some(PermissionModeName::BypassPermissions)
                 );
-                assert_eq!(perm_req.permission_suggestions[1].destination, "project");
+                assert_eq!(
+                    perm_req.permission_suggestions[1].destination,
+                    PermissionDestination::Project
+                );
             } else {
                 panic!("Expected CanUseTool payload");
             }
@@ -932,9 +1146,9 @@ mod tests {
     #[test]
     fn test_permission_suggestion_set_mode_roundtrip() {
         let suggestion = PermissionSuggestion {
-            suggestion_type: "setMode".to_string(),
-            destination: "session".to_string(),
-            mode: Some("acceptEdits".to_string()),
+            suggestion_type: PermissionType::SetMode,
+            destination: PermissionDestination::Session,
+            mode: Some(PermissionModeName::AcceptEdits),
             behavior: None,
             rules: None,
         };
@@ -953,10 +1167,10 @@ mod tests {
     #[test]
     fn test_permission_suggestion_add_rules_roundtrip() {
         let suggestion = PermissionSuggestion {
-            suggestion_type: "addRules".to_string(),
-            destination: "session".to_string(),
+            suggestion_type: PermissionType::AddRules,
+            destination: PermissionDestination::Session,
             mode: None,
-            behavior: Some("allow".to_string()),
+            behavior: Some(PermissionBehavior::Allow),
             rules: Some(vec![serde_json::json!({
                 "toolName": "Read",
                 "ruleContent": "//tmp/**"
@@ -980,9 +1194,9 @@ mod tests {
         let json = r#"{"type":"addRules","rules":[{"toolName":"Read","ruleContent":"//tmp/**"}],"behavior":"allow","destination":"session"}"#;
 
         let parsed: PermissionSuggestion = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.suggestion_type, "addRules");
-        assert_eq!(parsed.destination, "session");
-        assert_eq!(parsed.behavior, Some("allow".to_string()));
+        assert_eq!(parsed.suggestion_type, PermissionType::AddRules);
+        assert_eq!(parsed.destination, PermissionDestination::Session);
+        assert_eq!(parsed.behavior, Some(PermissionBehavior::Allow));
         assert!(parsed.rules.is_some());
         assert!(parsed.mode.is_none());
     }
@@ -991,9 +1205,9 @@ mod tests {
     fn test_permission_allow_tool() {
         let perm = Permission::allow_tool("Bash", "npm test");
 
-        assert_eq!(perm.permission_type, "addRules");
-        assert_eq!(perm.destination, "session");
-        assert_eq!(perm.behavior, Some("allow".to_string()));
+        assert_eq!(perm.permission_type, PermissionType::AddRules);
+        assert_eq!(perm.destination, PermissionDestination::Session);
+        assert_eq!(perm.behavior, Some(PermissionBehavior::Allow));
         assert!(perm.mode.is_none());
 
         let rules = perm.rules.unwrap();
@@ -1004,11 +1218,15 @@ mod tests {
 
     #[test]
     fn test_permission_allow_tool_with_destination() {
-        let perm = Permission::allow_tool_with_destination("Read", "/tmp/**", "project");
+        let perm = Permission::allow_tool_with_destination(
+            "Read",
+            "/tmp/**",
+            PermissionDestination::Project,
+        );
 
-        assert_eq!(perm.permission_type, "addRules");
-        assert_eq!(perm.destination, "project");
-        assert_eq!(perm.behavior, Some("allow".to_string()));
+        assert_eq!(perm.permission_type, PermissionType::AddRules);
+        assert_eq!(perm.destination, PermissionDestination::Project);
+        assert_eq!(perm.behavior, Some(PermissionBehavior::Allow));
 
         let rules = perm.rules.unwrap();
         assert_eq!(rules[0].tool_name, "Read");
@@ -1017,11 +1235,14 @@ mod tests {
 
     #[test]
     fn test_permission_set_mode() {
-        let perm = Permission::set_mode("acceptEdits", "session");
+        let perm = Permission::set_mode(
+            PermissionModeName::AcceptEdits,
+            PermissionDestination::Session,
+        );
 
-        assert_eq!(perm.permission_type, "setMode");
-        assert_eq!(perm.destination, "session");
-        assert_eq!(perm.mode, Some("acceptEdits".to_string()));
+        assert_eq!(perm.permission_type, PermissionType::SetMode);
+        assert_eq!(perm.destination, PermissionDestination::Session);
+        assert_eq!(perm.mode, Some(PermissionModeName::AcceptEdits));
         assert!(perm.behavior.is_none());
         assert!(perm.rules.is_none());
     }
@@ -1041,27 +1262,27 @@ mod tests {
     #[test]
     fn test_permission_from_suggestion_set_mode() {
         let suggestion = PermissionSuggestion {
-            suggestion_type: "setMode".to_string(),
-            destination: "session".to_string(),
-            mode: Some("acceptEdits".to_string()),
+            suggestion_type: PermissionType::SetMode,
+            destination: PermissionDestination::Session,
+            mode: Some(PermissionModeName::AcceptEdits),
             behavior: None,
             rules: None,
         };
 
         let perm = Permission::from_suggestion(&suggestion);
 
-        assert_eq!(perm.permission_type, "setMode");
-        assert_eq!(perm.destination, "session");
-        assert_eq!(perm.mode, Some("acceptEdits".to_string()));
+        assert_eq!(perm.permission_type, PermissionType::SetMode);
+        assert_eq!(perm.destination, PermissionDestination::Session);
+        assert_eq!(perm.mode, Some(PermissionModeName::AcceptEdits));
     }
 
     #[test]
     fn test_permission_from_suggestion_add_rules() {
         let suggestion = PermissionSuggestion {
-            suggestion_type: "addRules".to_string(),
-            destination: "session".to_string(),
+            suggestion_type: PermissionType::AddRules,
+            destination: PermissionDestination::Session,
             mode: None,
-            behavior: Some("allow".to_string()),
+            behavior: Some(PermissionBehavior::Allow),
             rules: Some(vec![serde_json::json!({
                 "toolName": "Read",
                 "ruleContent": "/tmp/**"
@@ -1070,8 +1291,8 @@ mod tests {
 
         let perm = Permission::from_suggestion(&suggestion);
 
-        assert_eq!(perm.permission_type, "addRules");
-        assert_eq!(perm.behavior, Some("allow".to_string()));
+        assert_eq!(perm.permission_type, PermissionType::AddRules);
+        assert_eq!(perm.behavior, Some(PermissionBehavior::Allow));
 
         let rules = perm.rules.unwrap();
         assert_eq!(rules.len(), 1);
@@ -1120,9 +1341,9 @@ mod tests {
             tool_name: "Bash".to_string(),
             input: serde_json::json!({"command": "npm test"}),
             permission_suggestions: vec![PermissionSuggestion {
-                suggestion_type: "setMode".to_string(),
-                destination: "session".to_string(),
-                mode: Some("acceptEdits".to_string()),
+                suggestion_type: PermissionType::SetMode,
+                destination: PermissionDestination::Session,
+                mode: Some(PermissionModeName::AcceptEdits),
                 behavior: None,
                 rules: None,
             }],

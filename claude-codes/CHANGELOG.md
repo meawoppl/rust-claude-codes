@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.48] - 2026-02-25
+
+### Changed
+
+- **`SystemSubtype`** — enum replacing `String` for system message subtypes (`init`, `api_error`, etc.)
+- **`ApiErrorType`** — enum replacing `String` for API error types (`authentication_error`, `overloaded_error`, etc.)
+- **`RateLimitStatus`** — enum replacing `String` for rate limit statuses (`rate_limited`, `rate_limit_cleared`)
+- **`RateLimitWindow`** — enum replacing `String` for rate limit windows (`minutely`, `daily`, etc.)
+- **`PermissionType`** — enum replacing `String` for permission types (`addRules`, `setMode`)
+- **`PermissionDestination`** — enum replacing `String` for permission destinations (`session`, `project`)
+- **`PermissionBehavior`** — enum replacing `String` for permission behaviors (`allow`, `deny`)
+- **`PermissionModeName`** — enum replacing `String` for permission mode names (`acceptEdits`, `bypassPermissions`)
+- **`MessageRole`** — enum replacing `String` for message roles (`user`, `assistant`)
+- **`CompactionTrigger`** — enum replacing `String` for compaction triggers (`auto`, `manual`)
+- **`StopReason`** — enum replacing `String` for stop reasons (`end_turn`, `max_tokens`, `tool_use`)
+- **`TodoStatus`** — enum replacing `String` for todo statuses (`pending`, `in_progress`, `completed`)
+
+All enums include an `Unknown(String)` fallback variant for forward compatibility, plus `as_str()`, `Display`, and `From<&str>` implementations.
+
+### Breaking
+
+- Struct fields that were `String` are now typed enums — callers using `.as_deref()`, string comparisons, or `.to_string()` on these fields need to update to use the enum variants or `.as_str()` method
+
 ## [2.1.47] - 2026-02-24
 
 ### Added

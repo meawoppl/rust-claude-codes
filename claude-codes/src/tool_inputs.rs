@@ -24,9 +24,10 @@
 //! }
 //! ```
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fmt;
 
 // ============================================================================
 // Individual Tool Input Structs
@@ -225,14 +226,65 @@ pub struct TodoWriteInput {
     pub todos: Vec<TodoItem>,
 }
 
+/// Status of a todo item.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TodoStatus {
+    Pending,
+    InProgress,
+    Completed,
+    /// A status not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl TodoStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Pending => "pending",
+            Self::InProgress => "in_progress",
+            Self::Completed => "completed",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for TodoStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for TodoStatus {
+    fn from(s: &str) -> Self {
+        match s {
+            "pending" => Self::Pending,
+            "in_progress" => Self::InProgress,
+            "completed" => Self::Completed,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for TodoStatus {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TodoStatus {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
 /// A single todo item in a task list.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TodoItem {
     /// The task description (imperative form)
     pub content: String,
 
-    /// Current status: "pending", "in_progress", or "completed"
-    pub status: String,
+    /// Current status
+    pub status: TodoStatus,
 
     /// The present continuous form shown during execution
     #[serde(rename = "activeForm")]
@@ -898,8 +950,8 @@ mod tests {
         let input: TodoWriteInput = serde_json::from_value(json).unwrap();
         assert_eq!(input.todos.len(), 2);
         assert_eq!(input.todos[0].content, "Fix the bug");
-        assert_eq!(input.todos[0].status, "in_progress");
-        assert_eq!(input.todos[1].status, "pending");
+        assert_eq!(input.todos[0].status, TodoStatus::InProgress);
+        assert_eq!(input.todos[1].status, TodoStatus::Pending);
     }
 
     #[test]

@@ -1709,7 +1709,9 @@ async fn test_tool_approval_allow_and_remember() {
 /// Test Permission struct construction and serialization
 #[test]
 fn test_permission_struct_integration() {
-    use claude_codes::{Permission, PermissionSuggestion};
+    use claude_codes::{
+        Permission, PermissionDestination, PermissionModeName, PermissionSuggestion, PermissionType,
+    };
 
     // Test Permission::allow_tool
     let perm = Permission::allow_tool("Bash", "npm test");
@@ -1720,7 +1722,10 @@ fn test_permission_struct_integration() {
     assert!(json.contains("\"ruleContent\":\"npm test\""));
 
     // Test Permission::set_mode
-    let mode_perm = Permission::set_mode("acceptEdits", "session");
+    let mode_perm = Permission::set_mode(
+        PermissionModeName::AcceptEdits,
+        PermissionDestination::Session,
+    );
     let mode_json = serde_json::to_string(&mode_perm).expect("Failed to serialize mode Permission");
     println!("Permission::set_mode JSON: {}", mode_json);
     assert!(mode_json.contains("\"type\":\"setMode\""));
@@ -1728,15 +1733,15 @@ fn test_permission_struct_integration() {
 
     // Test Permission::from_suggestion
     let suggestion = PermissionSuggestion {
-        suggestion_type: "setMode".to_string(),
-        destination: "session".to_string(),
-        mode: Some("acceptEdits".to_string()),
+        suggestion_type: PermissionType::SetMode,
+        destination: PermissionDestination::Session,
+        mode: Some(PermissionModeName::AcceptEdits),
         behavior: None,
         rules: None,
     };
     let from_suggestion = Permission::from_suggestion(&suggestion);
-    assert_eq!(from_suggestion.permission_type, "setMode");
-    assert_eq!(from_suggestion.mode, Some("acceptEdits".to_string()));
+    assert_eq!(from_suggestion.permission_type, PermissionType::SetMode);
+    assert_eq!(from_suggestion.mode, Some(PermissionModeName::AcceptEdits));
 
     println!("=== Permission struct integration test passed ===");
 }

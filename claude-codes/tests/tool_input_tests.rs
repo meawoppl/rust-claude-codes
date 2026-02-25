@@ -20,7 +20,7 @@ fn test_parse_system_init_message() {
 
     match output {
         ClaudeOutput::System(msg) => {
-            assert_eq!(msg.subtype, "init");
+            assert_eq!(msg.subtype, claude_codes::SystemSubtype::Init);
             // Check that tools list is present
             let tools = msg.data.get("tools").expect("Missing tools");
             assert!(tools.is_array());
@@ -46,7 +46,7 @@ fn test_parse_bash_tool_use_message() {
 
     match output {
         ClaudeOutput::Assistant(msg) => {
-            assert_eq!(msg.message.role, "assistant");
+            assert_eq!(msg.message.role, claude_codes::MessageRole::Assistant);
             assert_eq!(msg.message.content.len(), 1);
 
             if let ContentBlock::ToolUse(tool_use) = &msg.message.content[0] {
@@ -400,7 +400,7 @@ fn test_tool_input_todo_write_deserialization() {
     let todo = input.as_todo_write().unwrap();
     assert_eq!(todo.todos.len(), 2);
     assert_eq!(todo.todos[0].content, "Implement feature");
-    assert_eq!(todo.todos[0].status, "in_progress");
+    assert_eq!(todo.todos[0].status, claude_codes::TodoStatus::InProgress);
 }
 
 #[test]
@@ -511,7 +511,7 @@ fn test_parse_assistant_with_usage_and_parent() {
 
     // Test as_assistant() helper
     let assistant = output.as_assistant().expect("Should be assistant");
-    assert_eq!(assistant.message.role, "assistant");
+    assert_eq!(assistant.message.role, claude_codes::MessageRole::Assistant);
     assert_eq!(assistant.message.model, "claude-haiku-4-5-20251001");
 
     // Test tool_uses() helper
@@ -564,7 +564,7 @@ fn test_parse_tool_result_error_message() {
 
     // Verify it's a user message with tool_result content
     if let ClaudeOutput::User(user) = output {
-        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.role, claude_codes::MessageRole::User);
         assert_eq!(user.message.content.len(), 1);
 
         if let ContentBlock::ToolResult(result) = &user.message.content[0] {
@@ -593,7 +593,7 @@ fn test_parse_tool_result_structured_content() {
 
     // Verify it's a user message with tool_result content
     if let ClaudeOutput::User(user) = output {
-        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.role, claude_codes::MessageRole::User);
         assert_eq!(user.message.content.len(), 1);
 
         if let ContentBlock::ToolResult(result) = &user.message.content[0] {
@@ -632,7 +632,7 @@ fn test_parse_tool_result_multi_text_structured() {
 
     // Verify it's a user message with tool_result content
     if let ClaudeOutput::User(user) = output {
-        assert_eq!(user.message.role, "user");
+        assert_eq!(user.message.role, claude_codes::MessageRole::User);
         assert_eq!(user.message.content.len(), 1);
 
         if let ContentBlock::ToolResult(result) = &user.message.content[0] {

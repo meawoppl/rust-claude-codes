@@ -1,4 +1,113 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
+
+/// Current rate limit disposition.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RateLimitStatus {
+    /// Request is within limits.
+    Allowed,
+    /// Request is within limits but approaching the cap.
+    AllowedWarning,
+    /// Request was rejected due to rate limiting.
+    Rejected,
+    /// A status not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl RateLimitStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Allowed => "allowed",
+            Self::AllowedWarning => "allowed_warning",
+            Self::Rejected => "rejected",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for RateLimitStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for RateLimitStatus {
+    fn from(s: &str) -> Self {
+        match s {
+            "allowed" => Self::Allowed,
+            "allowed_warning" => Self::AllowedWarning,
+            "rejected" => Self::Rejected,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for RateLimitStatus {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for RateLimitStatus {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// The time window a rate limit applies to.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RateLimitWindow {
+    /// Five-hour rolling window.
+    FiveHour,
+    /// Hourly rolling window.
+    Hourly,
+    /// Seven-day rolling window.
+    SevenDay,
+    /// A window type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl RateLimitWindow {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::FiveHour => "five_hour",
+            Self::Hourly => "hourly",
+            Self::SevenDay => "seven_day",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for RateLimitWindow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for RateLimitWindow {
+    fn from(s: &str) -> Self {
+        match s {
+            "five_hour" => Self::FiveHour,
+            "hourly" => Self::Hourly,
+            "seven_day" => Self::SevenDay,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for RateLimitWindow {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for RateLimitWindow {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
 
 /// Rate limit event from Claude CLI.
 ///
@@ -50,14 +159,14 @@ pub struct RateLimitEvent {
 /// Rate limit status information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RateLimitInfo {
-    /// Current rate limit status (e.g., "allowed")
-    pub status: String,
+    /// Current rate limit status
+    pub status: RateLimitStatus,
     /// Unix timestamp when the rate limit resets
     #[serde(rename = "resetsAt")]
     pub resets_at: u64,
-    /// Type of rate limit (e.g., "five_hour")
+    /// Type of rate limit window
     #[serde(rename = "rateLimitType")]
-    pub rate_limit_type: String,
+    pub rate_limit_type: RateLimitWindow,
     /// Utilization of the rate limit (0.0 to 1.0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization: Option<f64>,
@@ -74,6 +183,7 @@ pub struct RateLimitInfo {
 
 #[cfg(test)]
 mod tests {
+    use super::{RateLimitStatus, RateLimitWindow};
     use crate::io::ClaudeOutput;
 
     #[test]
@@ -89,9 +199,12 @@ mod tests {
         );
 
         let evt = output.as_rate_limit_event().unwrap();
-        assert_eq!(evt.rate_limit_info.status, "allowed");
+        assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Allowed);
         assert_eq!(evt.rate_limit_info.resets_at, 1771390800);
-        assert_eq!(evt.rate_limit_info.rate_limit_type, "five_hour");
+        assert_eq!(
+            evt.rate_limit_info.rate_limit_type,
+            RateLimitWindow::FiveHour
+        );
         assert_eq!(evt.rate_limit_info.utilization, None);
         assert_eq!(
             evt.rate_limit_info.overage_status,
@@ -125,7 +238,7 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         let evt = output.as_rate_limit_event().unwrap();
-        assert_eq!(evt.rate_limit_info.status, "allowed_warning");
+        assert_eq!(evt.rate_limit_info.status, RateLimitStatus::AllowedWarning);
         assert_eq!(evt.rate_limit_info.utilization, Some(0.85));
         assert_eq!(evt.rate_limit_info.overage_status, None);
         assert_eq!(evt.rate_limit_info.overage_disabled_reason, None);
@@ -138,8 +251,11 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         let evt = output.as_rate_limit_event().unwrap();
-        assert_eq!(evt.rate_limit_info.status, "rejected");
-        assert_eq!(evt.rate_limit_info.rate_limit_type, "seven_day");
+        assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Rejected);
+        assert_eq!(
+            evt.rate_limit_info.rate_limit_type,
+            RateLimitWindow::SevenDay
+        );
         assert_eq!(
             evt.rate_limit_info.overage_status,
             Some("rejected".to_string())
