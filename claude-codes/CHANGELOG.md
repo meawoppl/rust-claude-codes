@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CompactionTrigger`** — enum replacing `String` for compaction triggers (`auto`, `manual`)
 - **`StopReason`** — enum replacing `String` for stop reasons (`end_turn`, `max_tokens`, `tool_use`)
 - **`TodoStatus`** — enum replacing `String` for todo statuses (`pending`, `in_progress`, `completed`)
+- **`OverageStatus`** — enum replacing `String` for overage billing status (`allowed`, `rejected`)
+- **`OverageDisabledReason`** — enum replacing `String` for overage disabled reason (`org_level_disabled`, `out_of_credits`)
+- **`ImageSourceType`** — enum replacing `String` for image encoding type (`base64`)
+- **`MediaType`** — enum replacing `String` for image MIME types (`image/jpeg`, `image/png`, `image/gif`, `image/webp`)
+- **`GrepOutputMode`** — enum replacing `String` for grep output mode (`content`, `files_with_matches`, `count`)
+- **`SubagentType`** — enum replacing `String` for task subagent types (`Bash`, `Explore`, `Plan`, `general-purpose`)
+- **`NotebookCellType`** — enum replacing `String` for notebook cell types (`code`, `markdown`)
+- **`NotebookEditMode`** — enum replacing `String` for notebook edit modes (`replace`, `insert`, `delete`)
+- **`ApiKeySource`** — enum replacing `String` for API key source in init messages (`none`)
+- **`OutputStyle`** — enum replacing `String` for output style in init messages (`default`)
+- **`InitPermissionMode`** — enum replacing `String` for permission mode in init messages (`default`)
+- **`StatusMessageStatus`** — enum replacing `String` for status message status (`compacting`)
 
 All enums include an `Unknown(String)` fallback variant for forward compatibility, plus `as_str()`, `Display`, and `From<&str>` implementations.
 

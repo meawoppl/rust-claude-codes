@@ -51,23 +51,27 @@ impl ClaudeInput {
     /// Only supports JPEG, PNG, GIF, and WebP media types
     pub fn user_message_with_image(
         image_data: String,
-        media_type: String,
+        media_type: super::MediaType,
         text: Option<String>,
         session_id: Uuid,
     ) -> Result<Self, String> {
         // Validate media type
-        let valid_types = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-
-        if !valid_types.contains(&media_type.as_str()) {
-            return Err(format!(
-                "Invalid media type '{}'. Only JPEG, PNG, GIF, and WebP are supported.",
-                media_type
-            ));
+        match &media_type {
+            super::MediaType::Jpeg
+            | super::MediaType::Png
+            | super::MediaType::Gif
+            | super::MediaType::Webp => {}
+            other => {
+                return Err(format!(
+                    "Invalid media type '{}'. Only JPEG, PNG, GIF, and WebP are supported.",
+                    other
+                ));
+            }
         }
 
         let mut blocks = vec![ContentBlock::Image(ImageBlock {
             source: ImageSource {
-                source_type: "base64".to_string(),
+                source_type: super::ImageSourceType::Base64,
                 media_type,
                 data: image_data,
             },

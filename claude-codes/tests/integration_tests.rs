@@ -633,8 +633,8 @@ async fn test_mixed_content_blocks() {
         }),
         ContentBlock::Image(claude_codes::io::ImageBlock {
             source: claude_codes::io::ImageSource {
-                source_type: "base64".to_string(),
-                media_type: "image/png".to_string(),
+                source_type: claude_codes::ImageSourceType::Base64,
+                media_type: claude_codes::MediaType::Png,
                 data: base64_image,
             },
         }),
@@ -723,11 +723,16 @@ fn test_media_type_validation() {
     let fake_data = "fake_base64_data".to_string();
 
     // Valid media types should work
-    let valid_types = vec!["image/jpeg", "image/png", "image/gif", "image/webp"];
+    let valid_types = vec![
+        claude_codes::MediaType::Jpeg,
+        claude_codes::MediaType::Png,
+        claude_codes::MediaType::Gif,
+        claude_codes::MediaType::Webp,
+    ];
     for media_type in valid_types {
         let result = ClaudeInput::user_message_with_image(
             fake_data.clone(),
-            media_type.to_string(),
+            media_type.clone(),
             None,
             session_id,
         );
@@ -736,16 +741,16 @@ fn test_media_type_validation() {
 
     // Invalid media types should fail
     let invalid_types = vec![
-        "image/bmp",
-        "image/tiff",
-        "video/mp4",
-        "text/plain",
-        "application/pdf",
+        claude_codes::MediaType::Unknown("image/bmp".to_string()),
+        claude_codes::MediaType::Unknown("image/tiff".to_string()),
+        claude_codes::MediaType::Unknown("video/mp4".to_string()),
+        claude_codes::MediaType::Unknown("text/plain".to_string()),
+        claude_codes::MediaType::Unknown("application/pdf".to_string()),
     ];
     for media_type in invalid_types {
         let result = ClaudeInput::user_message_with_image(
             fake_data.clone(),
-            media_type.to_string(),
+            media_type.clone(),
             None,
             session_id,
         );

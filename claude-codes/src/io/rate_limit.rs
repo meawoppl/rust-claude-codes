@@ -109,6 +109,106 @@ impl<'de> Deserialize<'de> for RateLimitWindow {
     }
 }
 
+/// Whether overage billing was accepted or rejected.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverageStatus {
+    /// Overage was accepted.
+    Allowed,
+    /// Overage was rejected.
+    Rejected,
+    /// A status not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl OverageStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Allowed => "allowed",
+            Self::Rejected => "rejected",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for OverageStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for OverageStatus {
+    fn from(s: &str) -> Self {
+        match s {
+            "allowed" => Self::Allowed,
+            "rejected" => Self::Rejected,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for OverageStatus {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for OverageStatus {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Why overage billing is disabled.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverageDisabledReason {
+    /// Overage is disabled at the organization level.
+    OrgLevelDisabled,
+    /// The account is out of credits.
+    OutOfCredits,
+    /// A reason not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl OverageDisabledReason {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::OrgLevelDisabled => "org_level_disabled",
+            Self::OutOfCredits => "out_of_credits",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for OverageDisabledReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for OverageDisabledReason {
+    fn from(s: &str) -> Self {
+        match s {
+            "org_level_disabled" => Self::OrgLevelDisabled,
+            "out_of_credits" => Self::OutOfCredits,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for OverageDisabledReason {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for OverageDisabledReason {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
 /// Rate limit event from Claude CLI.
 ///
 /// Sent periodically to inform consumers about current rate limit status,
@@ -170,12 +270,12 @@ pub struct RateLimitInfo {
     /// Utilization of the rate limit (0.0 to 1.0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization: Option<f64>,
-    /// Overage status (e.g., "rejected", "allowed")
+    /// Overage status (e.g., rejected, allowed)
     #[serde(skip_serializing_if = "Option::is_none", rename = "overageStatus")]
-    pub overage_status: Option<String>,
+    pub overage_status: Option<OverageStatus>,
     /// Reason overage is disabled, if applicable
     #[serde(rename = "overageDisabledReason")]
-    pub overage_disabled_reason: Option<String>,
+    pub overage_disabled_reason: Option<OverageDisabledReason>,
     /// Whether overage billing is active
     #[serde(rename = "isUsingOverage")]
     pub is_using_overage: bool,
@@ -183,7 +283,7 @@ pub struct RateLimitInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::{RateLimitStatus, RateLimitWindow};
+    use super::{OverageDisabledReason, OverageStatus, RateLimitStatus, RateLimitWindow};
     use crate::io::ClaudeOutput;
 
     #[test]
@@ -208,11 +308,11 @@ mod tests {
         assert_eq!(evt.rate_limit_info.utilization, None);
         assert_eq!(
             evt.rate_limit_info.overage_status,
-            Some("rejected".to_string())
+            Some(OverageStatus::Rejected)
         );
         assert_eq!(
             evt.rate_limit_info.overage_disabled_reason,
-            Some("org_level_disabled".to_string())
+            Some(OverageDisabledReason::OrgLevelDisabled)
         );
         assert!(!evt.rate_limit_info.is_using_overage);
         assert_eq!(
@@ -258,11 +358,11 @@ mod tests {
         );
         assert_eq!(
             evt.rate_limit_info.overage_status,
-            Some("rejected".to_string())
+            Some(OverageStatus::Rejected)
         );
         assert_eq!(
             evt.rate_limit_info.overage_disabled_reason,
-            Some("out_of_credits".to_string())
+            Some(OverageDisabledReason::OutOfCredits)
         );
     }
 }

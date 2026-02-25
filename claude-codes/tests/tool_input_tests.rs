@@ -344,7 +344,7 @@ fn test_tool_input_task_deserialization() {
     let task = input.as_task().unwrap();
     assert_eq!(task.description, "Search codebase");
     assert_eq!(task.prompt, "Find all usages of the foo function");
-    assert_eq!(task.subagent_type, "Explore");
+    assert_eq!(task.subagent_type, claude_codes::SubagentType::Explore);
     assert_eq!(task.run_in_background, Some(true));
 }
 

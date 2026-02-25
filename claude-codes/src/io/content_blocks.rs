@@ -1,5 +1,6 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::fmt;
 
 /// Deserialize content blocks that can be either a string or array
 pub(crate) fn deserialize_content_blocks<'de, D>(
@@ -41,13 +42,117 @@ pub struct ImageBlock {
     pub source: ImageSource,
 }
 
+/// Encoding type for image source data.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ImageSourceType {
+    /// Base64-encoded image data.
+    Base64,
+    /// A source type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl ImageSourceType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Base64 => "base64",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for ImageSourceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for ImageSourceType {
+    fn from(s: &str) -> Self {
+        match s {
+            "base64" => Self::Base64,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for ImageSourceType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ImageSourceType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// MIME type for image content.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MediaType {
+    /// JPEG image.
+    Jpeg,
+    /// PNG image.
+    Png,
+    /// GIF image.
+    Gif,
+    /// WebP image.
+    Webp,
+    /// A media type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl MediaType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Jpeg => "image/jpeg",
+            Self::Png => "image/png",
+            Self::Gif => "image/gif",
+            Self::Webp => "image/webp",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for MediaType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for MediaType {
+    fn from(s: &str) -> Self {
+        match s {
+            "image/jpeg" => Self::Jpeg,
+            "image/png" => Self::Png,
+            "image/gif" => Self::Gif,
+            "image/webp" => Self::Webp,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for MediaType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for MediaType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
 /// Image source information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageSource {
     #[serde(rename = "type")]
-    pub source_type: String, // "base64"
-    pub media_type: String, // e.g., "image/jpeg", "image/png"
-    pub data: String,       // Base64-encoded image data
+    pub source_type: ImageSourceType,
+    pub media_type: MediaType,
+    pub data: String,
 }
 
 /// Thinking content block

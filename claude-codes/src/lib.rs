@@ -130,8 +130,8 @@ pub use types::*;
 
 // Content block types for message parsing
 pub use io::{
-    ContentBlock, ImageBlock, ImageSource, TextBlock, ThinkingBlock, ToolResultBlock,
-    ToolResultContent,
+    ContentBlock, ImageBlock, ImageSource, ImageSourceType, MediaType, TextBlock, ThinkingBlock,
+    ToolResultBlock, ToolResultContent,
 };
 
 // Control protocol types for tool permission handling
@@ -145,13 +145,17 @@ pub use io::{
 
 // System message and assistant message types
 pub use io::{
-    CompactBoundaryMessage, CompactMetadata, CompactionTrigger, InitMessage, MessageRole,
-    PluginInfo, StatusMessage, StopReason, SystemMessage, SystemSubtype, TaskNotificationMessage,
-    TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType, TaskUsage,
+    ApiKeySource, CompactBoundaryMessage, CompactMetadata, CompactionTrigger, InitMessage,
+    InitPermissionMode, MessageRole, OutputStyle, PluginInfo, StatusMessage, StatusMessageStatus,
+    StopReason, SystemMessage, SystemSubtype, TaskNotificationMessage, TaskProgressMessage,
+    TaskStartedMessage, TaskStatus, TaskType, TaskUsage,
 };
 
 // Rate limit types
-pub use io::{RateLimitEvent, RateLimitInfo, RateLimitStatus, RateLimitWindow};
+pub use io::{
+    OverageDisabledReason, OverageStatus, RateLimitEvent, RateLimitInfo, RateLimitStatus,
+    RateLimitWindow,
+};
 
 // Usage types
 pub use io::{AssistantUsage, CacheCreationDetails};
@@ -159,9 +163,10 @@ pub use io::{AssistantUsage, CacheCreationDetails};
 // Typed tool input types
 pub use tool_inputs::{
     AllowedPrompt, AskUserQuestionInput, BashInput, EditInput, EnterPlanModeInput,
-    ExitPlanModeInput, GlobInput, GrepInput, KillShellInput, NotebookEditInput, Question,
-    QuestionMetadata, QuestionOption, ReadInput, SkillInput, TaskInput, TaskOutputInput, TodoItem,
-    TodoStatus, TodoWriteInput, ToolInput, WebFetchInput, WebSearchInput, WriteInput,
+    ExitPlanModeInput, GlobInput, GrepInput, GrepOutputMode, KillShellInput, NotebookCellType,
+    NotebookEditInput, NotebookEditMode, Question, QuestionMetadata, QuestionOption, ReadInput,
+    SkillInput, SubagentType, TaskInput, TaskOutputInput, TodoItem, TodoStatus, TodoWriteInput,
+    ToolInput, WebFetchInput, WebSearchInput, WriteInput,
 };
 
 // Client exports
