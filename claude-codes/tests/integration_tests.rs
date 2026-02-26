@@ -517,7 +517,7 @@ async fn test_image_content_blocks() {
     let session_id = Uuid::new_v4();
     let input = ClaudeInput::user_message_with_image(
         base64_image.clone(),
-        "image/png".to_string(),
+        claude_codes::MediaType::Png,
         Some("What do you see in this image?".to_string()),
         session_id,
     )
@@ -1754,25 +1754,25 @@ fn test_permission_struct_integration() {
 /// Test AnthropicError parsing and helper methods
 #[test]
 fn test_anthropic_error_integration() {
-    use claude_codes::{AnthropicError, AnthropicErrorDetails, ClaudeOutput};
+    use claude_codes::{AnthropicError, AnthropicErrorDetails, ApiErrorType, ClaudeOutput};
 
     // Test parsing various error types
     let test_cases = vec![
         (
             r#"{"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_123"}"#,
-            "api_error",
+            ApiErrorType::ApiError,
             true,  // is_server_error
             false, // is_overloaded
         ),
         (
             r#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#,
-            "overloaded_error",
+            ApiErrorType::OverloadedError,
             false,
             true,
         ),
         (
             r#"{"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}"#,
-            "rate_limit_error",
+            ApiErrorType::RateLimitError,
             false,
             false,
         ),
@@ -1800,7 +1800,7 @@ fn test_anthropic_error_integration() {
     // Test roundtrip serialization
     let error = AnthropicError {
         error: AnthropicErrorDetails {
-            error_type: "api_error".to_string(),
+            error_type: ApiErrorType::ApiError,
             message: "Test error".to_string(),
         },
         request_id: Some("req_456".to_string()),
@@ -1902,6 +1902,140 @@ async fn test_clear_resets_session() {
             );
         }
     }
+
+    client.shutdown().await.expect("Failed to shutdown client");
+}
+
+/// Test that spawning a subagent produces the expected lifecycle messages:
+/// a task_started system message when the subagent launches, and a matching
+/// tool result when the subagent completes.
+#[tokio::test]
+async fn test_subagent_lifecycle_messages() {
+    use claude_codes::{ContentBlock, TaskType, ToolResultBlock};
+    use std::time::Duration;
+
+    let child = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .dangerously_skip_permissions(true)
+        .spawn()
+        .await
+        .expect("Failed to spawn Claude");
+    let mut client = AsyncClient::new(child).expect("Failed to create async client");
+
+    let session_id = Uuid::new_v4();
+    let input = ClaudeInput::user_message(
+        "Please spawn a subagent that sleeps for 3 seconds then returns",
+        session_id,
+    );
+    client.send(&input).await.expect("Failed to send query");
+
+    let mut saw_task_started = false;
+    let mut started_task_type: Option<TaskType> = None;
+    let mut started_tool_use_id: Option<String> = None;
+    let mut task_tool_use_id: Option<String> = None;
+    let mut task_tool_result_id: Option<String> = None;
+    let mut message_count = 0;
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+
+    loop {
+        let recv = tokio::time::timeout_at(deadline, client.receive()).await;
+
+        match recv {
+            Err(_elapsed) => {
+                eprintln!("Timed out waiting for messages");
+                break;
+            }
+            Ok(Err(e)) => {
+                eprintln!("Receive error: {}", e);
+                break;
+            }
+            Ok(Ok(output)) => {
+                message_count += 1;
+                println!("[msg {}] type={}", message_count, output.message_type());
+
+                // Capture the Task tool_use id from assistant messages
+                if let ClaudeOutput::Assistant(ref msg) = output {
+                    for block in &msg.message.content {
+                        if let ContentBlock::ToolUse(tu) = block {
+                            if tu.name == "Task" {
+                                println!("  Task tool_use id={}", tu.id);
+                                task_tool_use_id = Some(tu.id.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Capture the Task tool result from user messages
+                if let ClaudeOutput::User(ref msg) = output {
+                    for block in &msg.message.content {
+                        if let ContentBlock::ToolResult(ToolResultBlock {
+                            tool_use_id, ..
+                        }) = block
+                        {
+                            if task_tool_use_id.as_deref() == Some(tool_use_id) {
+                                println!("  Task tool_result id={}", tool_use_id);
+                                task_tool_result_id = Some(tool_use_id.clone());
+                            }
+                        }
+                    }
+                }
+
+                // Capture task_started from system messages
+                if let ClaudeOutput::System(ref sys) = output {
+                    if let Some(task) = sys.as_task_started() {
+                        println!(
+                            "  task_started: task_id={}, type={:?}, tool_use_id={}, desc={}",
+                            task.task_id, task.task_type, task.tool_use_id, task.description
+                        );
+                        saw_task_started = true;
+                        started_task_type = Some(task.task_type.clone());
+                        started_tool_use_id = Some(task.tool_use_id.clone());
+                    }
+                }
+
+                if matches!(output, ClaudeOutput::Result(_)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    println!("\n=== Subagent lifecycle summary ===");
+    println!("  Total messages:    {}", message_count);
+    println!("  task_started:      {}", saw_task_started);
+    println!("  tool_use_id:       {:?}", task_tool_use_id);
+    println!("  tool_result_id:    {:?}", task_tool_result_id);
+
+    // Verify task_started was emitted
+    assert!(
+        saw_task_started,
+        "Should have received a task_started system message"
+    );
+
+    // Should be a local_agent subagent
+    assert_eq!(
+        started_task_type,
+        Some(TaskType::LocalAgent),
+        "Task tool should spawn a local_agent task"
+    );
+
+    // The tool_use_id in task_started must match the Task tool_use from the assistant
+    assert!(
+        task_tool_use_id.is_some(),
+        "Should have seen a Task tool_use in an assistant message"
+    );
+    assert_eq!(
+        started_tool_use_id, task_tool_use_id,
+        "task_started.tool_use_id should match the Task tool_use block id"
+    );
+
+    // The subagent should have returned a tool result
+    assert_eq!(
+        task_tool_result_id, task_tool_use_id,
+        "Should have received a tool_result matching the Task tool_use_id"
+    );
 
     client.shutdown().await.expect("Failed to shutdown client");
 }
