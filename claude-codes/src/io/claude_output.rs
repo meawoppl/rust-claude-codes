@@ -350,13 +350,15 @@ impl ClaudeOutput {
     pub fn parse_json(s: &str) -> Result<ClaudeOutput, ParseError> {
         // First try to parse as a Value
         let value: Value = serde_json::from_str(s).map_err(|e| ParseError {
-            raw_json: Value::String(s.to_string()),
+            raw_line: s.to_string(),
+            raw_json: None,
             error_message: format!("Invalid JSON: {}", e),
         })?;
 
         // Then try to parse that Value as ClaudeOutput
         serde_json::from_value::<ClaudeOutput>(value.clone()).map_err(|e| ParseError {
-            raw_json: value,
+            raw_line: s.to_string(),
+            raw_json: Some(value),
             error_message: e.to_string(),
         })
     }

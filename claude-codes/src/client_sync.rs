@@ -4,7 +4,7 @@ use crate::cli::ClaudeCliBuilder;
 use crate::error::{Error, Result};
 use crate::io::{
     ClaudeInput, ClaudeOutput, ContentBlock, ControlRequestMessage, ControlResponse,
-    ControlResponseMessage, ParseError,
+    ControlResponseMessage,
 };
 use crate::protocol::Protocol;
 use log::{debug, warn};
@@ -157,14 +157,11 @@ impl SyncClient {
                             Ok(Some(output))
                         }
                     }
-                    Err(ParseError { error_message, .. }) => {
+                    Err(parse_error) => {
                         warn!("[CLIENT] Failed to deserialize message from Claude CLI. Please report this at https://github.com/meawoppl/rust-claude-codes/issues with the raw message below.");
-                        warn!("[CLIENT] Parse error: {}", error_message);
+                        warn!("[CLIENT] Parse error: {}", parse_error.error_message);
                         warn!("[CLIENT] Raw message: {}", trimmed);
-                        Err(Error::Deserialization(format!(
-                            "{} (raw: {})",
-                            error_message, trimmed
-                        )))
+                        Err(parse_error.into())
                     }
                 }
             }
@@ -311,7 +308,7 @@ impl SyncClient {
                     continue;
                 }
                 Err(e) => {
-                    return Err(Error::Deserialization(e.to_string()));
+                    return Err(e.into());
                 }
             }
         }

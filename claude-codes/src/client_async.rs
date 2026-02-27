@@ -248,12 +248,9 @@ impl AsyncClient {
                 }
                 Err(parse_error) => {
                     warn!("[INCOMING] Failed to deserialize message from Claude CLI. Please report this at https://github.com/meawoppl/rust-claude-codes/issues with the raw message below.");
-                    warn!("[INCOMING] Parse error: {}", parse_error);
+                    warn!("[INCOMING] Parse error: {}", parse_error.error_message);
                     warn!("[INCOMING] Raw message: {}", trimmed);
-                    return Err(Error::Deserialization(format!(
-                        "{} (raw: {})",
-                        parse_error.error_message, trimmed
-                    )));
+                    return Err(parse_error.into());
                 }
             }
         }
@@ -439,7 +436,7 @@ impl AsyncClient {
                     continue;
                 }
                 Err(e) => {
-                    return Err(Error::Deserialization(e.to_string()));
+                    return Err(e.into());
                 }
             }
         }
