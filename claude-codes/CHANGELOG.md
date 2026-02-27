@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.50] - 2026-02-27
+
+### Fixed
+
+- `RateLimitInfo.resets_at` and `RateLimitInfo.rate_limit_type` are now `Option` — Claude CLI can omit these fields in `rate_limit_event` messages with `status: "allowed"`
+
 ## [2.1.49] - 2026-02-25
 
 ### Changed
