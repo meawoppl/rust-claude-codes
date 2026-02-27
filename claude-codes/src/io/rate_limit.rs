@@ -242,7 +242,9 @@ impl<'de> Deserialize<'de> for OverageDisabledReason {
 ///
 /// if let Some(evt) = output.as_rate_limit_event() {
 ///     println!("Rate limit status: {}", evt.rate_limit_info.status);
-///     println!("Resets at: {}", evt.rate_limit_info.resets_at);
+///     if let Some(resets_at) = evt.rate_limit_info.resets_at {
+///         println!("Resets at: {}", resets_at);
+///     }
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,11 +264,11 @@ pub struct RateLimitInfo {
     /// Current rate limit status
     pub status: RateLimitStatus,
     /// Unix timestamp when the rate limit resets
-    #[serde(rename = "resetsAt")]
-    pub resets_at: u64,
+    #[serde(rename = "resetsAt", skip_serializing_if = "Option::is_none")]
+    pub resets_at: Option<u64>,
     /// Type of rate limit window
-    #[serde(rename = "rateLimitType")]
-    pub rate_limit_type: RateLimitWindow,
+    #[serde(rename = "rateLimitType", skip_serializing_if = "Option::is_none")]
+    pub rate_limit_type: Option<RateLimitWindow>,
     /// Utilization of the rate limit (0.0 to 1.0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization: Option<f64>,
@@ -300,10 +302,10 @@ mod tests {
 
         let evt = output.as_rate_limit_event().unwrap();
         assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Allowed);
-        assert_eq!(evt.rate_limit_info.resets_at, 1771390800);
+        assert_eq!(evt.rate_limit_info.resets_at, Some(1771390800));
         assert_eq!(
             evt.rate_limit_info.rate_limit_type,
-            RateLimitWindow::FiveHour
+            Some(RateLimitWindow::FiveHour)
         );
         assert_eq!(evt.rate_limit_info.utilization, None);
         assert_eq!(
@@ -346,6 +348,18 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_rate_limit_event_no_resets_at() {
+        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","isUsingOverage":false},"uuid":"4269273d-3b5e-40ae-9765-cb3c12284c44","session_id":"f9626cf7-4d88-4844-9bb1-cab96909fc7b"}"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let evt = output.as_rate_limit_event().unwrap();
+        assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Allowed);
+        assert_eq!(evt.rate_limit_info.resets_at, None);
+        assert_eq!(evt.rate_limit_info.rate_limit_type, None);
+        assert!(!evt.rate_limit_info.is_using_overage);
+    }
+
+    #[test]
     fn test_deserialize_rate_limit_event_rejected() {
         let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1700003600,"rateLimitType":"seven_day","isUsingOverage":false,"overageStatus":"rejected","overageDisabledReason":"out_of_credits"},"uuid":"660e8400-e29b-41d4-a716-446655440001","session_id":"test-session-id"}"#;
 
@@ -354,7 +368,7 @@ mod tests {
         assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Rejected);
         assert_eq!(
             evt.rate_limit_info.rate_limit_type,
-            RateLimitWindow::SevenDay
+            Some(RateLimitWindow::SevenDay)
         );
         assert_eq!(
             evt.rate_limit_info.overage_status,

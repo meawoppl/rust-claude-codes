@@ -247,7 +247,7 @@ fn handle_output(output: ClaudeOutput) {
         }
         ClaudeOutput::RateLimitEvent(evt) => {
             debug!(
-                "Rate limit event: status={}, type={}, resets_at={}",
+                "Rate limit event: status={}, type={:?}, resets_at={:?}",
                 evt.rate_limit_info.status,
                 evt.rate_limit_info.rate_limit_type,
                 evt.rate_limit_info.resets_at
