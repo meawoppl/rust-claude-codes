@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.51] - 2026-02-27
+
+### Changed
+
+- **`Error::Deserialization`** now wraps `ParseError` instead of `String`, giving callers structured access to the raw input line, parsed JSON value, and error message
+- **`ParseError`** gains a `raw_line: String` field containing the exact stdout line (works even when the input isn't valid JSON)
+
 ## [2.1.50] - 2026-02-27
 
 ### Fixed

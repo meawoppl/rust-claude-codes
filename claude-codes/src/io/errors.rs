@@ -2,18 +2,29 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::fmt;
 
-/// Error type for parsing failures that preserves the raw JSON
+/// Error type for parsing failures that preserves the raw input.
+///
+/// When deserialization fails, this error exposes:
+/// - `raw_line`: the exact string from Claude's stdout (even if it's not valid JSON)
+/// - `raw_json`: the parsed `serde_json::Value` when JSON was valid but didn't match our types, `None` when the input wasn't valid JSON
+/// - `error_message`: the underlying serde error description
 #[derive(Debug, Clone)]
 pub struct ParseError {
-    /// The raw JSON value that failed to parse
-    pub raw_json: Value,
+    /// The exact line from Claude's stdout that failed to parse
+    pub raw_line: String,
+    /// The parsed JSON value if the line was valid JSON, `None` if not
+    pub raw_json: Option<Value>,
     /// The underlying serde error message
     pub error_message: String,
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Failed to parse ClaudeOutput: {}", self.error_message)
+        write!(
+            f,
+            "Failed to parse ClaudeOutput: {} (raw: {})",
+            self.error_message, self.raw_line
+        )
     }
 }
 

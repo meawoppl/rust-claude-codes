@@ -1,5 +1,6 @@
 //! Error types for the Claude Code protocol
 
+use crate::io::ParseError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -29,7 +30,7 @@ pub enum Error {
     ConnectionClosed,
 
     #[error("Deserialization error: {0}")]
-    Deserialization(String),
+    Deserialization(#[from] ParseError),
 
     #[error("Session UUID not yet available - no response received")]
     SessionNotInitialized,
