@@ -517,7 +517,7 @@ async fn test_image_content_blocks() {
     let session_id = Uuid::new_v4();
     let input = ClaudeInput::user_message_with_image(
         base64_image.clone(),
-        "image/png".to_string(),
+        claude_codes::MediaType::Png,
         Some("What do you see in this image?".to_string()),
         session_id,
     )
@@ -1757,22 +1757,24 @@ fn test_anthropic_error_integration() {
     use claude_codes::{AnthropicError, AnthropicErrorDetails, ClaudeOutput};
 
     // Test parsing various error types
+    use claude_codes::ApiErrorType;
+
     let test_cases = vec![
         (
             r#"{"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_123"}"#,
-            "api_error",
+            ApiErrorType::ApiError,
             true,  // is_server_error
             false, // is_overloaded
         ),
         (
             r#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#,
-            "overloaded_error",
+            ApiErrorType::OverloadedError,
             false,
             true,
         ),
         (
             r#"{"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}"#,
-            "rate_limit_error",
+            ApiErrorType::RateLimitError,
             false,
             false,
         ),
@@ -1800,7 +1802,7 @@ fn test_anthropic_error_integration() {
     // Test roundtrip serialization
     let error = AnthropicError {
         error: AnthropicErrorDetails {
-            error_type: "api_error".to_string(),
+            error_type: ApiErrorType::ApiError,
             message: "Test error".to_string(),
         },
         request_id: Some("req_456".to_string()),
