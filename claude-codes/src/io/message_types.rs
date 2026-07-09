@@ -20,6 +20,26 @@ pub enum SystemSubtype {
     TaskProgress,
     TaskUpdated,
     TaskNotification,
+    ApiRetry,
+    ControlRequestProgress,
+    ModelRefusalFallback,
+    ModelRefusalNoFallback,
+    LocalCommandOutput,
+    HookStarted,
+    HookProgress,
+    HookResponse,
+    PluginInstall,
+    BackgroundTasksChanged,
+    SessionStateChanged,
+    WorkerShuttingDown,
+    CommandsChanged,
+    Notification,
+    FilesPersisted,
+    MemoryRecall,
+    ElicitationComplete,
+    PermissionDenied,
+    MirrorError,
+    Informational,
     /// A subtype not yet known to this version of the crate.
     Unknown(String),
 }
@@ -35,6 +55,26 @@ impl SystemSubtype {
             Self::TaskProgress => "task_progress",
             Self::TaskUpdated => "task_updated",
             Self::TaskNotification => "task_notification",
+            Self::ApiRetry => "api_retry",
+            Self::ControlRequestProgress => "control_request_progress",
+            Self::ModelRefusalFallback => "model_refusal_fallback",
+            Self::ModelRefusalNoFallback => "model_refusal_no_fallback",
+            Self::LocalCommandOutput => "local_command_output",
+            Self::HookStarted => "hook_started",
+            Self::HookProgress => "hook_progress",
+            Self::HookResponse => "hook_response",
+            Self::PluginInstall => "plugin_install",
+            Self::BackgroundTasksChanged => "background_tasks_changed",
+            Self::SessionStateChanged => "session_state_changed",
+            Self::WorkerShuttingDown => "worker_shutting_down",
+            Self::CommandsChanged => "commands_changed",
+            Self::Notification => "notification",
+            Self::FilesPersisted => "files_persisted",
+            Self::MemoryRecall => "memory_recall",
+            Self::ElicitationComplete => "elicitation_complete",
+            Self::PermissionDenied => "permission_denied",
+            Self::MirrorError => "mirror_error",
+            Self::Informational => "informational",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -57,6 +97,26 @@ impl From<&str> for SystemSubtype {
             "task_progress" => Self::TaskProgress,
             "task_updated" => Self::TaskUpdated,
             "task_notification" => Self::TaskNotification,
+            "api_retry" => Self::ApiRetry,
+            "control_request_progress" => Self::ControlRequestProgress,
+            "model_refusal_fallback" => Self::ModelRefusalFallback,
+            "model_refusal_no_fallback" => Self::ModelRefusalNoFallback,
+            "local_command_output" => Self::LocalCommandOutput,
+            "hook_started" => Self::HookStarted,
+            "hook_progress" => Self::HookProgress,
+            "hook_response" => Self::HookResponse,
+            "plugin_install" => Self::PluginInstall,
+            "background_tasks_changed" => Self::BackgroundTasksChanged,
+            "session_state_changed" => Self::SessionStateChanged,
+            "worker_shutting_down" => Self::WorkerShuttingDown,
+            "commands_changed" => Self::CommandsChanged,
+            "notification" => Self::Notification,
+            "files_persisted" => Self::FilesPersisted,
+            "memory_recall" => Self::MemoryRecall,
+            "elicitation_complete" => Self::ElicitationComplete,
+            "permission_denied" => Self::PermissionDenied,
+            "mirror_error" => Self::MirrorError,
+            "informational" => Self::Informational,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -235,6 +295,11 @@ impl<'de> Deserialize<'de> for StopReason {
 pub enum ApiKeySource {
     /// No API key provided.
     None,
+    User,
+    Project,
+    Org,
+    Temporary,
+    Oauth,
     /// A source not yet known to this version of the crate.
     Unknown(String),
 }
@@ -243,6 +308,11 @@ impl ApiKeySource {
     pub fn as_str(&self) -> &str {
         match self {
             Self::None => "none",
+            Self::User => "user",
+            Self::Project => "project",
+            Self::Org => "org",
+            Self::Temporary => "temporary",
+            Self::Oauth => "oauth",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -258,6 +328,11 @@ impl From<&str> for ApiKeySource {
     fn from(s: &str) -> Self {
         match s {
             "none" => Self::None,
+            "user" => Self::User,
+            "project" => Self::Project,
+            "org" => Self::Org,
+            "temporary" => Self::Temporary,
+            "oauth" => Self::Oauth,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -327,6 +402,11 @@ impl<'de> Deserialize<'de> for OutputStyle {
 pub enum InitPermissionMode {
     /// Default permission mode.
     Default,
+    AcceptEdits,
+    BypassPermissions,
+    Plan,
+    DontAsk,
+    Auto,
     /// A mode not yet known to this version of the crate.
     Unknown(String),
 }
@@ -335,6 +415,11 @@ impl InitPermissionMode {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Default => "default",
+            Self::AcceptEdits => "acceptEdits",
+            Self::BypassPermissions => "bypassPermissions",
+            Self::Plan => "plan",
+            Self::DontAsk => "dontAsk",
+            Self::Auto => "auto",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -350,6 +435,11 @@ impl From<&str> for InitPermissionMode {
     fn from(s: &str) -> Self {
         match s {
             "default" => Self::Default,
+            "acceptEdits" => Self::AcceptEdits,
+            "bypassPermissions" => Self::BypassPermissions,
+            "plan" => Self::Plan,
+            "dontAsk" => Self::DontAsk,
+            "auto" => Self::Auto,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -373,6 +463,8 @@ impl<'de> Deserialize<'de> for InitPermissionMode {
 pub enum StatusMessageStatus {
     /// Context compaction is in progress.
     Compacting,
+    /// The CLI is issuing a request.
+    Requesting,
     /// A status not yet known to this version of the crate.
     Unknown(String),
 }
@@ -381,6 +473,7 @@ impl StatusMessageStatus {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Compacting => "compacting",
+            Self::Requesting => "requesting",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -396,6 +489,7 @@ impl From<&str> for StatusMessageStatus {
     fn from(s: &str) -> Self {
         match s {
             "compacting" => Self::Compacting,
+            "requesting" => Self::Requesting,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -442,6 +536,34 @@ where
     }
 }
 
+/// Message provenance. The `kind` field is the stable discriminator; variant
+/// specific fields are preserved in `extra` for forward-compatible access.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MessageOrigin {
+    pub kind: String,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+/// Metadata attached when user-visible transcript content summarizes prior messages.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SummarizeMetadata {
+    pub messages_summarized: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<String>,
+}
+
+/// MCP metadata passed through on user-message wrappers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct McpMeta {
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structured_content: Option<Value>,
+}
+
 /// User message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
@@ -476,6 +598,40 @@ pub struct UserMessage {
     /// Short description of the subagent task, present alongside `subagent_type`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<MessageOrigin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "isSynthetic")]
+    pub is_synthetic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "shouldQuery")]
+    pub should_query: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_meta: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_visible_in_transcript_only: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_virtual: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_compact_summary: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summarize_metadata: Option<SummarizeMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mcp_meta: Option<McpMeta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_tool_use_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_tool_assistant_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_paste_ids: Option<Vec<u64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_platform: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inbound_origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "isReplay")]
+    pub is_replay: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_attachments: Option<Vec<Value>>,
 }
 
 impl UserMessage {
@@ -708,6 +864,65 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Parse any typed system subtype known to this crate version.
+    pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
+        macro_rules! parse {
+            ($variant:ident, $ty:ty) => {
+                serde_json::from_value::<$ty>(self.data.clone())
+                    .ok()
+                    .map(KnownSystemEvent::$variant)
+            };
+        }
+
+        match self.subtype {
+            SystemSubtype::Init => parse!(Init, InitMessage),
+            SystemSubtype::Status => parse!(Status, StatusMessage),
+            SystemSubtype::CompactBoundary => parse!(CompactBoundary, CompactBoundaryMessage),
+            SystemSubtype::ThinkingTokens => parse!(ThinkingTokens, ThinkingTokensMessage),
+            SystemSubtype::TaskStarted => parse!(TaskStarted, TaskStartedMessage),
+            SystemSubtype::TaskProgress => parse!(TaskProgress, TaskProgressMessage),
+            SystemSubtype::TaskUpdated => parse!(TaskUpdated, TaskUpdatedMessage),
+            SystemSubtype::TaskNotification => parse!(TaskNotification, TaskNotificationMessage),
+            SystemSubtype::ApiRetry => parse!(ApiRetry, ApiRetryMessage),
+            SystemSubtype::ControlRequestProgress => {
+                parse!(ControlRequestProgress, ControlRequestProgressMessage)
+            }
+            SystemSubtype::ModelRefusalFallback => {
+                parse!(ModelRefusalFallback, ModelRefusalFallbackMessage)
+            }
+            SystemSubtype::ModelRefusalNoFallback => {
+                parse!(ModelRefusalNoFallback, ModelRefusalNoFallbackMessage)
+            }
+            SystemSubtype::LocalCommandOutput => {
+                parse!(LocalCommandOutput, LocalCommandOutputMessage)
+            }
+            SystemSubtype::HookStarted => parse!(HookStarted, HookStartedMessage),
+            SystemSubtype::HookProgress => parse!(HookProgress, HookProgressMessage),
+            SystemSubtype::HookResponse => parse!(HookResponse, HookResponseMessage),
+            SystemSubtype::PluginInstall => parse!(PluginInstall, PluginInstallMessage),
+            SystemSubtype::BackgroundTasksChanged => {
+                parse!(BackgroundTasksChanged, BackgroundTasksChangedMessage)
+            }
+            SystemSubtype::SessionStateChanged => {
+                parse!(SessionStateChanged, SessionStateChangedMessage)
+            }
+            SystemSubtype::WorkerShuttingDown => {
+                parse!(WorkerShuttingDown, WorkerShuttingDownMessage)
+            }
+            SystemSubtype::CommandsChanged => parse!(CommandsChanged, CommandsChangedMessage),
+            SystemSubtype::Notification => parse!(Notification, NotificationMessage),
+            SystemSubtype::FilesPersisted => parse!(FilesPersisted, FilesPersistedMessage),
+            SystemSubtype::MemoryRecall => parse!(MemoryRecall, MemoryRecallMessage),
+            SystemSubtype::ElicitationComplete => {
+                parse!(ElicitationComplete, ElicitationCompleteMessage)
+            }
+            SystemSubtype::PermissionDenied => parse!(PermissionDenied, PermissionDeniedMessage),
+            SystemSubtype::MirrorError => parse!(MirrorError, MirrorErrorMessage),
+            SystemSubtype::Informational => parse!(Informational, InformationalMessage),
+            SystemSubtype::Unknown(_) => None,
+        }
+    }
+
     /// Re-serialize this system message's payload through the typed view that
     /// matches its `subtype`, returning the result as JSON.
     ///
@@ -729,9 +944,398 @@ impl SystemMessage {
             SystemSubtype::TaskProgress => reserialize(self.as_task_progress()),
             SystemSubtype::TaskUpdated => reserialize(self.as_task_updated()),
             SystemSubtype::TaskNotification => reserialize(self.as_task_notification()),
+            SystemSubtype::ApiRetry => reserialize(parse_system::<ApiRetryMessage>(self)),
+            SystemSubtype::ControlRequestProgress => {
+                reserialize(parse_system::<ControlRequestProgressMessage>(self))
+            }
+            SystemSubtype::ModelRefusalFallback => {
+                reserialize(parse_system::<ModelRefusalFallbackMessage>(self))
+            }
+            SystemSubtype::ModelRefusalNoFallback => {
+                reserialize(parse_system::<ModelRefusalNoFallbackMessage>(self))
+            }
+            SystemSubtype::LocalCommandOutput => {
+                reserialize(parse_system::<LocalCommandOutputMessage>(self))
+            }
+            SystemSubtype::HookStarted => reserialize(parse_system::<HookStartedMessage>(self)),
+            SystemSubtype::HookProgress => reserialize(parse_system::<HookProgressMessage>(self)),
+            SystemSubtype::HookResponse => reserialize(parse_system::<HookResponseMessage>(self)),
+            SystemSubtype::PluginInstall => reserialize(parse_system::<PluginInstallMessage>(self)),
+            SystemSubtype::BackgroundTasksChanged => {
+                reserialize(parse_system::<BackgroundTasksChangedMessage>(self))
+            }
+            SystemSubtype::SessionStateChanged => {
+                reserialize(parse_system::<SessionStateChangedMessage>(self))
+            }
+            SystemSubtype::WorkerShuttingDown => {
+                reserialize(parse_system::<WorkerShuttingDownMessage>(self))
+            }
+            SystemSubtype::CommandsChanged => {
+                reserialize(parse_system::<CommandsChangedMessage>(self))
+            }
+            SystemSubtype::Notification => reserialize(parse_system::<NotificationMessage>(self)),
+            SystemSubtype::FilesPersisted => {
+                reserialize(parse_system::<FilesPersistedMessage>(self))
+            }
+            SystemSubtype::MemoryRecall => reserialize(parse_system::<MemoryRecallMessage>(self)),
+            SystemSubtype::ElicitationComplete => {
+                reserialize(parse_system::<ElicitationCompleteMessage>(self))
+            }
+            SystemSubtype::PermissionDenied => {
+                reserialize(parse_system::<PermissionDeniedMessage>(self))
+            }
+            SystemSubtype::MirrorError => reserialize(parse_system::<MirrorErrorMessage>(self)),
+            SystemSubtype::Informational => reserialize(parse_system::<InformationalMessage>(self)),
             SystemSubtype::Unknown(_) => None,
         }
     }
+}
+
+fn parse_system<T: serde::de::DeserializeOwned>(message: &SystemMessage) -> Option<T> {
+    serde_json::from_value(message.data.clone()).ok()
+}
+
+/// Owned typed view over any known system message subtype.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum KnownSystemEvent {
+    Init(InitMessage),
+    Status(StatusMessage),
+    CompactBoundary(CompactBoundaryMessage),
+    ThinkingTokens(ThinkingTokensMessage),
+    TaskStarted(TaskStartedMessage),
+    TaskProgress(TaskProgressMessage),
+    TaskUpdated(TaskUpdatedMessage),
+    TaskNotification(TaskNotificationMessage),
+    ApiRetry(ApiRetryMessage),
+    ControlRequestProgress(ControlRequestProgressMessage),
+    ModelRefusalFallback(ModelRefusalFallbackMessage),
+    ModelRefusalNoFallback(ModelRefusalNoFallbackMessage),
+    LocalCommandOutput(LocalCommandOutputMessage),
+    HookStarted(HookStartedMessage),
+    HookProgress(HookProgressMessage),
+    HookResponse(HookResponseMessage),
+    PluginInstall(PluginInstallMessage),
+    BackgroundTasksChanged(BackgroundTasksChangedMessage),
+    SessionStateChanged(SessionStateChangedMessage),
+    WorkerShuttingDown(WorkerShuttingDownMessage),
+    CommandsChanged(CommandsChangedMessage),
+    Notification(NotificationMessage),
+    FilesPersisted(FilesPersistedMessage),
+    MemoryRecall(MemoryRecallMessage),
+    ElicitationComplete(ElicitationCompleteMessage),
+    PermissionDenied(PermissionDeniedMessage),
+    MirrorError(MirrorErrorMessage),
+    Informational(InformationalMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiRetryMessage {
+    pub attempt: u64,
+    pub max_retries: u64,
+    pub retry_delay_ms: u64,
+    pub error_status: Option<u16>,
+    pub error: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControlRequestProgressMessage {
+    pub request_id: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempt: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_retries: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_delay_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelRefusalFallbackMessage {
+    pub trigger: String,
+    pub direction: String,
+    pub original_model: String,
+    pub fallback_model: String,
+    pub request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_refusal_category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_refusal_explanation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retracted_message_uuids: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refused_user_message_uuid: Option<String>,
+    pub content: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelRefusalNoFallbackMessage {
+    pub original_model: String,
+    pub request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_refusal_category: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_refusal_explanation: Option<String>,
+    pub content: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalCommandOutputMessage {
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookStartedMessage {
+    pub hook_id: String,
+    pub hook_name: String,
+    pub hook_event: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookProgressMessage {
+    pub hook_id: String,
+    pub hook_name: String,
+    pub hook_event: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stdout: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stderr: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookResponseMessage {
+    pub hook_id: String,
+    pub hook_name: String,
+    pub hook_event: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stdout: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stderr: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    pub outcome: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginInstallMessage {
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackgroundTasksChangedMessage {
+    pub tasks: Vec<BackgroundTaskInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackgroundTaskInfo {
+    pub task_id: String,
+    pub task_type: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionStateChangedMessage {
+    pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerShuttingDownMessage {
+    pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandsChangedMessage {
+    pub commands: Vec<CommandInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandInfo {
+    pub name: String,
+    pub description: String,
+    #[serde(rename = "argumentHint")]
+    pub argument_hint: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aliases: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationMessage {
+    pub key: String,
+    pub text: String,
+    pub priority: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FilesPersistedMessage {
+    pub files: Vec<PersistedFile>,
+    pub failed: Vec<FailedPersistedFile>,
+    pub processed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistedFile {
+    pub filename: String,
+    pub file_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedPersistedFile {
+    pub filename: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryRecallMessage {
+    pub mode: String,
+    pub memories: Vec<MemoryRecallItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryRecallItem {
+    pub path: String,
+    pub scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ElicitationCompleteMessage {
+    pub mcp_server_name: String,
+    pub elicitation_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionDeniedMessage {
+    pub tool_name: String,
+    pub tool_use_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_reason_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_reason: Option<String>,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorErrorMessage {
+    pub error: String,
+    pub key: MirrorErrorKey,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MirrorErrorKey {
+    #[serde(rename = "projectKey")]
+    pub project_key: String,
+    #[serde(rename = "sessionId")]
+    pub session_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subpath: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InformationalMessage {
+    pub content: String,
+    pub level: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prevent_continuation: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 /// Plugin info from the init message
@@ -744,6 +1348,26 @@ pub struct PluginInfo {
     /// Plugin registry source (e.g., "rust-analyzer-lsp@claude-plugins-official")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+}
+
+/// Plugin load diagnostic reported by system init.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PluginDiagnostic {
+    pub plugin: String,
+    #[serde(rename = "type")]
+    pub diagnostic_type: String,
+    pub message: String,
+}
+
+/// Memory paths reported by system init.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MemoryPaths {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 /// Init system message data - sent at session start
@@ -794,7 +1418,7 @@ pub struct InitMessage {
 
     /// Memory storage paths (e.g., {"auto": "/path/to/memory/"})
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory_paths: Option<Value>,
+    pub memory_paths: Option<MemoryPaths>,
 
     /// Fast mode toggle state (e.g., "off")
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -807,6 +1431,22 @@ pub struct InitMessage {
     /// Whether product-feedback prompts are disabled for this session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub product_feedback_disabled: Option<bool>,
+
+    /// API beta flags active for the session.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub betas: Vec<String>,
+
+    /// Open-set protocol capability names supported by this CLI.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+
+    /// Plugin load errors.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugin_errors: Vec<PluginDiagnostic>,
+
+    /// Plugin load warnings.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plugin_warnings: Vec<PluginDiagnostic>,
 }
 
 /// Status system message - sent during operations like context compaction
@@ -819,6 +1459,13 @@ pub struct StatusMessage {
     /// Unique identifier for this message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+    /// Current permission mode when changed mid-session.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "permissionMode")]
+    pub permission_mode: Option<InitPermissionMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compact_result: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compact_error: Option<String>,
 }
 
 /// Compact boundary message - marks where context compaction occurred
@@ -853,6 +1500,9 @@ pub struct CompactBoundaryMessage {
     /// Unique identifier for this message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+    /// Logical parent across the compaction boundary.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logical_parent_uuid: Option<Option<String>>,
 }
 
 /// Metadata about context compaction
@@ -862,6 +1512,39 @@ pub struct CompactMetadata {
     pub pre_tokens: u64,
     /// What triggered the compaction
     pub trigger: CompactionTrigger,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cumulative_dropped_tokens: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_context: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub messages_summarized: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub precomputed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_compact_discovered_tools: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preserved_segment: Option<PreservedSegment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preserved_messages: Option<PreservedMessages>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PreservedSegment {
+    pub head_uuid: String,
+    pub anchor_uuid: String,
+    pub tail_uuid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PreservedMessages {
+    pub anchor_uuid: String,
+    pub uuids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_uuids: Option<Vec<String>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -880,21 +1563,119 @@ pub struct TaskUsage {
 }
 
 /// The kind of background task.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskType {
     /// A sub-agent task (e.g., Explore, Plan).
     LocalAgent,
     /// A background bash command.
     LocalBash,
+    /// A local workflow task.
+    LocalWorkflow,
+    /// A task type not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl TaskType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::LocalAgent => "local_agent",
+            Self::LocalBash => "local_bash",
+            Self::LocalWorkflow => "local_workflow",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for TaskType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for TaskType {
+    fn from(s: &str) -> Self {
+        match s {
+            "local_agent" => Self::LocalAgent,
+            "local_bash" => Self::LocalBash,
+            "local_workflow" => Self::LocalWorkflow,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for TaskType {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TaskType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 /// Completion status of a background task.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskStatus {
+    Pending,
+    Running,
     Completed,
     Failed,
+    Killed,
+    Paused,
+    Stopped,
+    Unknown(String),
+}
+
+impl TaskStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Pending => "pending",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Killed => "killed",
+            Self::Paused => "paused",
+            Self::Stopped => "stopped",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for TaskStatus {
+    fn from(s: &str) -> Self {
+        match s {
+            "pending" => Self::Pending,
+            "running" => Self::Running,
+            "completed" => Self::Completed,
+            "failed" => Self::Failed,
+            "killed" => Self::Killed,
+            "paused" => Self::Paused,
+            "stopped" => Self::Stopped,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for TaskStatus {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TaskStatus {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 /// `task_started` system message — emitted once when a background task begins.
@@ -902,8 +1683,10 @@ pub enum TaskStatus {
 pub struct TaskStartedMessage {
     pub session_id: String,
     pub task_id: String,
-    pub task_type: TaskType,
-    pub tool_use_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_type: Option<TaskType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
     pub description: String,
     /// The subagent type for `local_agent` tasks (e.g. `general-purpose`,
     /// `Explore`). Absent for `local_bash` tasks.
@@ -912,6 +1695,10 @@ pub struct TaskStartedMessage {
     /// The prompt handed to the subagent. Present for `local_agent` tasks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skip_transcript: Option<bool>,
     pub uuid: String,
 }
 
@@ -936,6 +1723,14 @@ pub struct TaskPatch {
     /// reports completion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_time: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_paused_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_backgrounded: Option<bool>,
 }
 
 /// `thinking_tokens` system message — emitted as the model streams extended
@@ -956,13 +1751,17 @@ pub struct ThinkingTokensMessage {
 pub struct TaskProgressMessage {
     pub session_id: String,
     pub task_id: String,
-    pub tool_use_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_use_id: Option<String>,
     pub description: String,
-    pub last_tool_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_tool_name: Option<String>,
     pub usage: TaskUsage,
     /// Subagent type for `local_agent` tasks (e.g. `Explore`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subagent_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
     pub uuid: String,
 }
 
@@ -979,8 +1778,92 @@ pub struct TaskNotificationMessage {
     pub tool_use_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<TaskUsage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skip_transcript: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+}
+
+/// API error category attached to assistant wrapper frames.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AssistantErrorKind {
+    AuthenticationFailed,
+    OauthOrgNotAllowed,
+    BillingError,
+    RateLimit,
+    Overloaded,
+    InvalidRequest,
+    ModelNotFound,
+    ServerError,
+    UnknownError,
+    MaxOutputTokens,
+    Unknown(String),
+}
+
+impl AssistantErrorKind {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::AuthenticationFailed => "authentication_failed",
+            Self::OauthOrgNotAllowed => "oauth_org_not_allowed",
+            Self::BillingError => "billing_error",
+            Self::RateLimit => "rate_limit",
+            Self::Overloaded => "overloaded",
+            Self::InvalidRequest => "invalid_request",
+            Self::ModelNotFound => "model_not_found",
+            Self::ServerError => "server_error",
+            Self::UnknownError => "unknown",
+            Self::MaxOutputTokens => "max_output_tokens",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for AssistantErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for AssistantErrorKind {
+    fn from(s: &str) -> Self {
+        match s {
+            "authentication_failed" => Self::AuthenticationFailed,
+            "oauth_org_not_allowed" => Self::OauthOrgNotAllowed,
+            "billing_error" => Self::BillingError,
+            "rate_limit" => Self::RateLimit,
+            "overloaded" => Self::Overloaded,
+            "invalid_request" => Self::InvalidRequest,
+            "model_not_found" => Self::ModelNotFound,
+            "server_error" => Self::ServerError,
+            "unknown" => Self::UnknownError,
+            "max_output_tokens" => Self::MaxOutputTokens,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for AssistantErrorKind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for AssistantErrorKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
+/// Display metadata for a tool-use block carried on the assistant wrapper.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolUseMeta {
+    pub id: String,
+    pub display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_url: Option<String>,
 }
 
 /// Assistant message
@@ -1002,6 +1885,38 @@ pub struct AssistantMessage {
     /// Short description of the subagent task, present alongside `subagent_type`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<AssistantErrorKind>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supersedes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_use_meta: Vec<ToolUseMeta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_meta: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_virtual: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_api_error_message: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_error_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub advisor_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution_agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution_skill: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution_plugin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution_mcp_server: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution_mcp_tool: Option<String>,
 }
 
 /// Nested message content for assistant messages
@@ -1211,8 +2126,11 @@ mod tests {
             let task = sys.as_task_started().expect("Should parse as task_started");
             assert_eq!(task.session_id, "9abbc466-dad0-4b8e-b6b0-cad5eb7a16b9");
             assert_eq!(task.task_id, "b6daf3f");
-            assert_eq!(task.task_type, super::TaskType::LocalBash);
-            assert_eq!(task.tool_use_id, "toolu_011rfSTFumpJZdCCfzeD7jaS");
+            assert_eq!(task.task_type, Some(super::TaskType::LocalBash));
+            assert_eq!(
+                task.tool_use_id.as_deref(),
+                Some("toolu_011rfSTFumpJZdCCfzeD7jaS")
+            );
             assert_eq!(task.description, "Wait for CI on PR #12");
         } else {
             panic!("Expected System message");
@@ -1235,7 +2153,7 @@ mod tests {
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         if let ClaudeOutput::System(sys) = output {
             let task = sys.as_task_started().expect("Should parse as task_started");
-            assert_eq!(task.task_type, super::TaskType::LocalAgent);
+            assert_eq!(task.task_type, Some(super::TaskType::LocalAgent));
             assert_eq!(task.task_id, "a4a7e0906e5fc64cc");
         } else {
             panic!("Expected System message");
@@ -1270,7 +2188,7 @@ mod tests {
                 .expect("Should parse as task_progress");
             assert_eq!(progress.task_id, "a4a7e0906e5fc64cc");
             assert_eq!(progress.description, "Reading src/jplephem/chebyshev.rs");
-            assert_eq!(progress.last_tool_name, "Read");
+            assert_eq!(progress.last_tool_name.as_deref(), Some("Read"));
             assert_eq!(progress.usage.duration_ms, 13996);
             assert_eq!(progress.usage.tool_uses, 9);
             assert_eq!(progress.usage.total_tokens, 38779);

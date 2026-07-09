@@ -6,7 +6,10 @@ use super::content_blocks::{ContentBlock, ImageBlock, ImageSource, TextBlock};
 use super::control::{ControlRequest, ControlResponse};
 use super::message_types::{MessageContent, UserMessage};
 
-/// Top-level enum for all possible Claude input messages
+/// Top-level enum for all possible Claude input messages.
+///
+/// Keep variants unboxed so pattern matches and constructors stay ergonomic.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeInput {
@@ -42,6 +45,23 @@ impl ClaudeInput {
             tool_use_result: None,
             subagent_type: None,
             task_description: None,
+            origin: None,
+            priority: None,
+            is_synthetic: None,
+            should_query: None,
+            is_meta: None,
+            is_visible_in_transcript_only: None,
+            is_virtual: None,
+            is_compact_summary: None,
+            summarize_metadata: None,
+            mcp_meta: None,
+            source_tool_use_id: None,
+            source_tool_assistant_uuid: None,
+            image_paste_ids: None,
+            client_platform: None,
+            inbound_origin: None,
+            is_replay: None,
+            file_attachments: None,
         })
     }
 
@@ -59,6 +79,23 @@ impl ClaudeInput {
             tool_use_result: None,
             subagent_type: None,
             task_description: None,
+            origin: None,
+            priority: None,
+            is_synthetic: None,
+            should_query: None,
+            is_meta: None,
+            is_visible_in_transcript_only: None,
+            is_virtual: None,
+            is_compact_summary: None,
+            summarize_metadata: None,
+            mcp_meta: None,
+            source_tool_use_id: None,
+            source_tool_assistant_uuid: None,
+            image_paste_ids: None,
+            client_platform: None,
+            inbound_origin: None,
+            is_replay: None,
+            file_attachments: None,
         })
     }
 

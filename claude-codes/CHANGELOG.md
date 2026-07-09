@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **Claude Code CLI 2.1.205 output coverage.** Added typed coverage for new
+  top-level SDK frames (`stream_event`, `tool_progress`, `auth_status`,
+  `tool_use_summary`, `prompt_suggestion`, `conversation_reset`), 19 newer
+  `system` subtypes, richer result/init/status/compact/user/assistant wrapper
+  fields, and `get_usage` control-response quota payloads.
+
+### Changed (breaking)
+
+- `ClaudeOutput` gained additional variants, so exhaustive matches must handle
+  the new top-level frame types.
+- `ResultSubtype`, `TaskStatus`, and `TaskType` are now forward-compatible open
+  enums with `Unknown(String)` fallbacks.
+- `TaskStartedMessage.task_type`, `TaskStartedMessage.tool_use_id`, and
+  `TaskProgressMessage.last_tool_name` are now optional to match CLI 2.1.205
+  wire frames.
+
 ## [2.1.159] - 2026-06-27
 
 ### Added

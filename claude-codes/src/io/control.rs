@@ -919,6 +919,17 @@ impl ControlResponse {
             },
         }
     }
+
+    /// Parse a successful response payload as the CLI `get_usage` response.
+    pub fn get_usage_response(&self) -> Option<Result<GetUsageResponse, serde_json::Error>> {
+        match &self.response {
+            ControlResponsePayload::Success {
+                response: Some(value),
+                ..
+            } => Some(serde_json::from_value(value.clone())),
+            _ => None,
+        }
+    }
 }
 
 /// Control response payload
@@ -934,6 +945,110 @@ pub enum ControlResponsePayload {
         request_id: String,
         error: String,
     },
+}
+
+/// Typed payload returned by the CLI `get_usage` control request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUsageResponse {
+    pub session: UsageSession,
+    pub subscription_type: Option<String>,
+    pub rate_limits_available: bool,
+    pub rate_limits: Option<UsageRateLimits>,
+    pub behaviors: UsageBehaviors,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UsageSession {
+    pub total_cost_usd: f64,
+    pub total_api_duration_ms: u64,
+    pub total_duration_ms: u64,
+    pub total_lines_added: u64,
+    pub total_lines_removed: u64,
+    pub model_usage: HashMap<String, UsageModelUsage>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageModelUsage {
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_read_input_tokens: u64,
+    #[serde(default)]
+    pub cache_creation_input_tokens: u64,
+    #[serde(default)]
+    pub web_search_requests: u64,
+    #[serde(default, rename = "costUSD")]
+    pub cost_usd: f64,
+    #[serde(default)]
+    pub context_window: u64,
+    #[serde(default)]
+    pub max_output_tokens: u64,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UsageRateLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub five_hour: Option<UsageRateLimitWindow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day: Option<UsageRateLimitWindow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day_oauth_apps: Option<UsageRateLimitWindow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day_opus: Option<UsageRateLimitWindow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day_sonnet: Option<UsageRateLimitWindow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_scoped: Option<Vec<ModelScopedRateLimit>>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UsageRateLimitWindow {
+    pub utilization: Option<f64>,
+    pub resets_at: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ModelScopedRateLimit {
+    pub display_name: String,
+    pub utilization: Option<f64>,
+    pub resets_at: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UsageBehaviors {
+    pub request_count: u64,
+    pub session_count: u64,
+    pub behaviors: Vec<UsageBehavior>,
+    pub agents: Value,
+    pub skills: Value,
+    pub plugins: Value,
+    pub mcp_servers: Value,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageBehavior {
+    pub key: String,
+    pub pct: f64,
+    pub count: u64,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 /// Wrapper for outgoing control responses (includes type tag)
@@ -1222,6 +1337,60 @@ mod tests {
         let json = serde_json::to_string(&message).unwrap();
         assert!(json.contains("\"subtype\":\"error\""));
         assert!(json.contains("\"error\":\"Something went wrong\""));
+    }
+
+    #[test]
+    fn test_get_usage_response_parses_model_scoped_limits() {
+        let response = ControlResponse::success(
+            "usage-1",
+            serde_json::json!({
+                "session": {
+                    "total_cost_usd": 0.5,
+                    "total_api_duration_ms": 100,
+                    "total_duration_ms": 200,
+                    "total_lines_added": 3,
+                    "total_lines_removed": 1,
+                    "model_usage": {
+                        "claude-sonnet-4-6": {
+                            "inputTokens": 10,
+                            "outputTokens": 2,
+                            "cacheReadInputTokens": 1,
+                            "cacheCreationInputTokens": 0,
+                            "webSearchRequests": 0,
+                            "costUSD": 0.01,
+                            "contextWindow": 200000,
+                            "maxOutputTokens": 64000
+                        }
+                    }
+                },
+                "subscription_type": "pro",
+                "rate_limits_available": true,
+                "rate_limits": {
+                    "five_hour": {"utilization": 0.2, "resets_at": "2026-07-09T22:00:00Z"},
+                    "model_scoped": [
+                        {"display_name": "Sonnet", "utilization": 0.4, "resets_at": "2026-07-16T00:00:00Z"}
+                    ]
+                },
+                "behaviors": {
+                    "request_count": 1,
+                    "session_count": 1,
+                    "behaviors": [{"key": "cron", "pct": 100.0, "count": 1}],
+                    "agents": [],
+                    "skills": [],
+                    "plugins": [],
+                    "mcp_servers": []
+                }
+            }),
+        );
+
+        let usage = response.get_usage_response().unwrap().unwrap();
+        assert_eq!(usage.subscription_type.as_deref(), Some("pro"));
+        let model = usage.session.model_usage.get("claude-sonnet-4-6").unwrap();
+        assert_eq!(model.context_window, 200000);
+        assert_eq!(model.max_output_tokens, 64000);
+        let limits = usage.rate_limits.unwrap();
+        assert_eq!(limits.five_hour.unwrap().utilization, Some(0.2));
+        assert_eq!(limits.model_scoped.unwrap()[0].display_name, "Sonnet");
     }
 
     #[test]

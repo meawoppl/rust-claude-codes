@@ -35,6 +35,81 @@ pub enum ClaudeOutput {
 
     /// Rate limit status event
     RateLimitEvent(RateLimitEvent),
+
+    /// Raw API stream event emitted with `--include-partial-messages`.
+    StreamEvent(StreamEventMessage),
+
+    /// Progress update for a running tool.
+    ToolProgress(ToolProgressMessage),
+
+    /// Authentication status update.
+    AuthStatus(AuthStatusMessage),
+
+    /// Summary of preceding tool uses.
+    ToolUseSummary(ToolUseSummaryMessage),
+
+    /// Predicted next user prompt.
+    PromptSuggestion(PromptSuggestionMessage),
+
+    /// Conversation reset notification.
+    ConversationReset(ConversationResetMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamEventMessage {
+    pub event: Value,
+    pub parent_tool_use_id: Option<String>,
+    pub uuid: String,
+    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttft_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolProgressMessage {
+    pub tool_use_id: String,
+    pub tool_name: String,
+    pub parent_tool_use_id: Option<String>,
+    pub elapsed_time_seconds: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    pub uuid: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthStatusMessage {
+    #[serde(rename = "isAuthenticating")]
+    pub is_authenticating: bool,
+    pub output: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub uuid: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolUseSummaryMessage {
+    pub summary: String,
+    pub preceding_tool_use_ids: Vec<String>,
+    pub uuid: String,
+    pub session_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptSuggestionMessage {
+    pub suggestion: String,
+    pub uuid: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationResetMessage {
+    pub new_conversation_id: String,
+    pub uuid: String,
+    pub session_id: String,
 }
 
 impl ClaudeOutput {
@@ -49,6 +124,12 @@ impl ClaudeOutput {
             ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
             ClaudeOutput::Error(_) => "error".to_string(),
             ClaudeOutput::RateLimitEvent(_) => "rate_limit_event".to_string(),
+            ClaudeOutput::StreamEvent(_) => "stream_event".to_string(),
+            ClaudeOutput::ToolProgress(_) => "tool_progress".to_string(),
+            ClaudeOutput::AuthStatus(_) => "auth_status".to_string(),
+            ClaudeOutput::ToolUseSummary(_) => "tool_use_summary".to_string(),
+            ClaudeOutput::PromptSuggestion(_) => "prompt_suggestion".to_string(),
+            ClaudeOutput::ConversationReset(_) => "conversation_reset".to_string(),
         }
     }
 
@@ -164,6 +245,12 @@ impl ClaudeOutput {
             ClaudeOutput::ControlResponse(_) => None,
             ClaudeOutput::Error(_) => None,
             ClaudeOutput::RateLimitEvent(evt) => Some(&evt.session_id),
+            ClaudeOutput::StreamEvent(msg) => Some(&msg.session_id),
+            ClaudeOutput::ToolProgress(msg) => Some(&msg.session_id),
+            ClaudeOutput::AuthStatus(msg) => Some(&msg.session_id),
+            ClaudeOutput::ToolUseSummary(msg) => Some(&msg.session_id),
+            ClaudeOutput::PromptSuggestion(msg) => Some(&msg.session_id),
+            ClaudeOutput::ConversationReset(msg) => Some(&msg.session_id),
         }
     }
 
@@ -383,6 +470,42 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         assert!(output.is_assistant_message());
+    }
+
+    #[test]
+    fn test_deserialize_new_top_level_message_types() {
+        let cases = [
+            (
+                r#"{"type":"stream_event","event":{"type":"content_block_delta"},"parent_tool_use_id":null,"uuid":"u1","session_id":"s1","ttft_ms":12}"#,
+                "stream_event",
+            ),
+            (
+                r#"{"type":"tool_progress","tool_use_id":"toolu_1","tool_name":"Bash","parent_tool_use_id":null,"elapsed_time_seconds":1.25,"task_id":"task-1","uuid":"u2","session_id":"s2"}"#,
+                "tool_progress",
+            ),
+            (
+                r#"{"type":"auth_status","isAuthenticating":true,"output":["login"],"uuid":"u3","session_id":"s3"}"#,
+                "auth_status",
+            ),
+            (
+                r#"{"type":"tool_use_summary","summary":"read files","preceding_tool_use_ids":["toolu_1"],"uuid":"u4","session_id":"s4","timestamp":"2026-07-09T17:46:33Z"}"#,
+                "tool_use_summary",
+            ),
+            (
+                r#"{"type":"prompt_suggestion","suggestion":"Run tests","uuid":"u5","session_id":"s5"}"#,
+                "prompt_suggestion",
+            ),
+            (
+                r#"{"type":"conversation_reset","new_conversation_id":"new-session","uuid":"u6","session_id":"s6"}"#,
+                "conversation_reset",
+            ),
+        ];
+
+        for (json, message_type) in cases {
+            let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+            assert_eq!(output.message_type(), message_type);
+            assert!(output.session_id().is_some());
+        }
     }
 
     #[test]
