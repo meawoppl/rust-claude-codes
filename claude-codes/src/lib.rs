@@ -122,7 +122,7 @@ pub mod version;
 pub use error::{Error, Result};
 pub use io::{
     AnthropicError, AnthropicErrorDetails, ApiErrorType, AssistantMessageContent, ClaudeInput,
-    ClaudeOutput, ParseError,
+    ClaudeOutput, ParseError, TranscriptMessage,
 };
 pub use messages::*;
 pub use protocol::{MessageEnvelope, Protocol};

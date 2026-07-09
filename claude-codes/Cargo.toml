@@ -37,6 +37,7 @@ types = []
 sync-client = ["types", "anyhow", "log", "uuid/v4", "dep:which"]
 async-client = ["types", "anyhow", "tokio", "log", "uuid/v4", "dep:which"]
 integration-tests = []
+corpus-test = []
 log = ["dep:log"]
 
 [dev-dependencies]

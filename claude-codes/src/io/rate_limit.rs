@@ -252,6 +252,7 @@ pub struct RateLimitEvent {
     /// Rate limit status details
     pub rate_limit_info: RateLimitInfo,
     /// Session identifier
+    #[serde(alias = "sessionId")]
     pub session_id: String,
     /// Unique identifier for this message
     #[serde(skip_serializing_if = "Option::is_none")]
