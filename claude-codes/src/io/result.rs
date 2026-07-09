@@ -39,6 +39,7 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
 
+    #[serde(alias = "sessionId")]
     pub session_id: String,
     pub total_cost_usd: f64,
 

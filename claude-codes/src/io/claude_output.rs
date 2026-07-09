@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 use super::content_blocks::{ContentBlock, ToolUseBlock};
 use super::control::{ControlRequest, ControlResponse};
@@ -9,7 +9,7 @@ use super::rate_limit::RateLimitEvent;
 use super::result::ResultMessage;
 
 /// Top-level enum for all possible Claude output messages
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeOutput {
     /// System initialization message
@@ -23,6 +23,10 @@ pub enum ClaudeOutput {
 
     /// Result message (completion of a query)
     Result(ResultMessage),
+
+    /// Claude Code internal workflow-journal result event.
+    #[serde(rename = "result")]
+    TranscriptResult(TranscriptMessage),
 
     /// Control request from CLI (tool permissions, hooks, etc.)
     ControlRequest(ControlRequest),
@@ -53,6 +57,45 @@ pub enum ClaudeOutput {
 
     /// Conversation reset notification.
     ConversationReset(ConversationResetMessage),
+
+    /// Claude Code internal transcript progress event.
+    Progress(TranscriptMessage),
+
+    /// Claude Code internal queue event.
+    #[serde(rename = "queue-operation")]
+    QueueOperation(TranscriptMessage),
+
+    /// Claude Code internal PR link metadata event.
+    #[serde(rename = "pr-link")]
+    PrLink(TranscriptMessage),
+
+    /// Claude Code internal file history snapshot event.
+    #[serde(rename = "file-history-snapshot")]
+    FileHistorySnapshot(TranscriptMessage),
+
+    /// Claude Code internal session summary event.
+    Summary(TranscriptMessage),
+
+    /// Claude Code internal mode metadata event.
+    Mode(TranscriptMessage),
+
+    /// Claude Code internal permission mode metadata event.
+    #[serde(rename = "permission-mode")]
+    PermissionMode(TranscriptMessage),
+
+    /// Claude Code internal attachment metadata event.
+    Attachment(TranscriptMessage),
+
+    /// Claude Code internal AI-generated title event.
+    #[serde(rename = "ai-title")]
+    AiTitle(TranscriptMessage),
+
+    /// Claude Code internal last prompt pointer event.
+    #[serde(rename = "last-prompt")]
+    LastPrompt(TranscriptMessage),
+
+    /// Claude Code internal session started event.
+    Started(TranscriptMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +155,18 @@ pub struct ConversationResetMessage {
     pub session_id: String,
 }
 
+/// Raw preserved record for Claude Code transcript-only message types.
+///
+/// These events are emitted in `~/.claude/projects/**/*.jsonl`, not in the
+/// public `--output-format stream-json` protocol. Keeping them typed at the
+/// top level lets corpus tests parse real transcript files without losing the
+/// original payload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranscriptMessage {
+    #[serde(flatten)]
+    pub data: Map<String, Value>,
+}
+
 impl ClaudeOutput {
     /// Get the message type as a string
     pub fn message_type(&self) -> String {
@@ -120,6 +175,7 @@ impl ClaudeOutput {
             ClaudeOutput::User(_) => "user".to_string(),
             ClaudeOutput::Assistant(_) => "assistant".to_string(),
             ClaudeOutput::Result(_) => "result".to_string(),
+            ClaudeOutput::TranscriptResult(_) => "result".to_string(),
             ClaudeOutput::ControlRequest(_) => "control_request".to_string(),
             ClaudeOutput::ControlResponse(_) => "control_response".to_string(),
             ClaudeOutput::Error(_) => "error".to_string(),
@@ -130,6 +186,17 @@ impl ClaudeOutput {
             ClaudeOutput::ToolUseSummary(_) => "tool_use_summary".to_string(),
             ClaudeOutput::PromptSuggestion(_) => "prompt_suggestion".to_string(),
             ClaudeOutput::ConversationReset(_) => "conversation_reset".to_string(),
+            ClaudeOutput::Progress(_) => "progress".to_string(),
+            ClaudeOutput::QueueOperation(_) => "queue-operation".to_string(),
+            ClaudeOutput::PrLink(_) => "pr-link".to_string(),
+            ClaudeOutput::FileHistorySnapshot(_) => "file-history-snapshot".to_string(),
+            ClaudeOutput::Summary(_) => "summary".to_string(),
+            ClaudeOutput::Mode(_) => "mode".to_string(),
+            ClaudeOutput::PermissionMode(_) => "permission-mode".to_string(),
+            ClaudeOutput::Attachment(_) => "attachment".to_string(),
+            ClaudeOutput::AiTitle(_) => "ai-title".to_string(),
+            ClaudeOutput::LastPrompt(_) => "last-prompt".to_string(),
+            ClaudeOutput::Started(_) => "started".to_string(),
         }
     }
 
@@ -237,9 +304,18 @@ impl ClaudeOutput {
     /// ```
     pub fn session_id(&self) -> Option<&str> {
         match self {
-            ClaudeOutput::System(sys) => sys.data.get("session_id").and_then(|v| v.as_str()),
+            ClaudeOutput::System(sys) => sys
+                .data
+                .get("session_id")
+                .or_else(|| sys.data.get("sessionId"))
+                .and_then(|v| v.as_str()),
             ClaudeOutput::Assistant(ass) => Some(&ass.session_id),
             ClaudeOutput::Result(res) => Some(&res.session_id),
+            ClaudeOutput::TranscriptResult(msg) => msg
+                .data
+                .get("session_id")
+                .or_else(|| msg.data.get("sessionId"))
+                .and_then(|v| v.as_str()),
             ClaudeOutput::User(_) => None,
             ClaudeOutput::ControlRequest(_) => None,
             ClaudeOutput::ControlResponse(_) => None,
@@ -251,6 +327,21 @@ impl ClaudeOutput {
             ClaudeOutput::ToolUseSummary(msg) => Some(&msg.session_id),
             ClaudeOutput::PromptSuggestion(msg) => Some(&msg.session_id),
             ClaudeOutput::ConversationReset(msg) => Some(&msg.session_id),
+            ClaudeOutput::Progress(msg)
+            | ClaudeOutput::QueueOperation(msg)
+            | ClaudeOutput::PrLink(msg)
+            | ClaudeOutput::FileHistorySnapshot(msg)
+            | ClaudeOutput::Summary(msg)
+            | ClaudeOutput::Mode(msg)
+            | ClaudeOutput::PermissionMode(msg)
+            | ClaudeOutput::Attachment(msg)
+            | ClaudeOutput::AiTitle(msg)
+            | ClaudeOutput::LastPrompt(msg)
+            | ClaudeOutput::Started(msg) => msg
+                .data
+                .get("session_id")
+                .or_else(|| msg.data.get("sessionId"))
+                .and_then(|v| v.as_str()),
         }
     }
 
@@ -451,6 +542,87 @@ impl ClaudeOutput {
     }
 }
 
+impl<'de> Deserialize<'de> for ClaudeOutput {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        let message_type = value
+            .get("type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| serde::de::Error::missing_field("type"))?;
+        let mut payload = value.clone();
+        if let Some(obj) = payload.as_object_mut() {
+            obj.remove("type");
+        }
+
+        fn parse<T, E>(value: Value) -> Result<T, E>
+        where
+            T: serde::de::DeserializeOwned,
+            E: serde::de::Error,
+        {
+            serde_json::from_value(value).map_err(E::custom)
+        }
+
+        match message_type {
+            "system" => parse(payload).map(Self::System),
+            "user" => parse(payload).map(Self::User),
+            "assistant" => parse(payload).map(Self::Assistant),
+            "result" if value.get("subtype").is_some() => parse(payload).map(Self::Result),
+            "result" => parse(payload).map(Self::TranscriptResult),
+            "control_request" => parse(payload).map(Self::ControlRequest),
+            "control_response" => parse(payload).map(Self::ControlResponse),
+            "error" => parse(payload).map(Self::Error),
+            "rate_limit_event" => parse(payload).map(Self::RateLimitEvent),
+            "stream_event" => parse(payload).map(Self::StreamEvent),
+            "tool_progress" => parse(payload).map(Self::ToolProgress),
+            "auth_status" => parse(payload).map(Self::AuthStatus),
+            "tool_use_summary" => parse(payload).map(Self::ToolUseSummary),
+            "prompt_suggestion" => parse(payload).map(Self::PromptSuggestion),
+            "conversation_reset" => parse(payload).map(Self::ConversationReset),
+            "progress" => parse(payload).map(Self::Progress),
+            "queue-operation" => parse(payload).map(Self::QueueOperation),
+            "pr-link" => parse(payload).map(Self::PrLink),
+            "file-history-snapshot" => parse(payload).map(Self::FileHistorySnapshot),
+            "summary" => parse(payload).map(Self::Summary),
+            "mode" => parse(payload).map(Self::Mode),
+            "permission-mode" => parse(payload).map(Self::PermissionMode),
+            "attachment" => parse(payload).map(Self::Attachment),
+            "ai-title" => parse(payload).map(Self::AiTitle),
+            "last-prompt" => parse(payload).map(Self::LastPrompt),
+            "started" => parse(payload).map(Self::Started),
+            other => Err(serde::de::Error::unknown_variant(
+                other,
+                &[
+                    "system",
+                    "user",
+                    "assistant",
+                    "result",
+                    "control_request",
+                    "control_response",
+                    "error",
+                    "rate_limit_event",
+                    "stream_event",
+                    "tool_progress",
+                    "auth_status",
+                    "tool_use_summary",
+                    "prompt_suggestion",
+                    "conversation_reset",
+                    "progress",
+                    "queue-operation",
+                    "pr-link",
+                    "file-history-snapshot",
+                    "summary",
+                    "mode",
+                    "permission-mode",
+                    "attachment",
+                    "ai-title",
+                    "last-prompt",
+                    "started",
+                ],
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -506,6 +678,91 @@ mod tests {
             assert_eq!(output.message_type(), message_type);
             assert!(output.session_id().is_some());
         }
+    }
+
+    #[test]
+    fn test_deserialize_transcript_only_message_types() {
+        let cases = [
+            (
+                r#"{"type":"progress","sessionId":"s1","content":"delta"}"#,
+                "progress",
+                Some("s1"),
+            ),
+            (
+                r#"{"type":"queue-operation","sessionId":"s2","operation":"push"}"#,
+                "queue-operation",
+                Some("s2"),
+            ),
+            (
+                r#"{"type":"pr-link","sessionId":"s3","url":"https://example.invalid/pr"}"#,
+                "pr-link",
+                Some("s3"),
+            ),
+            (
+                r#"{"type":"file-history-snapshot","sessionId":"s4","files":[]}"#,
+                "file-history-snapshot",
+                Some("s4"),
+            ),
+            (r#"{"type":"summary","summary":"Done"}"#, "summary", None),
+            (
+                r#"{"type":"mode","mode":"normal","sessionId":"s5"}"#,
+                "mode",
+                Some("s5"),
+            ),
+            (
+                r#"{"type":"permission-mode","permissionMode":"default","sessionId":"s6"}"#,
+                "permission-mode",
+                Some("s6"),
+            ),
+            (
+                r#"{"type":"attachment","attachment":{"type":"task_reminder"},"sessionId":"s7"}"#,
+                "attachment",
+                Some("s7"),
+            ),
+            (
+                r#"{"type":"ai-title","aiTitle":"Title","sessionId":"s8"}"#,
+                "ai-title",
+                Some("s8"),
+            ),
+            (
+                r#"{"type":"last-prompt","lastPrompt":"prompt","sessionId":"s9"}"#,
+                "last-prompt",
+                Some("s9"),
+            ),
+            (
+                r#"{"type":"started","sessionId":"s10"}"#,
+                "started",
+                Some("s10"),
+            ),
+            (
+                r#"{"type":"result","key":"k","agentId":"a","result":{"ok":true}}"#,
+                "result",
+                None,
+            ),
+        ];
+
+        for (json, message_type, session_id) in cases {
+            let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+            assert_eq!(output.message_type(), message_type);
+            assert_eq!(output.session_id(), session_id);
+        }
+    }
+
+    #[test]
+    fn test_transcript_assistant_accepts_camel_case_session_id() {
+        let json = r#"{
+            "type": "assistant",
+            "sessionId": "camel-session",
+            "message": {
+                "id": "msg_123",
+                "role": "assistant",
+                "model": "claude-3-sonnet",
+                "content": [{"type": "text", "text": "Hello"}]
+            }
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        assert_eq!(output.session_id(), Some("camel-session"));
     }
 
     #[test]

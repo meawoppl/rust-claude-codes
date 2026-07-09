@@ -315,5 +315,19 @@ fn handle_output(output: ClaudeOutput) {
                 reset.session_id, reset.new_conversation_id
             );
         }
+        ClaudeOutput::TranscriptResult(msg)
+        | ClaudeOutput::Progress(msg)
+        | ClaudeOutput::QueueOperation(msg)
+        | ClaudeOutput::PrLink(msg)
+        | ClaudeOutput::FileHistorySnapshot(msg)
+        | ClaudeOutput::Summary(msg)
+        | ClaudeOutput::Mode(msg)
+        | ClaudeOutput::PermissionMode(msg)
+        | ClaudeOutput::Attachment(msg)
+        | ClaudeOutput::AiTitle(msg)
+        | ClaudeOutput::LastPrompt(msg)
+        | ClaudeOutput::Started(msg) => {
+            debug!("Transcript-only message with {} field(s)", msg.data.len());
+        }
     }
 }

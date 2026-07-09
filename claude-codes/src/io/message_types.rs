@@ -568,7 +568,7 @@ pub struct McpMeta {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
     pub message: MessageContent,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "sessionId")]
     #[serde(
         serialize_with = "serialize_optional_uuid",
         deserialize_with = "deserialize_optional_uuid"
@@ -1870,6 +1870,7 @@ pub struct ToolUseMeta {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantMessage {
     pub message: AssistantMessageContent,
+    #[serde(alias = "sessionId")]
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
