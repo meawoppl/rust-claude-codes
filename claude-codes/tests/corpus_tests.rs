@@ -62,7 +62,7 @@ fn parse_configured_claude_transcript_corpus() {
                 failure.line_number,
                 failure.message_type,
                 failure.error,
-                failure.raw
+                raw_preview(&failure.raw)
             );
         }
     }
@@ -136,4 +136,40 @@ fn scan_file(
         }
     }
     Ok(())
+}
+
+fn raw_preview(raw: &str) -> String {
+    const MAX_CHARS: usize = 500;
+
+    let mut chars = raw.chars();
+    let preview: String = chars.by_ref().take(MAX_CHARS).collect();
+    let remaining = chars.count();
+
+    if remaining == 0 {
+        preview
+    } else {
+        format!("{preview}... <truncated {remaining} chars>")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::raw_preview;
+
+    #[test]
+    fn raw_preview_keeps_short_lines_unchanged() {
+        assert_eq!(
+            raw_preview(r#"{"type":"unknown"}"#),
+            r#"{"type":"unknown"}"#
+        );
+    }
+
+    #[test]
+    fn raw_preview_truncates_long_lines_on_char_boundaries() {
+        let raw = format!("{}{}", "a".repeat(500), "b".repeat(3));
+        assert_eq!(
+            raw_preview(&raw),
+            format!("{}... <truncated 3 chars>", "a".repeat(500))
+        );
+    }
 }
