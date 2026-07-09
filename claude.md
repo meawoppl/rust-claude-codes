@@ -13,6 +13,21 @@ This project follows a test-driven development approach for implementing the Cla
 5. **Verify Implementation**: Run `cargo test deserialization` to ensure the new types deserialize correctly
 6. **Lock in Progress**: Successful test cases prove our protocol implementation is correct
 
+### Re-snapshotting against a new Claude CLI
+
+To check claude-codes against the wire schema a new CLI version actually
+ships, extract the zod schemas straight from the compiled binary and diff:
+
+```bash
+claude update
+python3 scripts/extract_claude_sdk_schemas.py -o /tmp/claude_sdk_schemas.txt
+```
+
+Full procedure — where the bundle lives, how to map schemas to crate types,
+what counts as drift, manual spelunking recipes — is documented in
+**`claude-codes/RESNAPSHOTTING.md`**. Run this whenever the CLI version moves
+meaningfully past the crate's tested pin.
+
 ## Git Workflow Requirements
 
 **CRITICAL: This repository enforces a strict PR-based workflow**
