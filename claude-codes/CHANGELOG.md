@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 
 ### Added
 
@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tool_use_summary`, `prompt_suggestion`, `conversation_reset`), 19 newer
   `system` subtypes, richer result/init/status/compact/user/assistant wrapper
   fields, and `get_usage` control-response quota payloads.
+- **Rate limit schema updated to CLI 2.1.205.** `RateLimitInfo` now carries the
+  full `rate_limit_event` wire schema:
+  - New fields: `overage_resets_at`, `overage_in_use`, `surpassed_threshold`,
+    `overage_period_monthly` / `overage_period_channel` (new
+    `OveragePeriodUtilization` struct), `error_code` (new `RateLimitErrorCode`
+    enum), `can_user_purchase_credits`, and
+    `has_chargeable_saved_payment_method`.
+  - `RateLimitWindow` gains `SevenDayOpus`, `SevenDaySonnet`,
+    `SevenDayOverageIncluded`, and `Overage` variants.
+  - `OverageStatus` gains `AllowedWarning`.
+  - `OverageDisabledReason` expands from 2 to 12 typed variants matching the
+    CLI enum.
+  - Re-exported `OveragePeriodUtilization` and `RateLimitErrorCode` at the
+    crate root.
 
 ### Changed (breaking)
 
@@ -24,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TaskStartedMessage.task_type`, `TaskStartedMessage.tool_use_id`, and
   `TaskProgressMessage.last_tool_name` are now optional to match CLI 2.1.205
   wire frames.
+- `RateLimitInfo::is_using_overage` is now `Option<bool>` — the field is
+  optional in the CLI wire schema and events omitting it previously failed to
+  deserialize.
+- `RateLimitWindow::Hourly` removed; the window no longer exists in the CLI
+  schema. An `"hourly"` value now parses as `RateLimitWindow::Unknown`.
 
 ## [2.1.159] - 2026-06-27
 

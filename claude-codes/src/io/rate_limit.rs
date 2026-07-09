@@ -60,10 +60,16 @@ impl<'de> Deserialize<'de> for RateLimitStatus {
 pub enum RateLimitWindow {
     /// Five-hour rolling window.
     FiveHour,
-    /// Hourly rolling window.
-    Hourly,
-    /// Seven-day rolling window.
+    /// Seven-day rolling window covering all models.
     SevenDay,
+    /// Seven-day rolling window scoped to Opus usage.
+    SevenDayOpus,
+    /// Seven-day rolling window scoped to Sonnet usage.
+    SevenDaySonnet,
+    /// Seven-day rolling window for models included in overage billing.
+    SevenDayOverageIncluded,
+    /// Overage (extra usage / usage credits) window.
+    Overage,
     /// A window type not yet known to this version of the crate.
     Unknown(String),
 }
@@ -72,8 +78,11 @@ impl RateLimitWindow {
     pub fn as_str(&self) -> &str {
         match self {
             Self::FiveHour => "five_hour",
-            Self::Hourly => "hourly",
             Self::SevenDay => "seven_day",
+            Self::SevenDayOpus => "seven_day_opus",
+            Self::SevenDaySonnet => "seven_day_sonnet",
+            Self::SevenDayOverageIncluded => "seven_day_overage_included",
+            Self::Overage => "overage",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -89,8 +98,11 @@ impl From<&str> for RateLimitWindow {
     fn from(s: &str) -> Self {
         match s {
             "five_hour" => Self::FiveHour,
-            "hourly" => Self::Hourly,
             "seven_day" => Self::SevenDay,
+            "seven_day_opus" => Self::SevenDayOpus,
+            "seven_day_sonnet" => Self::SevenDaySonnet,
+            "seven_day_overage_included" => Self::SevenDayOverageIncluded,
+            "overage" => Self::Overage,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -114,6 +126,8 @@ impl<'de> Deserialize<'de> for RateLimitWindow {
 pub enum OverageStatus {
     /// Overage was accepted.
     Allowed,
+    /// Overage was accepted but usage is approaching the cap.
+    AllowedWarning,
     /// Overage was rejected.
     Rejected,
     /// A status not yet known to this version of the crate.
@@ -124,6 +138,7 @@ impl OverageStatus {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Allowed => "allowed",
+            Self::AllowedWarning => "allowed_warning",
             Self::Rejected => "rejected",
             Self::Unknown(s) => s.as_str(),
         }
@@ -140,6 +155,7 @@ impl From<&str> for OverageStatus {
     fn from(s: &str) -> Self {
         match s {
             "allowed" => Self::Allowed,
+            "allowed_warning" => Self::AllowedWarning,
             "rejected" => Self::Rejected,
             other => Self::Unknown(other.to_string()),
         }
@@ -162,19 +178,50 @@ impl<'de> Deserialize<'de> for OverageStatus {
 /// Why overage billing is disabled.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum OverageDisabledReason {
+    /// Overage has not been provisioned for the account.
+    OverageNotProvisioned,
     /// Overage is disabled at the organization level.
     OrgLevelDisabled,
+    /// Overage is disabled at the organization level until a later time.
+    OrgLevelDisabledUntil,
     /// The account is out of credits.
     OutOfCredits,
-    /// A reason not yet known to this version of the crate.
+    /// Overage is disabled for this seat tier.
+    SeatTierLevelDisabled,
+    /// Overage is disabled for this member.
+    MemberLevelDisabled,
+    /// The seat tier has a zero credit limit.
+    SeatTierZeroCreditLimit,
+    /// The member's group has a zero credit limit.
+    GroupZeroCreditLimit,
+    /// The member has a zero credit limit.
+    MemberZeroCreditLimit,
+    /// Overage is disabled at the organization service level.
+    OrgServiceLevelDisabled,
+    /// No overage limits are configured.
+    NoLimitsConfigured,
+    /// The server failed to fetch the overage configuration.
+    FetchError,
+    /// A reason not yet known to this version of the crate (including the
+    /// server's own literal `"unknown"` value).
     Unknown(String),
 }
 
 impl OverageDisabledReason {
     pub fn as_str(&self) -> &str {
         match self {
+            Self::OverageNotProvisioned => "overage_not_provisioned",
             Self::OrgLevelDisabled => "org_level_disabled",
+            Self::OrgLevelDisabledUntil => "org_level_disabled_until",
             Self::OutOfCredits => "out_of_credits",
+            Self::SeatTierLevelDisabled => "seat_tier_level_disabled",
+            Self::MemberLevelDisabled => "member_level_disabled",
+            Self::SeatTierZeroCreditLimit => "seat_tier_zero_credit_limit",
+            Self::GroupZeroCreditLimit => "group_zero_credit_limit",
+            Self::MemberZeroCreditLimit => "member_zero_credit_limit",
+            Self::OrgServiceLevelDisabled => "org_service_level_disabled",
+            Self::NoLimitsConfigured => "no_limits_configured",
+            Self::FetchError => "fetch_error",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -189,8 +236,18 @@ impl fmt::Display for OverageDisabledReason {
 impl From<&str> for OverageDisabledReason {
     fn from(s: &str) -> Self {
         match s {
+            "overage_not_provisioned" => Self::OverageNotProvisioned,
             "org_level_disabled" => Self::OrgLevelDisabled,
+            "org_level_disabled_until" => Self::OrgLevelDisabledUntil,
             "out_of_credits" => Self::OutOfCredits,
+            "seat_tier_level_disabled" => Self::SeatTierLevelDisabled,
+            "member_level_disabled" => Self::MemberLevelDisabled,
+            "seat_tier_zero_credit_limit" => Self::SeatTierZeroCreditLimit,
+            "group_zero_credit_limit" => Self::GroupZeroCreditLimit,
+            "member_zero_credit_limit" => Self::MemberZeroCreditLimit,
+            "org_service_level_disabled" => Self::OrgServiceLevelDisabled,
+            "no_limits_configured" => Self::NoLimitsConfigured,
+            "fetch_error" => Self::FetchError,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -276,17 +333,112 @@ pub struct RateLimitInfo {
     /// Overage status (e.g., rejected, allowed)
     #[serde(skip_serializing_if = "Option::is_none", rename = "overageStatus")]
     pub overage_status: Option<OverageStatus>,
+    /// Unix timestamp when the overage window resets
+    #[serde(rename = "overageResetsAt", skip_serializing_if = "Option::is_none")]
+    pub overage_resets_at: Option<u64>,
     /// Reason overage is disabled, if applicable
-    #[serde(rename = "overageDisabledReason")]
+    #[serde(
+        rename = "overageDisabledReason",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub overage_disabled_reason: Option<OverageDisabledReason>,
-    /// Whether overage billing is active
-    #[serde(rename = "isUsingOverage")]
-    pub is_using_overage: bool,
+    /// Whether overage billing is active for the current request
+    #[serde(rename = "isUsingOverage", skip_serializing_if = "Option::is_none")]
+    pub is_using_overage: Option<bool>,
+    /// Whether overage billing is in use for the account
+    #[serde(rename = "overageInUse", skip_serializing_if = "Option::is_none")]
+    pub overage_in_use: Option<bool>,
+    /// Utilization warning threshold that was crossed (0.0 to 1.0)
+    #[serde(rename = "surpassedThreshold", skip_serializing_if = "Option::is_none")]
+    pub surpassed_threshold: Option<f64>,
+    /// Monthly service spend-cap utilization (Claude-in-Slack surface)
+    #[serde(
+        rename = "overagePeriodMonthly",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub overage_period_monthly: Option<OveragePeriodUtilization>,
+    /// Per-channel spend-cap utilization (Claude-in-Slack surface)
+    #[serde(
+        rename = "overagePeriodChannel",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub overage_period_channel: Option<OveragePeriodUtilization>,
+    /// Error code attached when a request was refused outright
+    #[serde(rename = "errorCode", skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<RateLimitErrorCode>,
+    /// Whether the user is able to purchase credits themselves
+    #[serde(
+        rename = "canUserPurchaseCredits",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_user_purchase_credits: Option<bool>,
+    /// Whether the account has a chargeable saved payment method
+    #[serde(
+        rename = "hasChargeableSavedPaymentMethod",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub has_chargeable_saved_payment_method: Option<bool>,
+}
+
+/// Spend-cap utilization for an overage billing period.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OveragePeriodUtilization {
+    /// Fraction of the spend cap consumed (0.0 to 1.0)
+    pub utilization: f64,
+}
+
+/// Error code carried on a rate limit event when a request was refused.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RateLimitErrorCode {
+    /// The request requires purchasing usage credits.
+    CreditsRequired,
+    /// An error code not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl RateLimitErrorCode {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::CreditsRequired => "credits_required",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for RateLimitErrorCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for RateLimitErrorCode {
+    fn from(s: &str) -> Self {
+        match s {
+            "credits_required" => Self::CreditsRequired,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for RateLimitErrorCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for RateLimitErrorCode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{OverageDisabledReason, OverageStatus, RateLimitStatus, RateLimitWindow};
+    use super::{
+        OverageDisabledReason, OveragePeriodUtilization, OverageStatus, RateLimitErrorCode,
+        RateLimitStatus, RateLimitWindow,
+    };
     use crate::io::ClaudeOutput;
 
     #[test]
@@ -317,7 +469,7 @@ mod tests {
             evt.rate_limit_info.overage_disabled_reason,
             Some(OverageDisabledReason::OrgLevelDisabled)
         );
-        assert!(!evt.rate_limit_info.is_using_overage);
+        assert_eq!(evt.rate_limit_info.is_using_overage, Some(false));
         assert_eq!(
             evt.uuid,
             Some("76258cfb-0dc8-4d4b-8682-77082b59c03f".to_string())
@@ -326,12 +478,12 @@ mod tests {
 
     #[test]
     fn test_deserialize_rate_limit_event_minimal() {
-        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":0,"rateLimitType":"hourly","overageStatus":"allowed","isUsingOverage":true},"session_id":"abc"}"#;
+        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"},"session_id":"abc"}"#;
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         let evt = output.as_rate_limit_event().unwrap();
         assert_eq!(evt.rate_limit_info.overage_disabled_reason, None);
-        assert!(evt.rate_limit_info.is_using_overage);
+        assert_eq!(evt.rate_limit_info.is_using_overage, None);
         assert!(evt.uuid.is_none());
     }
 
@@ -345,7 +497,7 @@ mod tests {
         assert_eq!(evt.rate_limit_info.utilization, Some(0.85));
         assert_eq!(evt.rate_limit_info.overage_status, None);
         assert_eq!(evt.rate_limit_info.overage_disabled_reason, None);
-        assert!(!evt.rate_limit_info.is_using_overage);
+        assert_eq!(evt.rate_limit_info.is_using_overage, Some(false));
     }
 
     #[test]
@@ -357,7 +509,7 @@ mod tests {
         assert_eq!(evt.rate_limit_info.status, RateLimitStatus::Allowed);
         assert_eq!(evt.rate_limit_info.resets_at, None);
         assert_eq!(evt.rate_limit_info.rate_limit_type, None);
-        assert!(!evt.rate_limit_info.is_using_overage);
+        assert_eq!(evt.rate_limit_info.is_using_overage, Some(false));
     }
 
     #[test]
@@ -379,5 +531,78 @@ mod tests {
             evt.rate_limit_info.overage_disabled_reason,
             Some(OverageDisabledReason::OutOfCredits)
         );
+    }
+
+    #[test]
+    fn test_deserialize_rate_limit_event_full_2_1_205() {
+        let json = r#"{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1700003600,"rateLimitType":"seven_day_overage_included","utilization":0.97,"overageStatus":"allowed_warning","overageResetsAt":1700007200,"overageDisabledReason":"seat_tier_zero_credit_limit","isUsingOverage":true,"overageInUse":true,"surpassedThreshold":0.8,"overagePeriodMonthly":{"utilization":0.5},"overagePeriodChannel":{"utilization":0.25},"errorCode":"credits_required","canUserPurchaseCredits":true,"hasChargeableSavedPaymentMethod":false},"session_id":"abc"}"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let evt = output.as_rate_limit_event().unwrap();
+        let info = &evt.rate_limit_info;
+        assert_eq!(
+            info.rate_limit_type,
+            Some(RateLimitWindow::SevenDayOverageIncluded)
+        );
+        assert_eq!(info.overage_status, Some(OverageStatus::AllowedWarning));
+        assert_eq!(info.overage_resets_at, Some(1700007200));
+        assert_eq!(
+            info.overage_disabled_reason,
+            Some(OverageDisabledReason::SeatTierZeroCreditLimit)
+        );
+        assert_eq!(info.is_using_overage, Some(true));
+        assert_eq!(info.overage_in_use, Some(true));
+        assert_eq!(info.surpassed_threshold, Some(0.8));
+        assert_eq!(
+            info.overage_period_monthly,
+            Some(OveragePeriodUtilization { utilization: 0.5 })
+        );
+        assert_eq!(
+            info.overage_period_channel,
+            Some(OveragePeriodUtilization { utilization: 0.25 })
+        );
+        assert_eq!(info.error_code, Some(RateLimitErrorCode::CreditsRequired));
+        assert_eq!(info.can_user_purchase_credits, Some(true));
+        assert_eq!(info.has_chargeable_saved_payment_method, Some(false));
+
+        let round_trip = serde_json::to_value(output).unwrap();
+        let original: serde_json::Value = serde_json::from_str(json).unwrap();
+        assert_eq!(round_trip, original);
+    }
+
+    #[test]
+    fn test_rate_limit_window_round_trip() {
+        for s in [
+            "five_hour",
+            "seven_day",
+            "seven_day_opus",
+            "seven_day_sonnet",
+            "seven_day_overage_included",
+            "overage",
+            "some_future_window",
+        ] {
+            assert_eq!(RateLimitWindow::from(s).as_str(), s);
+        }
+    }
+
+    #[test]
+    fn test_overage_disabled_reason_round_trip() {
+        for s in [
+            "overage_not_provisioned",
+            "org_level_disabled",
+            "org_level_disabled_until",
+            "out_of_credits",
+            "seat_tier_level_disabled",
+            "member_level_disabled",
+            "seat_tier_zero_credit_limit",
+            "group_zero_credit_limit",
+            "member_zero_credit_limit",
+            "org_service_level_disabled",
+            "no_limits_configured",
+            "fetch_error",
+            "unknown",
+        ] {
+            assert_eq!(OverageDisabledReason::from(s).as_str(), s);
+        }
     }
 }

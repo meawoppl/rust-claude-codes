@@ -175,8 +175,8 @@ pub use io::{assert_fully_wrapped, audit_frame, FrameAudit};
 
 // Rate limit types
 pub use io::{
-    OverageDisabledReason, OverageStatus, RateLimitEvent, RateLimitInfo, RateLimitStatus,
-    RateLimitWindow,
+    OverageDisabledReason, OveragePeriodUtilization, OverageStatus, RateLimitErrorCode,
+    RateLimitEvent, RateLimitInfo, RateLimitStatus, RateLimitWindow,
 };
 
 // Usage types
