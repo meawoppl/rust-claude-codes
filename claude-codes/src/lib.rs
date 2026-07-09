@@ -139,20 +139,35 @@ pub use io::{
 // Control protocol types for tool permission handling
 pub use io::{
     AskUserQuestionResponseError, ControlRequest, ControlRequestMessage, ControlRequestPayload,
-    ControlResponse, ControlResponseMessage, ControlResponsePayload, HookCallbackRequest,
-    InitializeRequest, McpMessageRequest, Permission, PermissionBehavior, PermissionDenial,
-    PermissionDestination, PermissionModeName, PermissionResult, PermissionRule,
-    PermissionSuggestion, PermissionType, SDKControlInterruptRequest, ToolCaller,
-    ToolPermissionRequest, ToolUseBlock,
+    ControlResponse, ControlResponseMessage, ControlResponsePayload, GetUsageResponse,
+    HookCallbackRequest, InitializeRequest, McpMessageRequest, ModelScopedRateLimit, Permission,
+    PermissionBehavior, PermissionDenial, PermissionDestination, PermissionModeName,
+    PermissionResult, PermissionRule, PermissionSuggestion, PermissionType,
+    SDKControlInterruptRequest, ToolCaller, ToolPermissionRequest, ToolUseBlock, UsageBehavior,
+    UsageBehaviors, UsageModelUsage, UsageRateLimitWindow, UsageRateLimits, UsageSession,
 };
 
 // System message and assistant message types
 pub use io::{
-    ApiKeySource, CompactBoundaryMessage, CompactMetadata, CompactionTrigger, InitMessage,
-    InitPermissionMode, MessageRole, OutputStyle, PluginInfo, StatusMessage, StatusMessageStatus,
-    StopReason, SystemMessage, SystemSubtype, TaskNotificationMessage, TaskPatch,
-    TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage,
-    ThinkingTokensMessage,
+    ApiKeySource, ApiRetryMessage, AssistantErrorKind, BackgroundTaskInfo,
+    BackgroundTasksChangedMessage, CommandInfo, CommandsChangedMessage, CompactBoundaryMessage,
+    CompactMetadata, CompactionTrigger, ControlRequestProgressMessage, ElicitationCompleteMessage,
+    FailedPersistedFile, FilesPersistedMessage, HookProgressMessage, HookResponseMessage,
+    HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode, KnownSystemEvent,
+    LocalCommandOutputMessage, McpMeta, MemoryPaths, MemoryRecallItem, MemoryRecallMessage,
+    MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage, ModelRefusalFallbackMessage,
+    ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle, PermissionDeniedMessage,
+    PersistedFile, PluginDiagnostic, PluginInfo, PluginInstallMessage, PreservedMessages,
+    PreservedSegment, StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata,
+    SystemMessage, SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage,
+    TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage,
+    ToolUseMeta, WorkerShuttingDownMessage,
+};
+
+// Additional top-level output message wrappers
+pub use io::{
+    AuthStatusMessage, ConversationResetMessage, PromptSuggestionMessage, StreamEventMessage,
+    ToolProgressMessage, ToolUseSummaryMessage,
 };
 
 // Wire-fidelity audit for verifying frames are fully typed
@@ -166,8 +181,8 @@ pub use io::{
 
 // Usage types
 pub use io::{
-    AssistantUsage, CacheCreationDetails, ServerToolUse, SubagentResult, SubagentToolStats,
-    UsageInfo,
+    AssistantUsage, CacheCreationDetails, DeferredToolUse, ServerToolUse, SubagentResult,
+    SubagentToolStats, UsageInfo,
 };
 
 // Typed tool input types

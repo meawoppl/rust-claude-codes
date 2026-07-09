@@ -529,6 +529,8 @@ pub enum AuthMode {
     Chatgpt,
     #[serde(rename = "chatgptAuthTokens")]
     ChatgptAuthTokens,
+    #[serde(rename = "headers")]
+    Headers,
     #[serde(rename = "agentIdentity")]
     AgentIdentity,
     #[serde(rename = "personalAccessToken")]
@@ -1384,6 +1386,8 @@ pub enum ConsumeAccountRateLimitResetCreditOutcome {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsumeAccountRateLimitResetCreditParams {
+    #[serde(rename = "creditId", default, skip_serializing_if = "Option::is_none")]
+    pub credit_id: Option<String>,
     #[serde(rename = "idempotencyKey", default)]
     pub idempotency_key: String,
 }
@@ -2843,12 +2847,20 @@ pub enum LoginAccountParams {
         api_key: String,
     },
     Chatgpt {
+        #[serde(rename = "appBrand", default, skip_serializing_if = "Option::is_none")]
+        app_brand: Option<LoginAppBrand>,
         #[serde(
             rename = "codexStreamlinedLogin",
             default,
             skip_serializing_if = "Option::is_none"
         )]
         codex_streamlined_login: Option<bool>,
+        #[serde(
+            rename = "useHostedLoginSuccessPage",
+            default,
+            skip_serializing_if = "Option::is_none"
+        )]
+        use_hosted_login_success_page: Option<bool>,
     },
     #[serde(rename = "chatgptDeviceCode")]
     ChatgptDeviceCode,
@@ -2889,6 +2901,14 @@ pub enum LoginAccountResponse {
     },
     #[serde(rename = "chatgptAuthTokens")]
     ChatgptAuthTokens,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LoginAppBrand {
+    #[serde(rename = "codex")]
+    Codex,
+    #[serde(rename = "chatgpt")]
+    Chatgpt,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4200,6 +4220,14 @@ pub enum PluginInstallPolicy {
     INSTALLED_BY_DEFAULT,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PluginInstallPolicySource {
+    #[serde(rename = "WORKSPACE_SETTING")]
+    WORKSPACE_SETTING,
+    #[serde(rename = "IMPLICIT_CANONICAL_APP")]
+    IMPLICIT_CANONICAL_APP,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInstallResponse {
@@ -4693,6 +4721,12 @@ pub struct PluginSummary {
     pub id: String,
     #[serde(rename = "installPolicy")]
     pub install_policy: PluginInstallPolicy,
+    #[serde(
+        rename = "installPolicySource",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub install_policy_source: Option<PluginInstallPolicySource>,
     #[serde(default)]
     pub installed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4721,6 +4755,8 @@ pub struct PluginSummary {
     pub share_context: Option<PluginShareContext>,
     #[serde()]
     pub source: PluginSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4800,9 +4836,50 @@ pub enum RateLimitReachedType {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RateLimitResetCredit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "expiresAt", default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    #[serde(rename = "grantedAt", default)]
+    pub granted_at: i64,
+    #[serde(default)]
+    pub id: String,
+    #[serde(rename = "resetType")]
+    pub reset_type: RateLimitResetType,
+    #[serde()]
+    pub status: RateLimitResetCreditStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RateLimitResetCreditStatus {
+    #[serde(rename = "available")]
+    Available,
+    #[serde(rename = "redeeming")]
+    Redeeming,
+    #[serde(rename = "redeemed")]
+    Redeemed,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RateLimitResetCreditsSummary {
     #[serde(rename = "availableCount", default)]
     pub available_count: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credits: Option<Vec<RateLimitResetCredit>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RateLimitResetType {
+    #[serde(rename = "codexRateLimits")]
+    CodexRateLimits,
+    #[serde(rename = "unknown")]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

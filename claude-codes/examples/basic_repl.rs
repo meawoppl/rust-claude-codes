@@ -283,5 +283,37 @@ fn handle_output(output: ClaudeOutput) {
                 evt.rate_limit_info.resets_at
             );
         }
+        ClaudeOutput::StreamEvent(evt) => {
+            debug!("Stream event received for session {}", evt.session_id);
+        }
+        ClaudeOutput::ToolProgress(progress) => {
+            debug!(
+                "Tool progress: {} ({}) after {:.2}s",
+                progress.tool_name, progress.tool_use_id, progress.elapsed_time_seconds
+            );
+        }
+        ClaudeOutput::AuthStatus(status) => {
+            debug!(
+                "Auth status: authenticating={}, lines={}",
+                status.is_authenticating,
+                status.output.len()
+            );
+        }
+        ClaudeOutput::ToolUseSummary(summary) => {
+            debug!(
+                "Tool-use summary over {} tool(s): {}",
+                summary.preceding_tool_use_ids.len(),
+                summary.summary
+            );
+        }
+        ClaudeOutput::PromptSuggestion(suggestion) => {
+            debug!("Prompt suggestion: {}", suggestion.suggestion);
+        }
+        ClaudeOutput::ConversationReset(reset) => {
+            debug!(
+                "Conversation reset: {} -> {}",
+                reset.session_id, reset.new_conversation_id
+            );
+        }
     }
 }

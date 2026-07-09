@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::fmt;
 
 /// Result message for completed queries
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +21,18 @@ pub struct ResultMessage {
     /// Time from session start until the first request was issued, in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_to_request_ms: Option<u64>,
+
+    /// Time from spawning a worker/spare until the first request was issued, in milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_to_request_from_spawn_ms: Option<u64>,
+
+    /// Whether a warm spare process was claimed for this request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warm_spare_claimed: Option<bool>,
+
+    /// Epoch-ish timestamp origin used by CLI timing instrumentation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_origin_ms: Option<u64>,
 
     pub num_turns: i32,
 
@@ -65,6 +78,18 @@ pub struct ResultMessage {
     /// Per-model cost breakdown, keyed by model name (e.g. `"claude-opus-4-8"`).
     #[serde(skip_serializing_if = "Option::is_none", rename = "modelUsage")]
     pub model_usage: Option<std::collections::BTreeMap<String, ModelUsageEntry>>,
+
+    /// Structured-output payload returned by the model, when enabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured_output: Option<Value>,
+
+    /// Deferred tool-use termination payload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deferred_tool_use: Option<DeferredToolUse>,
+
+    /// Provenance of the message/run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<super::message_types::MessageOrigin>,
 }
 
 /// Usage and cost for a single model within a session, as found in
@@ -87,8 +112,20 @@ pub struct ModelUsageEntry {
     pub cost_usd: f64,
     #[serde(default)]
     pub web_search_requests: u32,
+    #[serde(default)]
+    pub context_window: u64,
+    #[serde(default)]
+    pub max_output_tokens: u64,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Tool use deferred by a terminal result.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DeferredToolUse {
+    pub id: String,
+    pub name: String,
+    pub input: Value,
 }
 
 /// A record of a tool permission that was denied during the session.
@@ -108,12 +145,59 @@ pub struct PermissionDenial {
 }
 
 /// Result subtypes
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultSubtype {
     Success,
     ErrorMaxTurns,
     ErrorDuringExecution,
+    ErrorMaxBudgetUsd,
+    ErrorMaxStructuredOutputRetries,
+    Unknown(String),
+}
+
+impl ResultSubtype {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Success => "success",
+            Self::ErrorMaxTurns => "error_max_turns",
+            Self::ErrorDuringExecution => "error_during_execution",
+            Self::ErrorMaxBudgetUsd => "error_max_budget_usd",
+            Self::ErrorMaxStructuredOutputRetries => "error_max_structured_output_retries",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for ResultSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for ResultSubtype {
+    fn from(s: &str) -> Self {
+        match s {
+            "success" => Self::Success,
+            "error_max_turns" => Self::ErrorMaxTurns,
+            "error_during_execution" => Self::ErrorDuringExecution,
+            "error_max_budget_usd" => Self::ErrorMaxBudgetUsd,
+            "error_max_structured_output_retries" => Self::ErrorMaxStructuredOutputRetries,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for ResultSubtype {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ResultSubtype {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 /// Usage information for the request
@@ -181,6 +265,46 @@ mod tests {
 
         let output: ClaudeOutput = serde_json::from_str(json).unwrap();
         assert!(!output.is_error());
+    }
+
+    #[test]
+    fn test_result_subtype_new_and_unknown_values_do_not_fail() {
+        let json = r#"{
+            "type": "result",
+            "subtype": "error_max_budget_usd",
+            "is_error": true,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "123",
+            "total_cost_usd": 0.01
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let ClaudeOutput::Result(result) = output else {
+            panic!("Expected Result");
+        };
+        assert_eq!(result.subtype, ResultSubtype::ErrorMaxBudgetUsd);
+
+        let json = r#"{
+            "type": "result",
+            "subtype": "future_result_subtype",
+            "is_error": true,
+            "duration_ms": 100,
+            "duration_api_ms": 200,
+            "num_turns": 1,
+            "session_id": "123",
+            "total_cost_usd": 0.01
+        }"#;
+
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let ClaudeOutput::Result(result) = output else {
+            panic!("Expected Result");
+        };
+        assert_eq!(
+            result.subtype,
+            ResultSubtype::Unknown("future_result_subtype".to_string())
+        );
     }
 
     #[test]
