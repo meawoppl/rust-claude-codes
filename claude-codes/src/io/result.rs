@@ -202,6 +202,12 @@ impl<'de> Deserialize<'de> for ResultSubtype {
 }
 
 /// Usage information for the request
+///
+/// Note: the `result` frame's usage covers the **main agent only** — the
+/// subagent (`Task` / sidechain) token rollup the CLI renders as
+/// `<subagent_tokens>` / `<agent_count>` is not carried here or anywhere
+/// else on the wire. Accumulate it from `Task` tool results with
+/// [`SubagentUsageRollup`](crate::SubagentUsageRollup).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageInfo {
     #[serde(default)]

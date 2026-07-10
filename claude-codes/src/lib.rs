@@ -182,7 +182,7 @@ pub use io::{
 // Usage types
 pub use io::{
     AssistantUsage, CacheCreationDetails, DeferredToolUse, ServerToolUse, SubagentResult,
-    SubagentToolStats, UsageInfo,
+    SubagentToolStats, SubagentUsageRollup, UsageInfo,
 };
 
 // Typed tool input types
