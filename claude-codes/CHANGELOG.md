@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Re-exported `OveragePeriodUtilization` and `RateLimitErrorCode` at the
     crate root.
 
+- **`SubagentUsageRollup`** — session-level accumulator for the subagent
+  token rollup the CLI renders as `<subagent_tokens>` / `<agent_count>` in its
+  terminal `<usage>` block (resolves #169). Feed every `ClaudeOutput` through
+  `observe()`; it gates on genuine `Task` results (`agentId`/`totalTokens`
+  present), dedupes replayed frames by `agentId`, and totals tokens, agent
+  count, tool uses, and duration. `UsageInfo` now documents explicitly that
+  the `result` frame's usage covers the main agent only — the rollup is not
+  carried on the wire. Re-exported at the crate root.
+
 ### Changed (breaking)
 
 - `ClaudeOutput` gained additional variants, so exhaustive matches must handle

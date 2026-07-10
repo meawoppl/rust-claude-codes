@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::fmt;
 use uuid::Uuid;
 
+use super::claude_output::ClaudeOutput;
 use super::content_blocks::{deserialize_content_blocks, ContentBlock};
 
 /// Known system message subtypes.
@@ -741,6 +742,85 @@ pub struct SubagentToolStats {
     pub other_tool_count: u64,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, Value>,
+}
+
+/// Session-level subagent token rollup — the `<subagent_tokens>` /
+/// `<agent_count>` line items the Claude CLI renders in its terminal
+/// `<usage>` block.
+///
+/// The `stream-json` protocol does **not** carry this rollup on the `result`
+/// frame's `usage` (confirmed against the CLI binary — the terminal renderer
+/// computes it from `Task` tool results). Consumers that need it must
+/// accumulate it the same way: feed every session message through
+/// [`observe`](Self::observe) and read the totals at any point.
+///
+/// A `Task` result observed twice under the same `agentId` (e.g. a replayed
+/// frame on resume) is counted once. Results with no `agentId` are counted
+/// every time they are observed.
+///
+/// # Example
+///
+/// ```
+/// use claude_codes::{ClaudeOutput, SubagentUsageRollup};
+///
+/// let mut rollup = SubagentUsageRollup::default();
+/// let json = r#"{"type":"user","message":{"role":"user","content":[]},"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1","tool_use_result":{"status":"completed","agentId":"ab52f22445470d454","totalDurationMs":1853,"totalTokens":10201,"totalToolUseCount":0}}"#;
+/// let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+/// rollup.observe(&output);
+/// assert_eq!(rollup.subagent_tokens, 10201);
+/// assert_eq!(rollup.agent_count, 1);
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SubagentUsageRollup {
+    /// Total tokens consumed by subagents — sum of
+    /// [`SubagentResult::total_tokens`] over every observed `Task` result.
+    pub subagent_tokens: u64,
+    /// Number of subagent runs observed (`<agent_count>`).
+    pub agent_count: u32,
+    /// Total subagent tool invocations — sum of `total_tool_use_count`.
+    pub tool_uses: u64,
+    /// Total subagent wall-clock milliseconds — sum of `total_duration_ms`.
+    pub duration_ms: u64,
+    seen_agent_ids: std::collections::BTreeSet<String>,
+}
+
+impl SubagentUsageRollup {
+    /// Accumulate `output` into the rollup if it is a `Task` tool result.
+    ///
+    /// Returns `true` when the message contributed to the totals. Non-user
+    /// messages, user messages without a `tool_use_result`, results from
+    /// other tools, and duplicate `agentId`s are all ignored.
+    pub fn observe(&mut self, output: &ClaudeOutput) -> bool {
+        match output {
+            ClaudeOutput::User(user) => self.observe_user(user),
+            _ => false,
+        }
+    }
+
+    /// Accumulate a user message's `Task` tool result, if it carries one.
+    ///
+    /// Every [`SubagentResult`] field is optional, so any JSON object in
+    /// `tool_use_result` parses as one (e.g. a `Bash` or `ToolSearch`
+    /// result). Only results carrying an `agentId` or a `totalTokens`
+    /// line item are treated as genuine `Task` results.
+    pub fn observe_user(&mut self, user: &UserMessage) -> bool {
+        let Some(result) = user.subagent_result() else {
+            return false;
+        };
+        if result.total_tokens.is_none() && result.agent_id.is_none() {
+            return false;
+        }
+        if let Some(agent_id) = &result.agent_id {
+            if !self.seen_agent_ids.insert(agent_id.clone()) {
+                return false;
+            }
+        }
+        self.agent_count += 1;
+        self.subagent_tokens += result.total_tokens.unwrap_or(0);
+        self.tool_uses += result.total_tool_use_count.unwrap_or(0);
+        self.duration_ms += result.total_duration_ms.unwrap_or(0);
+        true
+    }
 }
 
 /// Message content with role
@@ -1991,6 +2071,74 @@ pub struct CacheCreationDetails {
 #[cfg(test)]
 mod tests {
     use crate::io::ClaudeOutput;
+
+    #[test]
+    fn test_subagent_usage_rollup_accumulates_task_results() {
+        use super::SubagentUsageRollup;
+
+        let mut rollup = SubagentUsageRollup::default();
+
+        let task_result = r#"{"type":"user","message":{"role":"user","content":[]},"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1","tool_use_result":{"status":"completed","prompt":"Compute 6 times 7.","agentId":"ab52f22445470d454","agentType":"general-purpose","resolvedModel":"claude-sonnet-4-6","totalDurationMs":1853,"totalTokens":10201,"totalToolUseCount":3}}"#;
+        let output: ClaudeOutput = serde_json::from_str(task_result).unwrap();
+        assert!(rollup.observe(&output));
+        assert_eq!(rollup.subagent_tokens, 10201);
+        assert_eq!(rollup.agent_count, 1);
+        assert_eq!(rollup.tool_uses, 3);
+        assert_eq!(rollup.duration_ms, 1853);
+
+        // Replayed frame with the same agentId is counted once.
+        assert!(!rollup.observe(&output));
+        assert_eq!(rollup.agent_count, 1);
+        assert_eq!(rollup.subagent_tokens, 10201);
+
+        // A second agent accumulates.
+        let second = r#"{"type":"user","message":{"role":"user","content":[]},"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1","tool_use_result":{"status":"completed","agentId":"ffff00001111","totalDurationMs":100,"totalTokens":500,"totalToolUseCount":1}}"#;
+        let output: ClaudeOutput = serde_json::from_str(second).unwrap();
+        assert!(rollup.observe(&output));
+        assert_eq!(rollup.agent_count, 2);
+        assert_eq!(rollup.subagent_tokens, 10701);
+    }
+
+    #[test]
+    fn test_subagent_usage_rollup_ignores_non_task_results() {
+        use super::SubagentUsageRollup;
+
+        let mut rollup = SubagentUsageRollup::default();
+
+        // A ToolSearch tool_use_result parses as an all-None SubagentResult;
+        // it must not count as a subagent.
+        let tool_search = r#"{"type":"user","message":{"role":"user","content":[]},"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1","tool_use_result":{"matches":["TaskCreate"],"query":"select:TaskCreate","total_deferred_tools":27}}"#;
+        let output: ClaudeOutput = serde_json::from_str(tool_search).unwrap();
+        assert!(!rollup.observe(&output));
+
+        // Plain user message without tool_use_result.
+        let plain = r#"{"type":"user","message":{"role":"user","content":[]},"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1"}"#;
+        let output: ClaudeOutput = serde_json::from_str(plain).unwrap();
+        assert!(!rollup.observe(&output));
+
+        // Non-user frames are ignored.
+        let system = r#"{"type":"system","subtype":"status","status":null,"session_id":"7fbc568e-2bd6-45aa-b217-a1cf80004ba1"}"#;
+        let output: ClaudeOutput = serde_json::from_str(system).unwrap();
+        assert!(!rollup.observe(&output));
+
+        assert_eq!(rollup, SubagentUsageRollup::default());
+    }
+
+    #[test]
+    fn test_subagent_usage_rollup_over_captured_session() {
+        use super::SubagentUsageRollup;
+
+        let mut rollup = SubagentUsageRollup::default();
+        let fixture =
+            include_str!("../../test_cases/subagent_sessions/general_purpose_compute.jsonl");
+        for line in fixture.lines().filter(|l| !l.trim().is_empty()) {
+            if let Ok(output) = serde_json::from_str::<ClaudeOutput>(line) {
+                rollup.observe(&output);
+            }
+        }
+        assert_eq!(rollup.agent_count, 1);
+        assert_eq!(rollup.subagent_tokens, 10201);
+    }
 
     #[test]
     fn test_system_message_init() {
