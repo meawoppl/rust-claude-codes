@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.160] - 2026-07-10
 
 ### Added
 
@@ -52,6 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deserialize.
 - `RateLimitWindow::Hourly` removed; the window no longer exists in the CLI
   schema. An `"hourly"` value now parses as `RateLimitWindow::Unknown`.
+
+### Changed
+
+- **Tested Claude CLI version** bumped to 2.1.205 — the full integration suite
+  passes against the installed binary. One suite fix was required: CLI 2.1.205
+  only enables `AskUserQuestion` in headless mode when a permission-prompt
+  tool is configured (`--permission-prompt-tool`), so the round-trip test now
+  spawns with one, matching the existing converge test.
 
 ## [2.1.159] - 2026-06-27
 

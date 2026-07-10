@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "claude-codes"
-version = "2.1.159"
+version = "2.1.160"
 dependencies = [
  "anyhow",
  "base64",
@@ -241,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "codex-codes"
-version = "0.143.0"
+version = "0.143.1"
 dependencies = [
  "env_logger",
  "jsonschema",
