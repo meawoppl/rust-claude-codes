@@ -2877,6 +2877,12 @@ pub enum LoginAccountParams {
         )]
         chatgpt_plan_type: Option<String>,
     },
+    #[serde(rename = "amazonBedrock")]
+    AmazonBedrock {
+        #[serde(rename = "apiKey")]
+        api_key: String,
+        region: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2901,6 +2907,8 @@ pub enum LoginAccountResponse {
     },
     #[serde(rename = "chatgptAuthTokens")]
     ChatgptAuthTokens,
+    #[serde(rename = "amazonBedrock")]
+    AmazonBedrock,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
