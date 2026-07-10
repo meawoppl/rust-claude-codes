@@ -138,7 +138,7 @@ let serialized = Protocol::serialize(&output)?;
 
 ## Compatibility
 
-**Tested against:** Claude CLI 2.1.178
+**Tested against:** Claude CLI 2.1.205
 
 The crate version tracks the Claude CLI version. If you're using a different CLI version, please report whether it works at:
 https://github.com/meawoppl/rust-code-agent-sdks/issues

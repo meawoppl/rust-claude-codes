@@ -1925,10 +1925,13 @@ async fn test_ask_user_question_round_trip() {
 
     let _ = env_logger::builder().is_test(true).try_init();
 
+    // CLI 2.1.205+ only enables AskUserQuestion in headless mode when a
+    // permission-prompt tool is configured.
     let child = ClaudeCliBuilder::new()
         .model("sonnet")
         .allow_recursion()
         .allowed_tools(["AskUserQuestion"])
+        .permission_prompt_tool("stdio")
         .spawn()
         .await
         .expect("Failed to spawn Claude");
