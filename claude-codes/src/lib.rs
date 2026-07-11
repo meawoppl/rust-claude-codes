@@ -102,6 +102,7 @@
 pub mod error;
 pub mod io;
 pub mod messages;
+pub mod models;
 pub mod protocol;
 pub mod tool_inputs;
 pub mod types;
@@ -125,6 +126,7 @@ pub use io::{
     ClaudeOutput, ParseError, TranscriptMessage,
 };
 pub use messages::*;
+pub use models::ClaudeModel;
 pub use protocol::{MessageEnvelope, Protocol};
 pub use types::*;
 
