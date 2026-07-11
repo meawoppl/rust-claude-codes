@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`CodexModel`** — convenience enum for the Codex model catalog, keyed by
+  human-friendly names (`Gpt56Sol`, `Gpt56Terra`, `Gpt56Luna`, `Gpt55`,
+  `Gpt54`, `Gpt54Mini`, `Gpt52`, `CodexAutoReview`), taken from
+  `openai/codex@main`'s bundled `models-manager/models.json` (2026-07-11).
+  `cli_arg()` returns the slug for `codex -m` / `ThreadStartParams.model`,
+  `display_name()` the catalog's display name, and `Custom(String)` passes
+  unknown slugs through. Re-exported at the crate root.
+
 ## [0.143.1] - 2026-07-10
 
 ### Changed

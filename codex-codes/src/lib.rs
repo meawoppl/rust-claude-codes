@@ -109,6 +109,7 @@ pub mod io;
 pub mod error;
 pub mod jsonrpc;
 pub mod messages;
+pub mod models;
 pub mod protocol;
 pub mod protocol_generated;
 
@@ -148,6 +149,9 @@ pub use protocol::*;
 
 // Typed message dispatch (notifications + server-to-client requests)
 pub use messages::{Notification, ServerMessage, ServerRequest};
+
+// Model catalog convenience enum
+pub use models::CodexModel;
 
 // CLI builder (feature-gated)
 #[cfg(any(feature = "sync-client", feature = "async-client"))]

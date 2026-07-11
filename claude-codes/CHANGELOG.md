@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`ClaudeModel`** — convenience enum for every model selector the Claude CLI
+  accepts, keyed by human-friendly names. Floating aliases (`Sonnet`, `Opus`,
+  `Haiku`, `Fable`, `Best`, `OpusPlan`, and the `[1m]` context variants) plus
+  the pinned registry models (`Fable5`, `Mythos5`, `Opus48` … `Haiku35`),
+  extracted from the CLI 2.1.205 binary's model registry. `cli_arg()` returns
+  the exact `--model` string, `display_name()` the human-readable name, and
+  `Custom(String)` passes unknown models through verbatim.
+  `ClaudeCliBuilder::model(ClaudeModel::Sonnet5)` works directly via
+  `Into<String>`. Re-exported at the crate root.
+
 ## [2.1.160] - 2026-07-10
 
 ### Added
