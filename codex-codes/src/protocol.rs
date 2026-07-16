@@ -200,3 +200,227 @@ pub mod methods {
     pub const APPLY_PATCH_APPROVAL: &str = "applyPatchApproval";
     pub const EXEC_COMMAND_APPROVAL: &str = "execCommandApproval";
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Ergonomic constructors over the generated wire types.
+//
+// The types themselves are code-generated from the upstream schema; these
+// hand-written impls live here so they survive regeneration. They cover two
+// pain points for downstream consumers:
+//
+//   * `Default` for the all-optional client request params, so callers don't
+//     have to spell out every `None` field or construct via `from_value`.
+//   * `accept` / `decline` / `approved` / `denied` constructors for the
+//     approval-response payloads, so callers don't hand-roll `serde_json`
+//     objects and can't typo the wire `decision` string.
+// ──────────────────────────────────────────────────────────────────────────
+
+macro_rules! default_from_empty_object {
+    ($($ty:ident),+ $(,)?) => {
+        $(
+            impl Default for $ty {
+                fn default() -> Self {
+                    // Every field is `#[serde(default)]`, so an empty object
+                    // yields the fully-unset params. Deserializing (rather than
+                    // listing fields) keeps this correct as the upstream schema
+                    // adds optional fields, and mirrors the construction idiom
+                    // shown in the crate docs.
+                    serde_json::from_value(serde_json::Value::Object(Default::default()))
+                        .expect(concat!(
+                            stringify!($ty),
+                            ": every field is serde-default, so `{}` must deserialize"
+                        ))
+                }
+            }
+        )+
+    };
+}
+
+default_from_empty_object!(
+    ThreadStartParams,
+    TurnStartParams,
+    ThreadResumeParams,
+    ThreadForkParams,
+);
+
+impl FileChangeRequestApprovalResponse {
+    /// Approve this file-change request (`{"decision":"accept"}`).
+    pub fn accept() -> Self {
+        Self {
+            decision: FileChangeApprovalDecision::Accept,
+        }
+    }
+
+    /// Approve this and future file changes for the session.
+    pub fn accept_for_session() -> Self {
+        Self {
+            decision: FileChangeApprovalDecision::AcceptForSession,
+        }
+    }
+
+    /// Decline this file-change request (`{"decision":"decline"}`).
+    pub fn decline() -> Self {
+        Self {
+            decision: FileChangeApprovalDecision::Decline,
+        }
+    }
+
+    /// Cancel the turn in response to this request.
+    pub fn cancel() -> Self {
+        Self {
+            decision: FileChangeApprovalDecision::Cancel,
+        }
+    }
+}
+
+impl CommandExecutionRequestApprovalResponse {
+    /// Approve this command execution (`{"decision":"accept"}`).
+    pub fn accept() -> Self {
+        Self {
+            decision: CommandExecutionApprovalDecision::Accept,
+        }
+    }
+
+    /// Approve this and future command executions for the session.
+    pub fn accept_for_session() -> Self {
+        Self {
+            decision: CommandExecutionApprovalDecision::AcceptForSession,
+        }
+    }
+
+    /// Decline this command execution (`{"decision":"decline"}`).
+    pub fn decline() -> Self {
+        Self {
+            decision: CommandExecutionApprovalDecision::Decline,
+        }
+    }
+
+    /// Cancel the turn in response to this request.
+    pub fn cancel() -> Self {
+        Self {
+            decision: CommandExecutionApprovalDecision::Cancel,
+        }
+    }
+}
+
+impl ExecCommandApprovalResponse {
+    /// Approve the exec command (`{"decision":"approved"}`).
+    pub fn approved() -> Self {
+        Self {
+            decision: ReviewDecision::Approved,
+        }
+    }
+
+    /// Approve the exec command for the rest of the session.
+    pub fn approved_for_session() -> Self {
+        Self {
+            decision: ReviewDecision::ApprovedForSession,
+        }
+    }
+
+    /// Deny the exec command (`{"decision":"denied"}`).
+    pub fn denied() -> Self {
+        Self {
+            decision: ReviewDecision::Denied,
+        }
+    }
+
+    /// Abort the turn in response to the request.
+    pub fn abort() -> Self {
+        Self {
+            decision: ReviewDecision::Abort,
+        }
+    }
+}
+
+impl ApplyPatchApprovalResponse {
+    /// Approve the patch (`{"decision":"approved"}`).
+    pub fn approved() -> Self {
+        Self {
+            decision: ReviewDecision::Approved,
+        }
+    }
+
+    /// Approve this and future patches for the session.
+    pub fn approved_for_session() -> Self {
+        Self {
+            decision: ReviewDecision::ApprovedForSession,
+        }
+    }
+
+    /// Deny the patch (`{"decision":"denied"}`).
+    pub fn denied() -> Self {
+        Self {
+            decision: ReviewDecision::Denied,
+        }
+    }
+
+    /// Abort the turn in response to the request.
+    pub fn abort() -> Self {
+        Self {
+            decision: ReviewDecision::Abort,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thread_start_params_default_is_empty_object() {
+        let p = ThreadStartParams::default();
+        assert_eq!(serde_json::to_value(&p).unwrap(), serde_json::json!({}));
+    }
+
+    #[test]
+    fn turn_start_params_default_round_trips() {
+        let p = TurnStartParams::default();
+        let v = serde_json::to_value(&p).unwrap();
+        // thread_id + input are required-but-defaulted; everything else omits.
+        assert_eq!(v["threadId"], "");
+        assert_eq!(v["input"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn thread_resume_and_fork_params_default() {
+        let _ = ThreadResumeParams::default();
+        let _ = ThreadForkParams::default();
+    }
+
+    #[test]
+    fn file_change_approval_response_wire_shape() {
+        assert_eq!(
+            serde_json::to_value(FileChangeRequestApprovalResponse::accept()).unwrap(),
+            serde_json::json!({"decision": "accept"})
+        );
+        assert_eq!(
+            serde_json::to_value(FileChangeRequestApprovalResponse::decline()).unwrap(),
+            serde_json::json!({"decision": "decline"})
+        );
+    }
+
+    #[test]
+    fn command_execution_approval_response_wire_shape() {
+        assert_eq!(
+            serde_json::to_value(CommandExecutionRequestApprovalResponse::accept()).unwrap(),
+            serde_json::json!({"decision": "accept"})
+        );
+        assert_eq!(
+            serde_json::to_value(CommandExecutionRequestApprovalResponse::cancel()).unwrap(),
+            serde_json::json!({"decision": "cancel"})
+        );
+    }
+
+    #[test]
+    fn exec_and_apply_patch_approval_response_wire_shape() {
+        assert_eq!(
+            serde_json::to_value(ExecCommandApprovalResponse::approved()).unwrap(),
+            serde_json::json!({"decision": "approved"})
+        );
+        assert_eq!(
+            serde_json::to_value(ApplyPatchApprovalResponse::denied()).unwrap(),
+            serde_json::json!({"decision": "denied"})
+        );
+    }
+}
