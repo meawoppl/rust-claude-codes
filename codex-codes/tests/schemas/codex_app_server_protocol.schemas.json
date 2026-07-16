@@ -4332,6 +4332,46 @@
           "properties": {
             "method": {
               "enum": [
+                "thread/environment/connected"
+              ],
+              "title": "Thread/environment/connectedNotificationMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/EnvironmentConnectionNotification"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "title": "Thread/environment/connectedNotification",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "enum": [
+                "thread/environment/disconnected"
+              ],
+              "title": "Thread/environment/disconnectedNotificationMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/EnvironmentConnectionNotification"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "title": "Thread/environment/disconnectedNotification",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "enum": [
                 "thread/settings/updated"
               ],
               "title": "Thread/settings/updatedNotificationMethod",
@@ -5476,6 +5516,13 @@
           "type": "object"
         }
       ],
+      "properties": {
+        "emittedAtMs": {
+          "description": "Unix timestamp (in milliseconds) when app-server emitted this notification.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
       "title": "ServerNotification"
     },
     "ServerRequest": {
@@ -9018,6 +9065,23 @@
           }
         ]
       },
+      "EnvironmentConnectionNotification": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "environmentId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "environmentId",
+          "threadId"
+        ],
+        "title": "EnvironmentConnectionNotification",
+        "type": "object"
+      },
       "ErrorNotification": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
@@ -9237,6 +9301,20 @@
           "includeHome": {
             "description": "If true, include detection under the user's home directory.",
             "type": "boolean"
+          },
+          "migrationSource": {
+            "description": "Optional migration-source selector. Missing or unrecognized values use the default source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "description": "Deprecated field retained for compatibility. This field is ignored; use `migrationSource` to select the migration source.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "title": "ExternalAgentConfigDetectParams",
@@ -9281,6 +9359,12 @@
       "ExternalAgentConfigImportHistoriesReadResponse": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
+          "connectors": {
+            "items": {
+              "$ref": "#/definitions/v2/ExternalAgentImportedConnectorCandidate"
+            },
+            "type": "array"
+          },
           "data": {
             "items": {
               "$ref": "#/definitions/v2/ExternalAgentConfigImportHistory"
@@ -9289,6 +9373,7 @@
           }
         },
         "required": [
+          "connectors",
           "data"
         ],
         "title": "ExternalAgentConfigImportHistoriesReadResponse",
@@ -9352,6 +9437,12 @@
               "string",
               "null"
             ]
+          },
+          "subErrorType": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -9399,8 +9490,15 @@
             },
             "type": "array"
           },
+          "migrationSource": {
+            "description": "Migration-source selector used to produce the migration items. Pass the same value to detection and import; missing or unrecognized values use the default source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source": {
-            "description": "Source product that produced the migration items. Missing means unspecified.",
+            "description": "Optional identifier for the product that initiated the import.",
             "type": [
               "string",
               "null"
@@ -9513,7 +9611,35 @@
           "SUBAGENTS",
           "HOOKS",
           "COMMANDS",
+          "MEMORY",
           "SESSIONS"
+        ],
+        "type": "string"
+      },
+      "ExternalAgentImportedConnectorCandidate": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sessionCount": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/definitions/v2/ExternalAgentImportedConnectorSource"
+          }
+        },
+        "required": [
+          "name",
+          "sessionCount",
+          "source"
+        ],
+        "type": "object"
+      },
+      "ExternalAgentImportedConnectorSource": {
+        "enum": [
+          "remoteMcpServersConfig"
         ],
         "type": "string"
       },
@@ -9758,9 +9884,13 @@
                 "type": "string"
               },
               "subpath": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/v2/LegacyAppPathString"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -9812,9 +9942,13 @@
                 "type": "string"
               },
               "subpath": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/v2/LegacyAppPathString"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -12361,12 +12495,6 @@
               "string",
               "null"
             ]
-          },
-          "templateId": {
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
@@ -12526,6 +12654,12 @@
             "default": [],
             "items": {
               "$ref": "#/definitions/v2/McpServerMigration"
+            },
+            "type": "array"
+          },
+          "memory": {
+            "items": {
+              "type": "string"
             },
             "type": "array"
           },
@@ -13413,6 +13547,15 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "scheduledTasks": {
+            "items": {
+              "$ref": "#/definitions/v2/ScheduledTaskSummary"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "shareUrl": {
             "type": [
@@ -14786,6 +14929,13 @@
                 "type": "null"
               }
             ]
+          },
+          "spendControlReached": {
+            "description": "Backend-reported spend-control state. `None` is unavailable, not a sparse-update recovery.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -14816,6 +14966,38 @@
         ],
         "type": "object"
       },
+      "RawResponseCompletedNotification": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "Internal-only notification containing the exact usage from one upstream Responses API completion.",
+        "properties": {
+          "responseId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/TokenUsageBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "responseId",
+          "threadId",
+          "turnId"
+        ],
+        "title": "RawResponseCompletedNotification",
+        "type": "object"
+      },
       "RawResponseItemCompletedNotification": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
@@ -14840,7 +15022,8 @@
       "RealtimeConversationVersion": {
         "enum": [
           "v1",
-          "v2"
+          "v2",
+          "v3"
         ],
         "type": "string"
       },
@@ -16406,6 +16589,143 @@
           }
         },
         "type": "object"
+      },
+      "ScheduledTaskSchedule": {
+        "oneOf": [
+          {
+            "properties": {
+              "days": {
+                "items": {
+                  "$ref": "#/definitions/v2/ScheduledTaskWeekday"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "intervalHours": {
+                "format": "uint32",
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              "type": {
+                "enum": [
+                  "hourly"
+                ],
+                "title": "HourlyScheduledTaskScheduleType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "intervalHours",
+              "type"
+            ],
+            "title": "HourlyScheduledTaskSchedule",
+            "type": "object"
+          },
+          {
+            "properties": {
+              "time": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "daily"
+                ],
+                "title": "DailyScheduledTaskScheduleType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "time",
+              "type"
+            ],
+            "title": "DailyScheduledTaskSchedule",
+            "type": "object"
+          },
+          {
+            "properties": {
+              "time": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "weekdays"
+                ],
+                "title": "WeekdaysScheduledTaskScheduleType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "time",
+              "type"
+            ],
+            "title": "WeekdaysScheduledTaskSchedule",
+            "type": "object"
+          },
+          {
+            "properties": {
+              "days": {
+                "items": {
+                  "$ref": "#/definitions/v2/ScheduledTaskWeekday"
+                },
+                "type": "array"
+              },
+              "time": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "weekly"
+                ],
+                "title": "WeeklyScheduledTaskScheduleType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "days",
+              "time",
+              "type"
+            ],
+            "title": "WeeklyScheduledTaskSchedule",
+            "type": "object"
+          }
+        ]
+      },
+      "ScheduledTaskSummary": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/definitions/v2/ScheduledTaskSchedule"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "prompt",
+          "schedule"
+        ],
+        "type": "object"
+      },
+      "ScheduledTaskWeekday": {
+        "enum": [
+          "MO",
+          "TU",
+          "WE",
+          "TH",
+          "FR",
+          "SA",
+          "SU"
+        ],
+        "type": "string"
       },
       "SelectedCapabilityRoot": {
         "description": "A user-selected root that can expose one or more runtime capabilities.",
@@ -18398,6 +18718,15 @@
               "query": {
                 "type": "string"
               },
+              "results": {
+                "default": null,
+                "description": "Structured search results returned out-of-band by standalone web search.\n\nThese stay as opaque JSON at the extension/app-server boundary so new result fields and result types can pass through without a Codex release.",
+                "items": true,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
               "type": {
                 "enum": [
                   "webSearch"
@@ -18439,6 +18768,7 @@
             "type": "object"
           },
           {
+            "description": "Display item emitted by the interruptible `clock.sleep` tool.",
             "properties": {
               "durationMs": {
                 "format": "uint64",
@@ -18577,6 +18907,22 @@
             "type": "object"
           }
         ]
+      },
+      "ThreadItemEntry": {
+        "properties": {
+          "item": {
+            "$ref": "#/definitions/v2/ThreadItem"
+          },
+          "turnId": {
+            "description": "Turn containing this item.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "turnId"
+        ],
+        "type": "object"
       },
       "ThreadListCwdFilter": {
         "anyOf": [
@@ -19975,6 +20321,11 @@
       },
       "TokenUsageBreakdown": {
         "properties": {
+          "cacheWriteInputTokens": {
+            "default": 0,
+            "format": "int64",
+            "type": "integer"
+          },
           "cachedInputTokens": {
             "format": "int64",
             "type": "integer"
@@ -20170,6 +20521,16 @@
           },
           "environmentId": {
             "type": "string"
+          },
+          "runtimeWorkspaceRoots": {
+            "description": "Environment-native runtime workspace roots. Omitted defaults to `cwd`.",
+            "items": {
+              "$ref": "#/definitions/v2/LegacyAppPathString"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [

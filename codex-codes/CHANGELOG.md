@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.143.4] - 2026-07-16
+
+Combines the `agent-portal` audit ergonomics (originally staged as an
+unreleased 0.143.3) with a fresh upstream schema re-snapshot.
+
+### Added
+
+- **`ServerMessage::from_json_str` / `from_value`** — parse a raw app-server
+  frame into a typed [`ServerMessage`] without a live client, reusing the same
+  dispatch the client runs. Server-initiated notifications and requests decode
+  to their typed variants (unknown methods route to `Unknown`); a JSON-RPC
+  response/error frame returns `Error::Protocol`. Unblocks replay, recovery,
+  and fixture-based tests downstream. (#209)
+- **`Notification::turn_id() -> Option<&str>`** — read the turn id a
+  notification is scoped to straight from its typed fields (`turn.id` for the
+  turn-lifecycle notifications, the flat `turnId` for the streaming ones),
+  instead of round-tripping through `into_envelope()` and poking
+  `serde_json::Value`. This is the id `turn/interrupt` needs. (#205)
+- **`Notification::thread_item() -> Option<&ThreadItem>`** — typed access to the
+  item carried by `item/started` / `item/completed`, so event adapters don't
+  reserialize items back into JSON. (#213)
+- **`Default` for `ThreadStartParams`, `TurnStartParams`, `ThreadResumeParams`,
+  and `ThreadForkParams`** — construct empty request params with
+  `Params::default()` instead of spelling out every `None` field. (#206)
+- **`accept()` / `decline()` / `cancel()` / `approved()` / `denied()` /
+  `abort()` constructors** on the approval-response payloads
+  (`FileChangeRequestApprovalResponse`,
+  `CommandExecutionRequestApprovalResponse`, `ExecCommandApprovalResponse`,
+  `ApplyPatchApprovalResponse`), so callers respond to approval requests
+  without hand-rolling `serde_json` `decision` objects. (#212)
+- **`Notification::ThreadEnvironmentConnected` / `ThreadEnvironmentDisconnected`**
+  — typed variants for the new `thread/environment/connected` and
+  `thread/environment/disconnected` server notifications (both carry
+  `EnvironmentConnectionNotification`). Schema coverage back to 100%.
+
+### Changed
+
+- **Re-snapshotted the Codex app-server schemas** against `openai/codex@main`;
+  both `codex_app_server_protocol{,.v2}.schemas.json` are byte-identical to
+  upstream again and the typed structs/samples were regenerated. Pulls in 6 new
+  definitions (`EnvironmentConnectionNotification`, `ScheduledTaskSummary` /
+  `ScheduledTaskSchedule` / `ScheduledTaskWeekday`,
+  `ExternalAgentImportedConnectorCandidate` / `ExternalAgentImportedConnectorSource`),
+  additive token/memory fields (e.g. `cacheWriteInputTokens` on
+  `TokenUsageBreakdown`, `memory` / `scheduledTasks` / `spendControlReached`),
+  and drops the upstream-removed `templateId` from `McpToolCallAppContext`.
+
 ## [0.143.2] - 2026-07-11
 
 ### Added

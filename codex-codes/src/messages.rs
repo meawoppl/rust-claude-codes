@@ -23,13 +23,14 @@
 //!   If you see one, the typed binding in [`crate::protocol`] is out of
 //!   sync with the wire format and needs to be updated.
 
-use crate::jsonrpc::RequestId;
+use crate::error::{Error, ParseError};
+use crate::jsonrpc::{JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, RequestId};
 use crate::protocol::{
     methods, AccountLoginCompletedNotification, AccountRateLimitsUpdatedNotification,
     AccountUpdatedNotification, AgentMessageDeltaNotification, AppListUpdatedNotification,
     CommandExecOutputDeltaNotification, CommandExecutionOutputDeltaNotification,
     CommandExecutionRequestApprovalParams, ConfigWarningNotification, ContextCompactedNotification,
-    DeprecationNoticeNotification, ErrorNotification,
+    DeprecationNoticeNotification, EnvironmentConnectionNotification, ErrorNotification,
     ExternalAgentConfigImportCompletedNotification, ExternalAgentConfigImportProgressNotification,
     FileChangeOutputDeltaNotification, FileChangePatchUpdatedNotification,
     FileChangeRequestApprovalParams, FsChangedNotification,
@@ -202,6 +203,10 @@ pub enum Notification {
     ExternalAgentConfigImportProgress(ExternalAgentConfigImportProgressNotification),
     /// `model/safetyBuffering/updated`
     ModelSafetyBufferingUpdated(ModelSafetyBufferingUpdatedNotification),
+    /// `thread/environment/connected`
+    ThreadEnvironmentConnected(EnvironmentConnectionNotification),
+    /// `thread/environment/disconnected`
+    ThreadEnvironmentDisconnected(EnvironmentConnectionNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -293,6 +298,8 @@ impl Notification {
                 methods::EXTERNAL_AGENT_CONFIG_IMPORT_PROGRESS
             }
             Self::ModelSafetyBufferingUpdated(_) => methods::MODEL_SAFETY_BUFFERING_UPDATED,
+            Self::ThreadEnvironmentConnected(_) => methods::THREAD_ENVIRONMENT_CONNECTED,
+            Self::ThreadEnvironmentDisconnected(_) => methods::THREAD_ENVIRONMENT_DISCONNECTED,
             Self::Unknown { method, .. } => method,
         }
     }
@@ -300,6 +307,62 @@ impl Notification {
     /// `true` if this notification's method isn't modeled by the crate.
     pub fn is_unknown(&self) -> bool {
         matches!(self, Self::Unknown { .. })
+    }
+
+    /// Return the turn id this notification is scoped to, if it carries one.
+    ///
+    /// Reads the typed `turnId` field (or `turn.id` for the turn-lifecycle
+    /// notifications) directly, so callers don't have to round-trip through
+    /// [`into_envelope`](Self::into_envelope) and poke `serde_json::Value`
+    /// fields. Returns `None` for notifications that aren't turn-scoped, and
+    /// treats an empty id the server omitted as absent.
+    ///
+    /// The turn id from `turn/started` is what
+    /// [`turn/interrupt`](crate::AsyncClient::turn_interrupt) needs to cancel
+    /// the active turn.
+    pub fn turn_id(&self) -> Option<&str> {
+        let id = match self {
+            Self::TurnStarted(n) => n.turn.id.as_str(),
+            Self::TurnCompleted(n) => n.turn.id.as_str(),
+            Self::AgentMessageDelta(n) => n.turn_id.as_str(),
+            Self::CmdOutputDelta(n) => n.turn_id.as_str(),
+            Self::FileChangeOutputDelta(n) => n.turn_id.as_str(),
+            Self::ReasoningDelta(n) => n.turn_id.as_str(),
+            Self::Error(n) => n.turn_id.as_str(),
+            Self::FileChangePatchUpdated(n) => n.turn_id.as_str(),
+            Self::PlanDelta(n) => n.turn_id.as_str(),
+            Self::TurnPlanUpdated(n) => n.turn_id.as_str(),
+            Self::TurnDiffUpdated(n) => n.turn_id.as_str(),
+            Self::TurnModerationMetadata(n) => n.turn_id.as_str(),
+            Self::ReasoningSummaryPartAdded(n) => n.turn_id.as_str(),
+            Self::ReasoningTextDelta(n) => n.turn_id.as_str(),
+            Self::ItemStarted(n) => n.turn_id.as_str(),
+            Self::ItemCompleted(n) => n.turn_id.as_str(),
+            Self::ContextCompacted(n) => n.turn_id.as_str(),
+            Self::McpToolCallProgress(n) => n.turn_id.as_str(),
+            Self::ModelRerouted(n) => n.turn_id.as_str(),
+            Self::ModelVerification(n) => n.turn_id.as_str(),
+            Self::ModelSafetyBufferingUpdated(n) => n.turn_id.as_str(),
+            Self::TerminalInteraction(n) => n.turn_id.as_str(),
+            Self::ThreadTokenUsageUpdated(n) => n.turn_id.as_str(),
+            Self::ItemGuardianApprovalReviewStarted(n) => n.turn_id.as_str(),
+            Self::ItemGuardianApprovalReviewCompleted(n) => n.turn_id.as_str(),
+            _ => return None,
+        };
+        (!id.is_empty()).then_some(id)
+    }
+
+    /// Return the typed [`ThreadItem`](crate::protocol::ThreadItem) this
+    /// notification carries, for `item/started` and `item/completed`.
+    ///
+    /// Lets downstream event adapters read the item's typed fields instead of
+    /// reserializing it back into `serde_json::Value`.
+    pub fn thread_item(&self) -> Option<&crate::protocol::ThreadItem> {
+        match self {
+            Self::ItemStarted(n) => Some(&n.item),
+            Self::ItemCompleted(n) => Some(&n.item),
+            _ => None,
+        }
     }
 
     /// Construct a [`Notification`] from a `method` + `params` envelope.
@@ -498,6 +561,12 @@ impl Notification {
             methods::MODEL_SAFETY_BUFFERING_UPDATED => {
                 serde_json::from_value(params_value).map(Self::ModelSafetyBufferingUpdated)
             }
+            methods::THREAD_ENVIRONMENT_CONNECTED => {
+                serde_json::from_value(params_value).map(Self::ThreadEnvironmentConnected)
+            }
+            methods::THREAD_ENVIRONMENT_DISCONNECTED => {
+                serde_json::from_value(params_value).map(Self::ThreadEnvironmentDisconnected)
+            }
             _ => Ok(Self::Unknown {
                 method: method.to_string(),
                 params,
@@ -611,6 +680,10 @@ impl Notification {
             }
             Self::ModelSafetyBufferingUpdated(v) => {
                 pack(methods::MODEL_SAFETY_BUFFERING_UPDATED, v)
+            }
+            Self::ThreadEnvironmentConnected(v) => pack(methods::THREAD_ENVIRONMENT_CONNECTED, v),
+            Self::ThreadEnvironmentDisconnected(v) => {
+                pack(methods::THREAD_ENVIRONMENT_DISCONNECTED, v)
             }
             Self::Unknown { method, params } => Ok((method.clone(), params.clone())),
         }
@@ -768,6 +841,58 @@ impl ServerMessage {
             Self::Request { request, .. } => request.is_unknown(),
         }
     }
+
+    /// Parse a raw app-server frame (one JSON-RPC line) into a [`ServerMessage`].
+    ///
+    /// This is the same parse path the [`AsyncClient`](crate::AsyncClient) and
+    /// [`SyncClient`](crate::SyncClient) run on incoming lines, exposed for
+    /// replay, recovery, and test fixtures that need to decode a captured frame
+    /// without a live client.
+    ///
+    /// A frame is a [`ServerMessage`] only if it is a server-initiated
+    /// notification or request. A JSON-RPC *response* / *error* (a reply to a
+    /// client request) is not a server message and returns
+    /// [`Error::Protocol`](crate::Error::Protocol). Unknown methods decode to
+    /// the `Unknown` variants rather than erroring; a modeled method whose
+    /// `params` don't fit returns [`Error::Deserialization`](crate::Error::Deserialization)
+    /// carrying the raw frame.
+    pub fn from_json_str(s: &str) -> Result<Self, Error> {
+        let msg: JsonRpcMessage = serde_json::from_str(s)
+            .map_err(|e| Error::Deserialization(ParseError::from_line(s, e)))?;
+        Self::from_jsonrpc(msg)
+    }
+
+    /// Parse a [`serde_json::Value`] frame into a [`ServerMessage`].
+    ///
+    /// See [`from_json_str`](Self::from_json_str) for the parsing contract.
+    pub fn from_value(value: Value) -> Result<Self, Error> {
+        let msg: JsonRpcMessage = serde_json::from_value(value.clone())
+            .map_err(|e| Error::Deserialization(ParseError::from_line(value.to_string(), e)))?;
+        Self::from_jsonrpc(msg)
+    }
+
+    fn from_jsonrpc(msg: JsonRpcMessage) -> Result<Self, Error> {
+        match msg {
+            JsonRpcMessage::Notification(JsonRpcNotification { method, params }) => {
+                Notification::from_envelope(&method, params.clone())
+                    .map(ServerMessage::Notification)
+                    .map_err(|e| Error::Deserialization(ParseError::from_envelope(method, params, e)))
+            }
+            JsonRpcMessage::Request(JsonRpcRequest { id, method, params }) => {
+                ServerRequest::from_envelope(&method, params.clone())
+                    .map(|request| ServerMessage::Request { id, request })
+                    .map_err(|e| Error::Deserialization(ParseError::from_envelope(method, params, e)))
+            }
+            JsonRpcMessage::Response(resp) => Err(Error::Protocol(format!(
+                "frame is a JSON-RPC response (id={}), not a server-initiated message",
+                resp.id
+            ))),
+            JsonRpcMessage::Error(err) => Err(Error::Protocol(format!(
+                "frame is a JSON-RPC error response (id={}, code={}), not a server-initiated message",
+                err.id, err.error.code
+            ))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -804,5 +929,108 @@ mod tests {
         assert!(matches!(n, Notification::AgentMessageDelta(_)));
         let back = serde_json::to_value(&n).unwrap();
         assert_eq!(back, wire);
+    }
+
+    #[test]
+    fn test_turn_id_from_turn_started() {
+        // turn/started carries the id under `turn.id`.
+        let wire = serde_json::json!({
+            "method": "turn/started",
+            "params": {"threadId": "t1", "turn": {"id": "turn_42", "status": "inProgress"}},
+        });
+        let n: Notification = serde_json::from_value(wire).unwrap();
+        assert!(matches!(n, Notification::TurnStarted(_)));
+        assert_eq!(n.turn_id(), Some("turn_42"));
+    }
+
+    #[test]
+    fn test_turn_id_from_delta_field() {
+        // Streaming notifications carry a flat `turnId`.
+        let wire = serde_json::json!({
+            "method": "item/agentMessage/delta",
+            "params": {"threadId": "t1", "turnId": "turn_7", "itemId": "i1", "delta": "hi"},
+        });
+        let n: Notification = serde_json::from_value(wire).unwrap();
+        assert_eq!(n.turn_id(), Some("turn_7"));
+    }
+
+    #[test]
+    fn test_turn_id_none_for_non_turn_notification() {
+        let n = Notification::from_envelope(
+            "thread/deleted",
+            Some(serde_json::json!({"threadId": "t1"})),
+        )
+        .unwrap();
+        assert_eq!(n.turn_id(), None);
+    }
+
+    #[test]
+    fn test_thread_item_accessor() {
+        let wire = serde_json::json!({
+            "method": "item/started",
+            "params": {
+                "threadId": "t1",
+                "turnId": "turn_1",
+                "startedAtMs": 0,
+                "item": {"type": "agentMessage", "id": "i1", "text": "hi"},
+            },
+        });
+        let n: Notification = serde_json::from_value(wire).unwrap();
+        assert!(n.thread_item().is_some());
+        // A non-item notification has no thread item.
+        let other = Notification::from_envelope(
+            "thread/deleted",
+            Some(serde_json::json!({"threadId": "t1"})),
+        )
+        .unwrap();
+        assert!(other.thread_item().is_none());
+    }
+
+    #[test]
+    fn test_server_message_from_json_str_notification() {
+        let line = r#"{"method":"turn/started","params":{"threadId":"t1","turn":{"id":"turn_9","status":"inProgress"}}}"#;
+        let msg = ServerMessage::from_json_str(line).expect("parses a notification frame");
+        match msg {
+            ServerMessage::Notification(n) => assert_eq!(n.turn_id(), Some("turn_9")),
+            other => panic!("expected Notification, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_server_message_from_value_request() {
+        let frame = serde_json::json!({
+            "id": 7,
+            "method": "execCommandApproval",
+            "params": {
+                "callId": "c1",
+                "command": ["ls"],
+                "conversationId": "th_1",
+                "cwd": "/tmp",
+                "parsedCmd": [],
+            },
+        });
+        let msg = ServerMessage::from_value(frame).expect("parses a request frame");
+        match msg {
+            ServerMessage::Request { id, request } => {
+                assert_eq!(id, RequestId::Integer(7));
+                assert!(matches!(request, ServerRequest::ExecCommandApproval(_)));
+            }
+            other => panic!("expected Request, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_server_message_from_json_str_rejects_response() {
+        // A response to a client request is not a server-initiated message.
+        let line = r#"{"id":1,"result":{"threadId":"th_abc"}}"#;
+        let err = ServerMessage::from_json_str(line).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)), "got: {err:?}");
+    }
+
+    #[test]
+    fn test_server_message_from_json_str_unknown_method_ok() {
+        let line = r#"{"method":"some/future/notification","params":{"x":1}}"#;
+        let msg = ServerMessage::from_json_str(line).unwrap();
+        assert!(msg.is_unknown());
     }
 }
