@@ -1,0 +1,128 @@
+name: Claude Schema Drift
+
+# Nightly check: does the installed Claude Code CLI's stream-json wire schema
+# still match our snapshot at
+# `claude-codes/tests/schemas/claude_stream_json_snapshot.txt`?
+#
+# Claude Code ships no published schema — the wire types live as minified zod
+# definitions inside the Bun-compiled CLI ELF. We install the CLI, extract the
+# schemas (scripts/extract_claude_sdk_schemas.py), reduce them to a
+# minification-invariant fingerprint (scripts/check_claude_schema_drift.py),
+# and diff against the snapshot. On drift we open (or update) an issue.
+#
+# Sibling of codex-schema-drift.yml; kept separate because the source of truth
+# is a locally-installed binary, not an upstream URL.
+
+on:
+  schedule:
+    # 06:47 UTC — offset from the codex drift check (06:17) and off the hour.
+    - cron: "47 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: diff installed CLI schema vs snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install the Claude Code CLI
+        # Best-effort: the native installer drops the Bun ELF at
+        # ~/.local/share/claude/versions/<version>. If this fails, the drift
+        # check exits 2 (soft skip) rather than failing the job.
+        run: |
+          set +e
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Trigger the download if the installer only placed a launcher shim.
+          "$HOME/.local/bin/claude" --version >/dev/null 2>&1 || true
+          exit 0
+
+      - name: Locate the CLI binary
+        id: bin
+        run: |
+          BIN="$(ls -d "$HOME"/.local/share/claude/versions/* 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$BIN" ] && command -v claude >/dev/null 2>&1; then
+            BIN="$(readlink -f "$(command -v claude)")"
+          fi
+          echo "binary=$BIN" >> "$GITHUB_OUTPUT"
+          echo "Resolved CLI binary: ${BIN:-<none>}"
+
+      - name: Run drift check
+        id: check
+        run: |
+          set +e
+          ARGS=""
+          if [ -n "${{ steps.bin.outputs.binary }}" ]; then
+            ARGS="--binary ${{ steps.bin.outputs.binary }}"
+          fi
+          python3 scripts/check_claude_schema_drift.py $ARGS | tee /tmp/claude_drift_report.md
+          STATUS=${PIPESTATUS[0]}
+          echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
+          case "$STATUS" in
+            0) echo "result=no-drift"      >> "$GITHUB_OUTPUT" ;;
+            1) echo "result=drift"         >> "$GITHUB_OUTPUT" ;;
+            *) echo "result=extract-skip"  >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit 0  # don't fail the job on drift; we open an issue instead
+
+      - name: Open or update drift issue
+        if: steps.check.outputs.result == 'drift'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Single-thread by label: at most one open drift issue at a time.
+          LABEL="claude-schema-drift"
+          TITLE="claude-codes: Claude Code stream-json schema has drifted from our snapshot"
+          BODY_FILE=/tmp/claude_drift_report.md
+          gh label create "$LABEL" \
+            --color "5319E7" \
+            --description "Nightly check found drift between the installed Claude CLI schema and our snapshot" \
+            --force \
+            || true
+          EXISTING=$(gh issue list --state open --label "$LABEL" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing drift issue #$EXISTING"
+            {
+              echo "_Nightly drift re-check (run #${{ github.run_number }}, $(date -u +%Y-%m-%dT%H:%MZ)):_"
+              echo
+              cat "$BODY_FILE"
+            } | gh issue comment "$EXISTING" --body-file -
+          else
+            echo "Opening new drift issue"
+            gh issue create \
+              --title "$TITLE" \
+              --label "$LABEL" \
+              --body-file "$BODY_FILE"
+          fi
+
+      - name: Report extract skip (job summary only — don't open issue)
+        if: steps.check.outputs.result == 'extract-skip'
+        run: |
+          {
+            echo "## Claude schema drift check skipped"
+            echo
+            echo "Could not install the Claude CLI or extract its schemas (the"
+            echo "bundle layout may have changed, or the install failed on the"
+            echo "runner). Will retry on the next nightly run; see"
+            echo "\`claude-codes/RESNAPSHOTTING.md\` if the extractor needs updating."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: All clear (job summary only)
+        if: steps.check.outputs.result == 'no-drift'
+        run: |
+          {
+            echo "## ✅ No Claude schema drift"
+            echo
+            echo "The installed CLI's wire labels and top-level fields match"
+            echo "\`claude-codes/tests/schemas/claude_stream_json_snapshot.txt\`."
+          } >> "$GITHUB_STEP_SUMMARY"

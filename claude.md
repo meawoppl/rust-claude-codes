@@ -13,6 +13,28 @@ This project follows a test-driven development approach for implementing the Cla
 5. **Verify Implementation**: Run `cargo test deserialization` to ensure the new types deserialize correctly
 6. **Lock in Progress**: Successful test cases prove our protocol implementation is correct
 
+### Re-snapshotting against a new Claude CLI
+
+Claude Code ships no published schema — the wire types live as minified zod
+definitions inside the Bun-compiled CLI ELF. Two scripts turn that into a
+drift signal:
+
+```bash
+# Full extraction (one block per schema, for the crate-side field-by-field diff):
+python3 scripts/extract_claude_sdk_schemas.py -o /tmp/claude_sdk_schemas.txt
+
+# Automated drift check against the committed snapshot (wire labels + top-level fields):
+python3 scripts/check_claude_schema_drift.py           # exit 0 clean / 1 drift / 2 skip
+python3 scripts/check_claude_schema_drift.py --update   # accept a new snapshot
+```
+
+The snapshot lives at `claude-codes/tests/schemas/claude_stream_json_snapshot.txt`
+and the nightly `.github/workflows/claude-schema-drift.yml` opens a
+`claude-schema-drift`-labelled issue when the installed CLI drifts from it.
+Full procedure — where the bundle lives, how to map schemas to crate types,
+what counts as drift, manual spelunking recipes — is in
+**`claude-codes/RESNAPSHOTTING.md`**.
+
 ## Git Workflow Requirements
 
 **CRITICAL: This repository enforces a strict PR-based workflow**
