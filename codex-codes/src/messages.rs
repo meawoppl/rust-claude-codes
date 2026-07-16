@@ -30,7 +30,7 @@ use crate::protocol::{
     AccountUpdatedNotification, AgentMessageDeltaNotification, AppListUpdatedNotification,
     CommandExecOutputDeltaNotification, CommandExecutionOutputDeltaNotification,
     CommandExecutionRequestApprovalParams, ConfigWarningNotification, ContextCompactedNotification,
-    DeprecationNoticeNotification, ErrorNotification,
+    DeprecationNoticeNotification, EnvironmentConnectionNotification, ErrorNotification,
     ExternalAgentConfigImportCompletedNotification, ExternalAgentConfigImportProgressNotification,
     FileChangeOutputDeltaNotification, FileChangePatchUpdatedNotification,
     FileChangeRequestApprovalParams, FsChangedNotification,
@@ -203,6 +203,10 @@ pub enum Notification {
     ExternalAgentConfigImportProgress(ExternalAgentConfigImportProgressNotification),
     /// `model/safetyBuffering/updated`
     ModelSafetyBufferingUpdated(ModelSafetyBufferingUpdatedNotification),
+    /// `thread/environment/connected`
+    ThreadEnvironmentConnected(EnvironmentConnectionNotification),
+    /// `thread/environment/disconnected`
+    ThreadEnvironmentDisconnected(EnvironmentConnectionNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -294,6 +298,8 @@ impl Notification {
                 methods::EXTERNAL_AGENT_CONFIG_IMPORT_PROGRESS
             }
             Self::ModelSafetyBufferingUpdated(_) => methods::MODEL_SAFETY_BUFFERING_UPDATED,
+            Self::ThreadEnvironmentConnected(_) => methods::THREAD_ENVIRONMENT_CONNECTED,
+            Self::ThreadEnvironmentDisconnected(_) => methods::THREAD_ENVIRONMENT_DISCONNECTED,
             Self::Unknown { method, .. } => method,
         }
     }
@@ -555,6 +561,12 @@ impl Notification {
             methods::MODEL_SAFETY_BUFFERING_UPDATED => {
                 serde_json::from_value(params_value).map(Self::ModelSafetyBufferingUpdated)
             }
+            methods::THREAD_ENVIRONMENT_CONNECTED => {
+                serde_json::from_value(params_value).map(Self::ThreadEnvironmentConnected)
+            }
+            methods::THREAD_ENVIRONMENT_DISCONNECTED => {
+                serde_json::from_value(params_value).map(Self::ThreadEnvironmentDisconnected)
+            }
             _ => Ok(Self::Unknown {
                 method: method.to_string(),
                 params,
@@ -668,6 +680,10 @@ impl Notification {
             }
             Self::ModelSafetyBufferingUpdated(v) => {
                 pack(methods::MODEL_SAFETY_BUFFERING_UPDATED, v)
+            }
+            Self::ThreadEnvironmentConnected(v) => pack(methods::THREAD_ENVIRONMENT_CONNECTED, v),
+            Self::ThreadEnvironmentDisconnected(v) => {
+                pack(methods::THREAD_ENVIRONMENT_DISCONNECTED, v)
             }
             Self::Unknown { method, params } => Ok((method.clone(), params.clone())),
         }

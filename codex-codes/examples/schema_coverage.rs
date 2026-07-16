@@ -465,6 +465,8 @@ mod samples {
             methods::THREAD_DELETED,
             methods::EXTERNAL_AGENT_CONFIG_IMPORT_PROGRESS,
             methods::MODEL_SAFETY_BUFFERING_UPDATED,
+            methods::THREAD_ENVIRONMENT_CONNECTED,
+            methods::THREAD_ENVIRONMENT_DISCONNECTED,
         ]
         .into_iter()
         .collect()

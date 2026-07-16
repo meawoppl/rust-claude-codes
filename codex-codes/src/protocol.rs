@@ -187,6 +187,8 @@ pub mod methods {
     pub const TURN_MODERATION_METADATA: &str = "turn/moderationMetadata";
     pub const EXTERNAL_AGENT_CONFIG_IMPORT_PROGRESS: &str = "externalAgentConfig/import/progress";
     pub const MODEL_SAFETY_BUFFERING_UPDATED: &str = "model/safetyBuffering/updated";
+    pub const THREAD_ENVIRONMENT_CONNECTED: &str = "thread/environment/connected";
+    pub const THREAD_ENVIRONMENT_DISCONNECTED: &str = "thread/environment/disconnected";
 
     // Server → client requests (approval flow, v2 envelope)
     pub const CMD_EXEC_APPROVAL: &str = "item/commandExecution/requestApproval";

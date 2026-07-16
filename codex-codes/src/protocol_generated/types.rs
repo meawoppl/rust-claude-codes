@@ -1478,6 +1478,15 @@ pub enum DynamicToolCallStatus {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EnvironmentConnectionNotification {
+    #[serde(rename = "environmentId", default)]
+    pub environment_id: String,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ErrorNotification {
     #[serde()]
     pub error: TurnError,
@@ -1605,6 +1614,14 @@ pub struct ExternalAgentConfigDetectParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub include_home: Option<bool>,
+    #[serde(
+        rename = "migrationSource",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub migration_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1626,6 +1643,8 @@ pub struct ExternalAgentConfigImportCompletedNotification {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistoriesReadResponse {
+    #[serde(default)]
+    pub connectors: Vec<ExternalAgentImportedConnectorCandidate>,
     #[serde(default)]
     pub data: Vec<ExternalAgentConfigImportHistory>,
 }
@@ -1658,6 +1677,12 @@ pub struct ExternalAgentConfigImportItemTypeFailure {
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    #[serde(
+        rename = "subErrorType",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sub_error_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1678,6 +1703,12 @@ pub struct ExternalAgentConfigImportItemTypeSuccess {
 pub struct ExternalAgentConfigImportParams {
     #[serde(rename = "migrationItems", default)]
     pub migration_items: Vec<ExternalAgentConfigMigrationItem>,
+    #[serde(
+        rename = "migrationSource",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub migration_source: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }
@@ -1740,8 +1771,27 @@ pub enum ExternalAgentConfigMigrationItemType {
     HOOKS,
     #[serde(rename = "COMMANDS")]
     COMMANDS,
+    #[serde(rename = "MEMORY")]
+    MEMORY,
     #[serde(rename = "SESSIONS")]
     SESSIONS,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalAgentImportedConnectorCandidate {
+    #[serde(default)]
+    pub name: String,
+    #[serde(rename = "sessionCount", default)]
+    pub session_count: i64,
+    #[serde()]
+    pub source: ExternalAgentImportedConnectorSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ExternalAgentImportedConnectorSource {
+    #[serde(rename = "remoteMcpServersConfig")]
+    RemoteMcpServersConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1888,14 +1938,14 @@ pub enum FileSystemSpecialPath {
     Minimal,
     ProjectRoots {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        subpath: Option<String>,
+        subpath: Option<LegacyAppPathString>,
     },
     Tmpdir,
     SlashTmp,
     Unknown {
         path: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        subpath: Option<String>,
+        subpath: Option<LegacyAppPathString>,
     },
 }
 
@@ -3540,12 +3590,6 @@ pub struct McpToolCallAppContext {
         skip_serializing_if = "Option::is_none"
     )]
     pub resource_uri: Option<String>,
-    #[serde(
-        rename = "templateId",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub template_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -3644,6 +3688,8 @@ pub struct MigrationDetails {
         skip_serializing_if = "Option::is_none"
     )]
     pub mcp_servers: Option<Vec<McpServerMigration>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Vec<PluginsMigration>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4182,6 +4228,12 @@ pub struct PluginDetail {
     pub marketplace_path: Option<AbsolutePathBuf>,
     #[serde(rename = "mcpServers", default)]
     pub mcp_servers: Vec<String>,
+    #[serde(
+        rename = "scheduledTasks",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub scheduled_tasks: Option<Vec<ScheduledTaskSummary>>,
     #[serde(rename = "shareUrl", default, skip_serializing_if = "Option::is_none")]
     pub share_url: Option<String>,
     #[serde(default)]
@@ -4917,6 +4969,12 @@ pub struct RateLimitSnapshot {
     pub rate_limit_reached_type: Option<RateLimitReachedType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secondary: Option<RateLimitWindow>,
+    #[serde(
+        rename = "spendControlReached",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub spend_control_reached: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4940,6 +4998,8 @@ pub enum RealtimeConversationVersion {
     V1,
     #[serde(rename = "v2")]
     V2,
+    #[serde(rename = "v3")]
+    V3,
 }
 
 /// A non-empty reasoning effort value advertised by the model.
@@ -5255,6 +5315,58 @@ pub struct SandboxWorkspaceWrite {
     pub network_access: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writable_roots: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ScheduledTaskSchedule {
+    Hourly {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        days: Option<Vec<ScheduledTaskWeekday>>,
+        #[serde(rename = "intervalHours")]
+        interval_hours: i64,
+    },
+    Daily {
+        time: String,
+    },
+    Weekdays {
+        time: String,
+    },
+    Weekly {
+        days: Vec<ScheduledTaskWeekday>,
+        time: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduledTaskSummary {
+    #[serde(default)]
+    pub key: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub prompt: String,
+    #[serde()]
+    pub schedule: ScheduledTaskSchedule,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ScheduledTaskWeekday {
+    #[serde(rename = "MO")]
+    MO,
+    #[serde(rename = "TU")]
+    TU,
+    #[serde(rename = "WE")]
+    WE,
+    #[serde(rename = "TH")]
+    TH,
+    #[serde(rename = "FR")]
+    FR,
+    #[serde(rename = "SA")]
+    SA,
+    #[serde(rename = "SU")]
+    SU,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6171,6 +6283,8 @@ pub enum ThreadItem {
         action: Option<WebSearchAction>,
         id: String,
         query: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        results: Option<Vec<Value>>,
     },
     #[serde(rename = "imageView")]
     ImageView {
@@ -6908,6 +7022,12 @@ pub enum ThreadUnsubscribeStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenUsageBreakdown {
+    #[serde(
+        rename = "cacheWriteInputTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cache_write_input_tokens: Option<i64>,
     #[serde(rename = "cachedInputTokens", default)]
     pub cached_input_tokens: i64,
     #[serde(rename = "inputTokens", default)]
