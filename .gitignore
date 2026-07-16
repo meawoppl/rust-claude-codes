@@ -34,3 +34,7 @@ reference/
 
 # Local Claude Code settings and agent worktrees
 .claude/
+
+# Python bytecode
+__pycache__/
+*.pyc
