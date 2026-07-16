@@ -142,6 +142,14 @@ pub fn server_notification_samples() -> Vec<(&'static str, Value)> {
         ("thread/closed", json!({"threadId": "x"})),
         ("thread/compacted", json!({"threadId": "x", "turnId": "x"})),
         ("thread/deleted", json!({"threadId": "x"})),
+        (
+            "thread/environment/connected",
+            json!({"environmentId": "x", "threadId": "x"}),
+        ),
+        (
+            "thread/environment/disconnected",
+            json!({"environmentId": "x", "threadId": "x"}),
+        ),
         ("thread/goal/cleared", json!({"threadId": "x"})),
         (
             "thread/goal/updated",
