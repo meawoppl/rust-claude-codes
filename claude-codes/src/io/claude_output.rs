@@ -46,6 +46,9 @@ pub enum ClaudeOutput {
     /// Progress update for a running tool.
     ToolProgress(ToolProgressMessage),
 
+    /// Fate of a queued command (slash command or queued user prompt).
+    CommandLifecycle(CommandLifecycleMessage),
+
     /// Authentication status update.
     AuthStatus(AuthStatusMessage),
 
@@ -118,6 +121,108 @@ pub struct ToolProgressMessage {
     pub task_id: Option<String>,
     pub uuid: String,
     pub session_id: String,
+    /// True when this event was emitted only to keep the stream alive, not
+    /// because the tool reported progress.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heartbeat: Option<bool>,
+    /// Subagent type for progress from a `Task` tool's subagent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subagent_type: Option<String>,
+    /// Present while a subagent API call is being retried after an error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subagent_retry: Option<SubagentRetry>,
+}
+
+/// Retry state carried on a [`ToolProgressMessage`] while a subagent API
+/// call is retried after an error.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubagentRetry {
+    pub agent_id: String,
+    pub attempt: u64,
+    pub max_retries: u64,
+    pub retry_delay_ms: u64,
+    pub error_status: Option<u16>,
+    pub error_category: String,
+}
+
+/// `command_lifecycle` message — the fate of a queued command (slash command
+/// or queued user prompt): `queued` when the inbound message enters the
+/// command queue, `started` when it drains into a turn, then exactly one
+/// terminal state (`completed`, `cancelled`, or `discarded`). Commands
+/// enqueued without a client-supplied uuid emit no lifecycle events. Not a
+/// strict pairing — a terminal state may arrive for a `command_uuid` that
+/// never emitted `started`, and internally-enqueued commands skip `queued`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandLifecycleMessage {
+    /// The queued command's uuid — the client-supplied uuid on the inbound
+    /// message (distinct from the universal per-frame `uuid`).
+    pub command_uuid: String,
+    pub state: CommandLifecycleState,
+    pub uuid: String,
+    pub session_id: String,
+}
+
+/// Lifecycle state carried by a [`CommandLifecycleMessage`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CommandLifecycleState {
+    /// The inbound message entered the command queue.
+    Queued,
+    /// The command drained into a turn.
+    Started,
+    /// The turn that consumed the command ended cleanly.
+    Completed,
+    /// Removed by cancel, caught before dispatch, or consumed into a turn
+    /// that was aborted or died on a hard failure.
+    Cancelled,
+    /// The session ended with the command still queued.
+    Discarded,
+    /// A state not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl CommandLifecycleState {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Queued => "queued",
+            Self::Started => "started",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+            Self::Discarded => "discarded",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl std::fmt::Display for CommandLifecycleState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for CommandLifecycleState {
+    fn from(s: &str) -> Self {
+        match s {
+            "queued" => Self::Queued,
+            "started" => Self::Started,
+            "completed" => Self::Completed,
+            "cancelled" => Self::Cancelled,
+            "discarded" => Self::Discarded,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for CommandLifecycleState {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for CommandLifecycleState {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +287,7 @@ impl ClaudeOutput {
             ClaudeOutput::RateLimitEvent(_) => "rate_limit_event".to_string(),
             ClaudeOutput::StreamEvent(_) => "stream_event".to_string(),
             ClaudeOutput::ToolProgress(_) => "tool_progress".to_string(),
+            ClaudeOutput::CommandLifecycle(_) => "command_lifecycle".to_string(),
             ClaudeOutput::AuthStatus(_) => "auth_status".to_string(),
             ClaudeOutput::ToolUseSummary(_) => "tool_use_summary".to_string(),
             ClaudeOutput::PromptSuggestion(_) => "prompt_suggestion".to_string(),
@@ -323,6 +429,7 @@ impl ClaudeOutput {
             ClaudeOutput::RateLimitEvent(evt) => Some(&evt.session_id),
             ClaudeOutput::StreamEvent(msg) => Some(&msg.session_id),
             ClaudeOutput::ToolProgress(msg) => Some(&msg.session_id),
+            ClaudeOutput::CommandLifecycle(msg) => Some(&msg.session_id),
             ClaudeOutput::AuthStatus(msg) => Some(&msg.session_id),
             ClaudeOutput::ToolUseSummary(msg) => Some(&msg.session_id),
             ClaudeOutput::PromptSuggestion(msg) => Some(&msg.session_id),
@@ -574,6 +681,7 @@ impl<'de> Deserialize<'de> for ClaudeOutput {
             "rate_limit_event" => parse(payload).map(Self::RateLimitEvent),
             "stream_event" => parse(payload).map(Self::StreamEvent),
             "tool_progress" => parse(payload).map(Self::ToolProgress),
+            "command_lifecycle" => parse(payload).map(Self::CommandLifecycle),
             "auth_status" => parse(payload).map(Self::AuthStatus),
             "tool_use_summary" => parse(payload).map(Self::ToolUseSummary),
             "prompt_suggestion" => parse(payload).map(Self::PromptSuggestion),
@@ -602,6 +710,7 @@ impl<'de> Deserialize<'de> for ClaudeOutput {
                     "rate_limit_event",
                     "stream_event",
                     "tool_progress",
+                    "command_lifecycle",
                     "auth_status",
                     "tool_use_summary",
                     "prompt_suggestion",
@@ -671,6 +780,10 @@ mod tests {
                 r#"{"type":"conversation_reset","new_conversation_id":"new-session","uuid":"u6","session_id":"s6"}"#,
                 "conversation_reset",
             ),
+            (
+                r#"{"type":"command_lifecycle","command_uuid":"cmd-1","state":"queued","uuid":"u7","session_id":"s7"}"#,
+                "command_lifecycle",
+            ),
         ];
 
         for (json, message_type) in cases {
@@ -678,6 +791,58 @@ mod tests {
             assert_eq!(output.message_type(), message_type);
             assert!(output.session_id().is_some());
         }
+    }
+
+    #[test]
+    fn test_command_lifecycle_states_roundtrip() {
+        for state in ["queued", "started", "completed", "cancelled", "discarded"] {
+            let json = format!(
+                r#"{{"type":"command_lifecycle","command_uuid":"cmd-1","state":"{}","uuid":"u1","session_id":"s1"}}"#,
+                state
+            );
+            let output: ClaudeOutput = serde_json::from_str(&json).unwrap();
+            let ClaudeOutput::CommandLifecycle(msg) = &output else {
+                panic!("expected CommandLifecycle");
+            };
+            assert_eq!(msg.state.as_str(), state);
+            assert!(!matches!(msg.state, CommandLifecycleState::Unknown(_)));
+            assert_eq!(serde_json::to_string(&output).unwrap(), json);
+        }
+
+        // Unknown states survive decode and round-trip verbatim.
+        let json = r#"{"type":"command_lifecycle","command_uuid":"cmd-2","state":"parked","uuid":"u2","session_id":"s2"}"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let ClaudeOutput::CommandLifecycle(msg) = &output else {
+            panic!("expected CommandLifecycle");
+        };
+        assert_eq!(
+            msg.state,
+            CommandLifecycleState::Unknown("parked".to_string())
+        );
+        assert_eq!(serde_json::to_string(&output).unwrap(), json);
+    }
+
+    #[test]
+    fn test_tool_progress_heartbeat_and_subagent_retry() {
+        let json = r#"{"type":"tool_progress","tool_use_id":"toolu_1","tool_name":"Task","parent_tool_use_id":null,"elapsed_time_seconds":30,"uuid":"u1","session_id":"s1","heartbeat":true,"subagent_type":"Explore","subagent_retry":{"agent_id":"agent-1","attempt":2,"max_retries":5,"retry_delay_ms":4000,"error_status":529,"error_category":"overloaded"}}"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let ClaudeOutput::ToolProgress(msg) = &output else {
+            panic!("expected ToolProgress");
+        };
+        assert_eq!(msg.heartbeat, Some(true));
+        assert_eq!(msg.subagent_type.as_deref(), Some("Explore"));
+        let retry = msg.subagent_retry.as_ref().unwrap();
+        assert_eq!(retry.attempt, 2);
+        assert_eq!(retry.error_status, Some(529));
+        assert_eq!(retry.error_category, "overloaded");
+
+        // Null error_status parses too.
+        let json = r#"{"type":"tool_progress","tool_use_id":"toolu_2","tool_name":"Task","parent_tool_use_id":null,"elapsed_time_seconds":1,"uuid":"u2","session_id":"s2","subagent_retry":{"agent_id":"agent-2","attempt":1,"max_retries":3,"retry_delay_ms":500,"error_status":null,"error_category":"network"}}"#;
+        let output: ClaudeOutput = serde_json::from_str(json).unwrap();
+        let ClaudeOutput::ToolProgress(msg) = &output else {
+            panic!("expected ToolProgress");
+        };
+        assert_eq!(msg.subagent_retry.as_ref().unwrap().error_status, None);
     }
 
     #[test]

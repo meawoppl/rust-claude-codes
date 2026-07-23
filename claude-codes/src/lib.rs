@@ -152,24 +152,26 @@ pub use io::{
 // System message and assistant message types
 pub use io::{
     ApiKeySource, ApiRetryMessage, AssistantErrorKind, BackgroundTaskInfo,
-    BackgroundTasksChangedMessage, CommandInfo, CommandsChangedMessage, CompactBoundaryMessage,
-    CompactMetadata, CompactionTrigger, ControlRequestProgressMessage, ElicitationCompleteMessage,
-    FailedPersistedFile, FilesPersistedMessage, HookProgressMessage, HookResponseMessage,
-    HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode, KnownSystemEvent,
-    LocalCommandOutputMessage, McpMeta, MemoryPaths, MemoryRecallItem, MemoryRecallMessage,
-    MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage, ModelRefusalFallbackMessage,
-    ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle, PermissionDeniedMessage,
-    PersistedFile, PluginDiagnostic, PluginInfo, PluginInstallMessage, PreservedMessages,
-    PreservedSegment, StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata,
-    SystemMessage, SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage,
-    TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage,
-    ToolUseMeta, WorkerShuttingDownMessage,
+    BackgroundTasksChangedMessage, CodeChangePublishedMessage, CommandInfo, CommandsChangedMessage,
+    CompactBoundaryMessage, CompactMetadata, CompactionTrigger, ControlRequestProgressMessage,
+    ElicitationCompleteMessage, FailedPersistedFile, FilesPersistedMessage, HookProgressMessage,
+    HookResponseMessage, HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode,
+    KnownSystemEvent, LocalCommandOutputMessage, McpMeta, MemoryPaths, MemoryRecallItem,
+    MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage,
+    ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle,
+    PermissionDeniedMessage, PersistedFile, PluginDiagnostic, PluginInfo, PluginInstallMessage,
+    PreservedMessages, PreservedSegment, StatusMessage, StatusMessageStatus, StopReason,
+    SummarizeMetadata, SystemMessage, SystemSubtype, TaskNotificationMessage, TaskPatch,
+    TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage,
+    ThinkingTokensMessage, ToolResultMeta, ToolUseMeta, VcsMutationKind, VcsStateChangedMessage,
+    WorkerShuttingDownMessage,
 };
 
 // Additional top-level output message wrappers
 pub use io::{
-    AuthStatusMessage, ConversationResetMessage, PromptSuggestionMessage, StreamEventMessage,
-    ToolProgressMessage, ToolUseSummaryMessage,
+    AuthStatusMessage, CommandLifecycleMessage, CommandLifecycleState, ConversationResetMessage,
+    PromptSuggestionMessage, StreamEventMessage, SubagentRetry, ToolProgressMessage,
+    ToolUseSummaryMessage,
 };
 
 // Wire-fidelity audit for verifying frames are fully typed
