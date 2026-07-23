@@ -97,6 +97,11 @@ class Extraction(NamedTuple):
     # The discovered zod-namespace alias — needed by consumers that parse the
     # bodies (e.g. the drift check's top-level-key scan).
     zod: str
+    # Referenced names with no definition under the schema wrapper — module
+    # initializer thunks and helper functions whose call sites happen to
+    # match the `ref()` shape, not schemas. Reported for transparency; they
+    # carry no wire fields.
+    unresolved: list[str]
 
 
 class SchemaExtractionError(RuntimeError):
@@ -149,6 +154,8 @@ def pick_definition(cands: list[tuple[int, bytes]], anchor: int) -> bytes | None
     return min(cands, key=lambda c: abs(c[0] - anchor))[1]
 
 
+
+
 def label_of(body: str, zod: str) -> str:
     z = re.escape(zod)
     t = re.search(r"type:" + z + r'\.literal\("([a-z_]+)"\)', body)
@@ -175,6 +182,7 @@ def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> E
 
     idx = index_definitions(data, pats)
     results: list[tuple[str, str, str]] = []
+    unresolved: list[str] = []
     seen: set[str] = set()
     queue = list(dict.fromkeys(members))
     while queue:
@@ -184,14 +192,20 @@ def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> E
         seen.add(name)
         body = pick_definition(idx.get(name, []), union.start())
         if body is None:
-            results.append((name, "NOT FOUND", ""))
+            # Not defined under the schema wrapper anywhere in the bundle —
+            # a module-initializer thunk (`NAME=S(()=>{...})`) or helper
+            # function whose call site happens to match the `ref()` shape,
+            # not a schema. Verified empirically: every such name in CLI
+            # 2.1.205/2.1.218 is a module init or helper, and following them
+            # crawls the bundler's module graph instead of the schema graph.
+            unresolved.append(name)
             continue
         text = body.decode("utf-8", "replace")
         results.append((name, label_of(text, pats.zod), text))
         for ref in REF_CALL.findall(text):
             if ref not in seen and ref not in queue:
                 queue.append(ref)
-    return Extraction(union_text, results, pats.zod)
+    return Extraction(union_text, results, pats.zod, unresolved)
 
 
 def extract_schemas(data: bytes) -> Extraction:
@@ -240,6 +254,12 @@ def main() -> None:
         f" (aliases: zod={extraction.zod})",
         file=sys.stderr,
     )
+    if extraction.unresolved:
+        print(
+            "# non-schema refs skipped (no lazy definition anywhere): "
+            + ", ".join(extraction.unresolved),
+            file=sys.stderr,
+        )
     blocks = [f"// SDK output union\n{union_text}"]
     for name, label, text in results:
         blocks.append(f"// {name}: {label}\n{text}" if text else f"// {name}: {label}")
