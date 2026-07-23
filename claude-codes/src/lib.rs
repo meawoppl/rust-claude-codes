@@ -144,9 +144,9 @@ pub use io::{
     ControlResponse, ControlResponseMessage, ControlResponsePayload, GetUsageResponse,
     HookCallbackRequest, InitializeRequest, McpMessageRequest, ModelScopedRateLimit, Permission,
     PermissionBehavior, PermissionDenial, PermissionDestination, PermissionModeName,
-    PermissionResult, PermissionRule, PermissionSuggestion, PermissionType,
-    SDKControlInterruptRequest, ToolCaller, ToolPermissionRequest, ToolUseBlock, UsageBehavior,
-    UsageBehaviors, UsageModelUsage, UsageRateLimitWindow, UsageRateLimits, UsageSession,
+    PermissionResult, PermissionRule, PermissionSuggestion, PermissionType, ToolCaller,
+    ToolPermissionRequest, ToolUseBlock, UsageBehavior, UsageBehaviors, UsageModelUsage,
+    UsageRateLimitWindow, UsageRateLimits, UsageSession,
 };
 
 // System message and assistant message types

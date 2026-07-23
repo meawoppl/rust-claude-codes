@@ -241,6 +241,8 @@ pub enum ControlRequestPayload {
     McpMessage(McpMessageRequest),
     /// Initialize request (sent by SDK to CLI)
     Initialize(InitializeRequest),
+    /// Interrupt request (sent by SDK to CLI to stop the in-flight turn)
+    Interrupt,
 }
 
 /// A permission to grant for "remember this decision" functionality.
@@ -1068,49 +1070,6 @@ impl From<ControlResponse> for ControlResponseMessage {
     }
 }
 
-/// SDK control message to gracefully interrupt a running Claude session.
-///
-/// When written to the CLI subprocess's stdin, this tells Claude to stop its
-/// current response and return control to the caller without killing the session.
-///
-/// This corresponds to the TypeScript SDK's `SDKControlInterruptRequest` type
-/// and is distinct from closing or aborting the subprocess.
-///
-/// # Example
-///
-/// ```
-/// use claude_codes::SDKControlInterruptRequest;
-///
-/// let interrupt = SDKControlInterruptRequest::new();
-/// let json = serde_json::to_string(&interrupt).unwrap();
-/// assert_eq!(json, r#"{"subtype":"interrupt"}"#);
-/// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SDKControlInterruptRequest {
-    subtype: SDKControlInterruptSubtype,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum SDKControlInterruptSubtype {
-    #[serde(rename = "interrupt")]
-    Interrupt,
-}
-
-impl SDKControlInterruptRequest {
-    /// Create a new interrupt request.
-    pub fn new() -> Self {
-        SDKControlInterruptRequest {
-            subtype: SDKControlInterruptSubtype::Interrupt,
-        }
-    }
-}
-
-impl Default for SDKControlInterruptRequest {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Wrapper for outgoing control requests (includes type tag)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ControlRequestMessage {
@@ -1136,6 +1095,20 @@ impl ControlRequestMessage {
             message_type: "control_request".to_string(),
             request_id: request_id.into(),
             request: ControlRequestPayload::Initialize(InitializeRequest { hooks: Some(hooks) }),
+        }
+    }
+
+    /// Create an interrupt request to stop the in-flight turn.
+    ///
+    /// Serializes to the `control_request` envelope the CLI requires:
+    /// `{"type":"control_request","request_id":...,"request":{"subtype":"interrupt"}}`.
+    /// The CLI acknowledges with a `control_response` carrying the same
+    /// `request_id` and ends the turn with a `result` message.
+    pub fn interrupt(request_id: impl Into<String>) -> Self {
+        ControlRequestMessage {
+            message_type: "control_request".to_string(),
+            request_id: request_id.into(),
+            request: ControlRequestPayload::Interrupt,
         }
     }
 }
@@ -1327,6 +1300,29 @@ mod tests {
         assert!(json.contains("\"type\":\"control_request\""));
         assert!(json.contains("\"request_id\":\"init-1\""));
         assert!(json.contains("\"subtype\":\"initialize\""));
+    }
+
+    #[test]
+    fn test_control_request_message_interrupt_wire_shape() {
+        // The CLI silently ignores a bare {"subtype":"interrupt"}; it only
+        // acts on the full control_request envelope (verified against 2.1.211).
+        let msg = ControlRequestMessage::interrupt("interrupt-1");
+        assert_eq!(
+            serde_json::to_value(&msg).unwrap(),
+            serde_json::json!({
+                "type": "control_request",
+                "request_id": "interrupt-1",
+                "request": {"subtype": "interrupt"}
+            })
+        );
+    }
+
+    #[test]
+    fn test_interrupt_payload_roundtrip() {
+        let json = r#"{"subtype":"interrupt"}"#;
+        let payload: ControlRequestPayload = serde_json::from_str(json).unwrap();
+        assert!(matches!(payload, ControlRequestPayload::Interrupt));
+        assert_eq!(serde_json::to_string(&payload).unwrap(), json);
     }
 
     #[test]

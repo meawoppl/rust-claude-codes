@@ -187,10 +187,15 @@ impl AsyncClient {
 
     /// Send an interrupt to gracefully stop the current response.
     ///
-    /// This writes `{ "subtype": "interrupt" }` to stdin, telling Claude
-    /// to stop without killing the session.
-    pub async fn interrupt(&mut self) -> Result<()> {
-        self.send(&ClaudeInput::interrupt()).await
+    /// This writes a `control_request` with subtype `interrupt` to stdin,
+    /// telling Claude to stop without killing the session. Returns the
+    /// generated `request_id`; the CLI acknowledges with a
+    /// `control_response` carrying the same id and ends the turn with a
+    /// `result` message.
+    pub async fn interrupt(&mut self) -> Result<String> {
+        let request_id = format!("interrupt-{}", Uuid::new_v4());
+        self.send(&ClaudeInput::interrupt(&request_id)).await?;
+        Ok(request_id)
     }
 
     /// Receive a single response from Claude.

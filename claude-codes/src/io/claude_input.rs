@@ -99,13 +99,21 @@ impl ClaudeInput {
         })
     }
 
-    /// Create an interrupt control message.
+    /// Create an interrupt control request.
     ///
-    /// Sends `{ "subtype": "interrupt" }` to the CLI subprocess's stdin,
+    /// Serializes to the `control_request` envelope the CLI requires:
+    /// `{"type":"control_request","request_id":...,"request":{"subtype":"interrupt"}}`,
     /// telling Claude to stop its current response and return control
-    /// without killing the session.
-    pub fn interrupt() -> Self {
-        ClaudeInput::Raw(serde_json::to_value(super::SDKControlInterruptRequest::new()).unwrap())
+    /// without killing the session. The CLI acknowledges with a
+    /// `control_response` carrying the same `request_id`.
+    ///
+    /// `request_id` must be unique per request; the clients generate
+    /// `interrupt-<uuid>` ids.
+    pub fn interrupt(request_id: impl Into<String>) -> Self {
+        ClaudeInput::ControlRequest(ControlRequest {
+            request_id: request_id.into(),
+            request: super::ControlRequestPayload::Interrupt,
+        })
     }
 
     /// Create a user message with an image and optional text
@@ -152,6 +160,19 @@ impl ClaudeInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_interrupt_serializes_to_control_request_envelope() {
+        let input = ClaudeInput::interrupt("interrupt-abc");
+        assert_eq!(
+            serde_json::to_value(&input).unwrap(),
+            serde_json::json!({
+                "type": "control_request",
+                "request_id": "interrupt-abc",
+                "request": {"subtype": "interrupt"}
+            })
+        );
+    }
 
     #[test]
     fn test_serialize_user_message() {
