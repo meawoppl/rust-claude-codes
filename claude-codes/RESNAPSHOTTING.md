@@ -48,15 +48,18 @@ python3 scripts/extract_claude_sdk_schemas.py -o /tmp/claude_sdk_schemas.txt
 ```
 
 The CLI defines its wire types as lazy zod schemas,
-`NAME=Se(()=>E.object({type:E.literal("..."),...}))`, and the SDK output
-union is an `E.union([NAME(), ...])` over ~40 of them. Minified names change
-every release; the structure does not. The script anchors on the
-`rate_limit_event` literal, finds the union that references it, and dumps
-every member schema plus transitive references, each labeled with its
-resolved `type`/`subtype`.
+`NAME=<lazy>(()=><zod>.object({type:<zod>.literal("..."),...}))`, and the SDK
+output union is a `<zod>.union([NAME(), ...])` over ~40 of them. Minified
+names change every release — including the `<lazy>`/`<zod>` aliases (`Se`/`E`
+on 2.1.205, `_e`/`b` on 2.1.218) — but the structure does not. The script
+anchors on the stable `rate_limit_event` literal, reads the alias pair from
+the bytes around it, rebuilds its patterns from the discovered aliases, finds
+the union that references the anchor, and dumps every member schema plus
+transitive references, each labeled with its resolved `type`/`subtype`.
 
-If the script fails to find the anchor or union, the bundle layout changed;
-fall back to manual spelunking (below) and update the script.
+If the script fails to find the anchor or union, the bundle layout changed
+more fundamentally than an alias rename; fall back to manual spelunking
+(below) and update the script.
 
 ## Step 2 — diff against the crate
 
@@ -86,7 +89,7 @@ Things to check, in priority order:
 Two caveats that save confusion:
 
 - The `message` payloads of `assistant`/`user`, the `stream_event` `event`,
-  and the result `usage` are `E.unknown()` in the CLI's own schema — raw
+  and the result `usage` are `.unknown()` in the CLI's own schema — raw
   Anthropic API passthrough. The crate types those against the API shape,
   not the CLI schema, so "the zod says unknown" is not drift.
 - Minified names collide across bundle modules. When extracting by hand,
@@ -98,8 +101,10 @@ Enumerate every wire `type`/`subtype` literal (broader than the SDK union —
 includes internal orchestrator frames):
 
 ```bash
-grep -aoE 'type:E\.literal\("[a-z_]+"\)' <binary> | sort | uniq -c
-grep -aoE 'subtype:E\.literal\("[a-z_0-9]+"\)' <binary> | sort | uniq -c
+# <zod> is the discovered zod alias — E on 2.1.205, b on 2.1.218; the
+# extractor prints it on stderr as `aliases: zod=...`.
+grep -aoE 'type:<zod>\.literal\("[a-z_]+"\)' <binary> | sort | uniq -c
+grep -aoE 'subtype:<zod>\.literal\("[a-z_0-9]+"\)' <binary> | sort | uniq -c
 ```
 
 Pull context around any anchor string (Python is much faster than grep's
@@ -111,7 +116,7 @@ i = data.find(b'some_anchor_string')
 print(data[i-500:i+1500].decode('utf-8', 'replace'))
 ```
 
-Definitions end where the next `NAME=Se(` begins — split on that boundary
+Definitions end where the next `NAME=<lazy>(` begins — split on that boundary
 rather than balanced-paren parsing (regex literals in the minified JS break
 paren counting).
 

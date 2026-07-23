@@ -6,13 +6,17 @@ compiled CLI binary, for diffing against the claude-codes crate.
 The CLI ships as a Bun-compiled ELF with the bundled JavaScript embedded as
 plain bytes, so the zod schema definitions are recoverable with byte-level
 regex work — no unpacking needed. The wire schemas are lazy zod definitions
-of the form `NAME=Se(()=>E.object({type:E.literal("..."),...}))`, and the
-SDK output union is an `E.union([NAME(), ...])` over ~40 of them.
+of the form `NAME=<lazy>(()=><zod>.object({type:<zod>.literal("..."),...}))`,
+and the SDK output union is a `<zod>.union([NAME(), ...])` over ~40 of them.
 
-Minified names change every release; the *structure* does not. This script
-anchors on the `rate_limit_event` literal (a stable, unique member), finds
-the union that references it, then extracts every member schema plus
-transitive references.
+Minified names change every release — including the zod-namespace alias
+(`E` on CLI 2.1.205) and the lazy-schema wrapper alias (`Se` on 2.1.205) —
+but the *structure* does not. This script therefore discovers the aliases
+instead of assuming them: it anchors on the stable `"rate_limit_event"`
+literal, reads the lazy/zod alias tokens from the bytes around it, and
+rebuilds every pattern from the discovered pair. If several alias pairs
+match (multiple bundled zod copies), each is tried until one yields the
+union.
 
 Usage:
   python3 scripts/extract_claude_sdk_schemas.py [BINARY] [-o OUT.txt]
@@ -35,17 +39,64 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
-# A schema definition starts at `NAME=Se(` and ends where the next one begins.
-DEF_START = re.compile(rb"[^\w$]([A-Za-z_$][\w$]{1,6})=Se\(")
-BOUNDARY = re.compile(rb"[,;({\[]\s*[A-Za-z_$][\w$]{1,6}=Se\(")
-# Calls to other lazy schemas inside a definition body: `ref()`.
-REF_CALL = re.compile(r"\b([A-Za-z_$][\w$]{1,6})\(\)")
-# The anchor schema: the one whose body opens with the rate_limit_event literal.
-ANCHOR = re.compile(
-    rb'([A-Za-z_$][\w$]{1,6})=Se\(\(\)=>E\.object\(\{type:E\.literal\("rate_limit_event"\)'
+# A minified schema name (2-7 chars, like the pre-discovery extractor assumed).
+_IDENT = rb"[A-Za-z_$][\w$]{1,6}"
+# A minified alias can be a single character (`E` is the zod alias on 2.1.205).
+_ALIAS = rb"[A-Za-z_$][\w$]{0,6}"
+
+# Discovers the alias pair from the anchor schema. Captures:
+#   1. the anchor schema's minified name
+#   2. the lazy-schema wrapper alias (`Se` on CLI 2.1.205)
+#   3. the zod-namespace alias (`E` on CLI 2.1.205)
+ALIAS_DISCOVERY = re.compile(
+    rb"(" + _IDENT + rb")=(" + _ALIAS + rb")\(\(\)=>"
+    rb"(" + _ALIAS + rb')\.object\(\{type:\3\.literal\("rate_limit_event"\)'
 )
-UNION = re.compile(rb"[A-Za-z_$][\w$]{1,6}=Se\(\(\)=>E\.union\(\[[^\]]*\]\)\)")
+
+# Calls to other lazy schemas inside a definition body: `ref()`. A plain \b
+# does not work here: minified names can start with `$` (2.1.218 does this),
+# and there is no word boundary between a delimiter and `$` — it would match
+# the truncated `eE` out of `$eE()`. Guard with a lookbehind instead; `.` is
+# excluded too so zod method calls (`.string()`, `.optional()`) aren't taken
+# for schema refs.
+REF_CALL = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]{1,6})\(\)")
+
+
+class WirePatterns(NamedTuple):
+    """Byte-regexes rebuilt from a discovered (lazy, zod) alias pair."""
+
+    lazy: str
+    zod: str
+    def_start: re.Pattern[bytes]
+    boundary: re.Pattern[bytes]
+    union: re.Pattern[bytes]
+
+
+def build_patterns(lazy: bytes, zod: bytes) -> WirePatterns:
+    lz, zd = re.escape(lazy), re.escape(zod)
+    return WirePatterns(
+        lazy=lazy.decode(),
+        zod=zod.decode(),
+        # A schema definition starts at `NAME=<lazy>(` and ends where the next begins.
+        def_start=re.compile(rb"[^\w$](" + _IDENT + rb")=" + lz + rb"\("),
+        boundary=re.compile(rb"[,;({\[]\s*" + _IDENT + rb"=" + lz + rb"\("),
+        union=re.compile(
+            _IDENT + rb"=" + lz + rb"\(\(\)=>" + zd + rb"\.union\(\[[^\]]*\]\)\)"
+        ),
+    )
+
+
+class Extraction(NamedTuple):
+    """Everything `extract_schemas` recovers from the binary."""
+
+    union_text: str
+    # (minified_name, label, body_text) in BFS order from the union members.
+    results: list[tuple[str, str, str]]
+    # The discovered zod-namespace alias — needed by consumers that parse the
+    # bodies (e.g. the drift check's top-level-key scan).
+    zod: str
 
 
 class SchemaExtractionError(RuntimeError):
@@ -61,7 +112,20 @@ def resolve_binary(arg: str | None) -> Path:
     return Path(on_path).resolve()
 
 
-def index_definitions(data: bytes) -> dict[str, list[tuple[int, bytes]]]:
+def discover_aliases(data: bytes) -> list[tuple[re.Match[bytes], bytes, bytes]]:
+    """All `(anchor_match, lazy_alias, zod_alias)` candidates in the binary.
+
+    Anchored on the stable `"rate_limit_event"` literal; the aliases are read
+    from the surrounding bytes rather than assumed. Multiple candidates can
+    appear when the bundle carries more than one zod copy — callers try each.
+    """
+    out = []
+    for m in ALIAS_DISCOVERY.finditer(data):
+        out.append((m, m.group(2), m.group(3)))
+    return out
+
+
+def index_definitions(data: bytes, pats: WirePatterns) -> dict[str, list[tuple[int, bytes]]]:
     """One pass over the binary → {name: [(offset, body-bytes), ...]}.
 
     Minified names collide across bundle modules, so each name maps to every
@@ -70,10 +134,10 @@ def index_definitions(data: bytes) -> dict[str, list[tuple[int, bytes]]]:
     O(1) lookups — the difference between minutes and seconds on a ~250 MB ELF.
     """
     idx: dict[str, list[tuple[int, bytes]]] = {}
-    for m in DEF_START.finditer(data):
+    for m in pats.def_start.finditer(data):
         name = m.group(1).decode()
         start = m.start() + 1
-        nxt = BOUNDARY.search(data, m.end())
+        nxt = pats.boundary.search(data, m.end())
         end = nxt.start() + 1 if nxt else m.end() + 20_000
         idx.setdefault(name, []).append((start, data[start:end]))
     return idx
@@ -85,9 +149,10 @@ def pick_definition(cands: list[tuple[int, bytes]], anchor: int) -> bytes | None
     return min(cands, key=lambda c: abs(c[0] - anchor))[1]
 
 
-def label_of(body: str) -> str:
-    t = re.search(r'type:E\.literal\("([a-z_]+)"\)', body)
-    s = re.search(r'subtype:E\.literal\("([a-z_0-9]+)"\)', body)
+def label_of(body: str, zod: str) -> str:
+    z = re.escape(zod)
+    t = re.search(r"type:" + z + r'\.literal\("([a-z_]+)"\)', body)
+    s = re.search(r"subtype:" + z + r'\.literal\("([a-z_0-9]+)"\)', body)
     if t and s:
         return f"{t.group(1)}/{s.group(1)}"
     if t:
@@ -95,22 +160,11 @@ def label_of(body: str) -> str:
     return "(nested)"
 
 
-def extract_schemas(data: bytes) -> tuple[str, list[tuple[str, str, str]]]:
-    """Extract the SDK output union and every reachable schema.
-
-    Returns `(union_text, [(minified_name, label, body_text), ...])` in
-    breadth-first order from the union members. Raises
-    [`SchemaExtractionError`] if the anchor or union can't be found.
-    """
-    m = ANCHOR.search(data)
-    if not m:
-        raise SchemaExtractionError(
-            "rate_limit_event anchor schema not found — bundle layout changed?"
-        )
-    anchor_name, anchor_off = m.group(1).decode(), m.start()
+def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> Extraction:
+    anchor_name = anchor.group(1).decode()
 
     union = None
-    for um in UNION.finditer(data):
+    for um in pats.union.finditer(data):
         if (anchor_name + "()").encode() in um.group(0):
             union = um
             break
@@ -119,7 +173,7 @@ def extract_schemas(data: bytes) -> tuple[str, list[tuple[str, str, str]]]:
     union_text = union.group(0).decode()
     members = REF_CALL.findall(union_text)
 
-    idx = index_definitions(data)
+    idx = index_definitions(data, pats)
     results: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     queue = list(dict.fromkeys(members))
@@ -133,11 +187,36 @@ def extract_schemas(data: bytes) -> tuple[str, list[tuple[str, str, str]]]:
             results.append((name, "NOT FOUND", ""))
             continue
         text = body.decode("utf-8", "replace")
-        results.append((name, label_of(text), text))
+        results.append((name, label_of(text, pats.zod), text))
         for ref in REF_CALL.findall(text):
             if ref not in seen and ref not in queue:
                 queue.append(ref)
-    return union_text, results
+    return Extraction(union_text, results, pats.zod)
+
+
+def extract_schemas(data: bytes) -> Extraction:
+    """Extract the SDK output union and every reachable schema.
+
+    Discovers the minified lazy/zod aliases from the `rate_limit_event`
+    anchor, then walks the union. Raises [`SchemaExtractionError`] if no
+    anchor is found or no candidate alias pair yields the union.
+    """
+    candidates = discover_aliases(data)
+    if not candidates:
+        raise SchemaExtractionError(
+            "rate_limit_event anchor schema not found — bundle layout changed?"
+        )
+
+    failures = []
+    for anchor, lazy, zod in candidates:
+        pats = build_patterns(lazy, zod)
+        try:
+            return _extract_with(data, anchor, pats)
+        except SchemaExtractionError as e:
+            failures.append(f"aliases lazy={pats.lazy} zod={pats.zod}: {e}")
+    raise SchemaExtractionError(
+        "no candidate alias pair yielded the SDK output union: " + "; ".join(failures)
+    )
 
 
 def main() -> None:
@@ -151,11 +230,16 @@ def main() -> None:
     print(f"# read {binary} ({len(data):,} bytes)", file=sys.stderr)
 
     try:
-        union_text, results = extract_schemas(data)
+        extraction = extract_schemas(data)
     except SchemaExtractionError as e:
         sys.exit(f"error: {e}")
 
-    print(f"# union: {len(REF_CALL.findall(union_text))} members", file=sys.stderr)
+    union_text, results = extraction.union_text, extraction.results
+    print(
+        f"# union: {len(REF_CALL.findall(union_text))} members"
+        f" (aliases: zod={extraction.zod})",
+        file=sys.stderr,
+    )
     blocks = [f"// SDK output union\n{union_text}"]
     for name, label, text in results:
         blocks.append(f"// {name}: {label}\n{text}" if text else f"// {name}: {label}")

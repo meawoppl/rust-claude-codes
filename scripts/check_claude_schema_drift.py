@@ -59,18 +59,21 @@ SNAPSHOT = ROOT / "claude-codes" / "tests" / "schemas" / "claude_stream_json_sna
 _KEY = re.compile(r"[A-Za-z_$][\w$]*")
 
 
-def top_level_keys(body: str) -> list[str]:
-    """The direct object keys of a schema's outermost `E.object({...})`.
+def top_level_keys(body: str, zod: str) -> list[str]:
+    """The direct object keys of a schema's outermost `<zod>.object({...})`.
 
+    `zod` is the minified zod-namespace alias the extractor discovered from
+    the binary (`E` on CLI 2.1.205) — it changes between releases.
     String-literal aware (so colons/braces inside `.describe("...")` prose are
-    skipped) and bracket-depth aware (so nested `E.object(...)` keys aren't
+    skipped) and bracket-depth aware (so nested `<zod>.object(...)` keys aren't
     counted). Only bare-identifier keys are recognized — all Claude wire
     schemas use them.
     """
-    start = body.find("E.object({")
+    opener = zod + ".object({"
+    start = body.find(opener)
     if start < 0:
         return []
-    i = start + len("E.object({")
+    i = start + len(opener)
     depth = 0
     n = len(body)
     keys: list[str] = []
@@ -115,13 +118,13 @@ def top_level_keys(body: str) -> list[str]:
 
 def build_fingerprint(data: bytes) -> tuple[int, dict[str, list[str]]]:
     """`(union_member_count, {label: sorted top-level keys})` for labeled schemas."""
-    union_text, results = extract_schemas(data)
-    members = len(REF_CALL.findall(union_text))
+    extraction = extract_schemas(data)
+    members = len(REF_CALL.findall(extraction.union_text))
     labeled: dict[str, list[str]] = {}
-    for _name, label, body in results:
+    for _name, label, body in extraction.results:
         if label in ("(nested)", "NOT FOUND"):
             continue
-        keys = sorted(set(top_level_keys(body)))
+        keys = sorted(set(top_level_keys(body, extraction.zod)))
         # First definition wins on the rare label collision; keep it deterministic.
         labeled.setdefault(label, keys)
     return members, labeled
