@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.163] - 2026-07-22
+
+Models the CLI 2.1.205 → 2.1.218 stream-json drift surfaced by the fixed
+schema extractor (#223); the committed snapshot baseline and `TESTED_VERSION`
+move to 2.1.218.
+
+### Added
+
+- **`ClaudeOutput::CommandLifecycle`** — typed variant for the new
+  `command_lifecycle` wire type (fate of a queued command: queued → started →
+  completed/cancelled/discarded), with `CommandLifecycleMessage` and the open
+  `CommandLifecycleState` enum (`Unknown(String)` fallback).
+- **`system/code_change_published`** — `CodeChangePublishedMessage`
+  (`provider`, `url`, `repo`, `identifier`): the session is now associated
+  with a published pull/merge request.
+- **`system/vcs_state_changed`** — `VcsStateChangedMessage` with the open
+  `VcsMutationKind` enum (`commit`/`push`/`merge`/`rebase` +
+  `Unknown(String)`): a harness-observed command mutated repository state.
+  Both new subtypes are wired through `SystemSubtype`, `KnownSystemEvent`,
+  and the `typed_value` wrapping audit.
+- **`AssistantMessage.aborted`** — true when the message was truncated by an
+  interrupt/abort before the stream completed — and
+  **`.resumed_from_incomplete_thinking`** — true when the turn continued a
+  truncated thinking block (max-output-tokens recovery).
+- **`ResultMessage.request_sent_wall_ms`** (fractional wall-clock ms) and
+  **`.user_message_uuid`** (wire uuid of the user message the result answers).
+- **`ToolProgressMessage.heartbeat`**, **`.subagent_type`**, and
+  **`.subagent_retry`** (new `SubagentRetry` struct: attempt, max_retries,
+  retry_delay_ms, error_status, error_category).
+- **`UserMessage.tool_result_meta`** — new `ToolResultMeta` struct carrying
+  the harness-stamped `non_execution_kind` for error tool results and any
+  human-typed `user_feedback` deny comment.
+
 ## [2.1.162] - 2026-07-22
 
 ### Fixed

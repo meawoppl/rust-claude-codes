@@ -292,6 +292,9 @@ fn handle_output(output: ClaudeOutput) {
                 progress.tool_name, progress.tool_use_id, progress.elapsed_time_seconds
             );
         }
+        ClaudeOutput::CommandLifecycle(lifecycle) => {
+            debug!("Command {} is {}", lifecycle.command_uuid, lifecycle.state);
+        }
         ClaudeOutput::AuthStatus(status) => {
             debug!(
                 "Auth status: authenticating={}, lines={}",

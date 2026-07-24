@@ -34,6 +34,15 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_origin_ms: Option<u64>,
 
+    /// Wall-clock epoch milliseconds when the API request was sent
+    /// (fractional; from CLI timing instrumentation).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_sent_wall_ms: Option<f64>,
+
+    /// Wire uuid of the user message this result answers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
+
     pub num_turns: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -527,5 +536,25 @@ mod tests {
         } else {
             panic!("Expected Result");
         }
+    }
+
+    #[test]
+    fn test_result_timing_and_user_message_uuid_fields() {
+        let json = r#"{
+            "type":"result","subtype":"success","is_error":false,
+            "duration_ms":100,"duration_api_ms":80,"num_turns":1,
+            "session_id":"s1","total_cost_usd":0.01,
+            "request_sent_wall_ms":1753212345678.25,
+            "user_message_uuid":"um-1"
+        }"#;
+        let output: crate::ClaudeOutput = serde_json::from_str(json).unwrap();
+        let crate::ClaudeOutput::Result(res) = &output else {
+            panic!("expected Result");
+        };
+        assert_eq!(res.request_sent_wall_ms, Some(1753212345678.25));
+        assert_eq!(res.user_message_uuid.as_deref(), Some("um-1"));
+
+        let reserialized = serde_json::to_string(&output).unwrap();
+        assert!(reserialized.contains("\"user_message_uuid\":\"um-1\""));
     }
 }
