@@ -252,7 +252,9 @@ pub fn client_request_samples() -> Vec<(&'static str, Value)> {
         ),
         ("account/usage/read", json!({})),
         ("account/workspaceMessages/read", json!({})),
+        ("app/installed", json!({})),
         ("app/list", json!({})),
+        ("app/read", json!({"appIds": []})),
         ("command/exec", json!({"command": []})),
         (
             "command/exec/resize",
