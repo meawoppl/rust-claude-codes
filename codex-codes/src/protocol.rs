@@ -63,6 +63,8 @@ pub mod methods {
     pub const PLUGIN_SHARE_CHECKOUT: &str = "plugin/share/checkout";
     pub const PLUGIN_SHARE_DELETE: &str = "plugin/share/delete";
     pub const APP_LIST: &str = "app/list";
+    pub const APP_READ: &str = "app/read";
+    pub const APP_INSTALLED: &str = "app/installed";
     pub const FS_READFILE: &str = "fs/readFile";
     pub const FS_WRITEFILE: &str = "fs/writeFile";
     pub const FS_CREATEDIRECTORY: &str = "fs/createDirectory";
@@ -320,10 +322,12 @@ impl ExecCommandApprovalResponse {
         }
     }
 
-    /// Deny the exec command (`{"decision":"denied"}`).
-    pub fn denied() -> Self {
+    /// Deny the exec command (`{"decision":{"denied":{"rejection":...}}}`).
+    pub fn denied(rejection: impl Into<String>) -> Self {
         Self {
-            decision: ReviewDecision::Denied,
+            decision: ReviewDecision::Denied {
+                rejection: rejection.into(),
+            },
         }
     }
 
@@ -350,10 +354,12 @@ impl ApplyPatchApprovalResponse {
         }
     }
 
-    /// Deny the patch (`{"decision":"denied"}`).
-    pub fn denied() -> Self {
+    /// Deny the patch (`{"decision":{"denied":{"rejection":...}}}`).
+    pub fn denied(rejection: impl Into<String>) -> Self {
         Self {
-            decision: ReviewDecision::Denied,
+            decision: ReviewDecision::Denied {
+                rejection: rejection.into(),
+            },
         }
     }
 
@@ -421,8 +427,9 @@ mod tests {
             serde_json::json!({"decision": "approved"})
         );
         assert_eq!(
-            serde_json::to_value(ApplyPatchApprovalResponse::denied()).unwrap(),
-            serde_json::json!({"decision": "denied"})
+            serde_json::to_value(ApplyPatchApprovalResponse::denied("keep the original file"))
+                .unwrap(),
+            serde_json::json!({"decision": {"denied": {"rejection": "keep the original file"}}})
         );
     }
 }

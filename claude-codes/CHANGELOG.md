@@ -38,6 +38,36 @@ move to 2.1.218.
   the harness-stamped `non_execution_kind` for error tool results and any
   human-typed `user_feedback` deny comment.
 
+## [2.1.162] - 2026-07-22
+
+### Fixed
+
+- **`ClaudeInput::interrupt()` now actually interrupts** (#218). It previously
+  serialized to a bare `{"subtype":"interrupt"}`, which the CLI silently
+  ignores (verified against 2.1.205 and 2.1.211) — the in-flight turn ran to
+  completion. It now emits the required `control_request` envelope
+  `{"type":"control_request","request_id":...,"request":{"subtype":"interrupt"}}`,
+  which the CLI acknowledges with a `control_response` and cancels the turn
+  immediately (verified live: ack in ~10ms, turn ends with
+  `result subtype=error_during_execution`).
+
+### Changed
+
+- **Breaking**: `ClaudeInput::interrupt(request_id)` now takes the unique
+  request id for the control envelope. `AsyncClient::interrupt()` /
+  `SyncClient::interrupt()` generate an `interrupt-<uuid>` id and now return
+  `Result<String>` (the id) so callers can correlate the CLI's
+  `control_response` ack.
+- **Breaking**: removed `SDKControlInterruptRequest` — its bare wire shape is
+  a no-op against the CLI. Use `ClaudeInput::interrupt(request_id)` or the new
+  `ControlRequestMessage::interrupt(request_id)` constructor instead.
+
+### Added
+
+- **`ControlRequestPayload::Interrupt`** variant and
+  **`ControlRequestMessage::interrupt(request_id)`** constructor (mirroring
+  `::initialize`), so the correctly-enveloped interrupt can be built typed.
+
 ## [2.1.161] - 2026-07-11
 
 ### Added
