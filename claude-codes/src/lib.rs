@@ -78,7 +78,7 @@
 //! ⚠️ **Important**: The Claude CLI protocol is unstable and evolving. This crate
 //! automatically checks your Claude CLI version and warns if it's newer than tested.
 //!
-//! Current tested version: **2.1.205**
+//! Current tested version: **2.1.219**
 //!
 //! Report compatibility issues at: <https://github.com/meawoppl/rust-claude-codes/pulls>
 //!
@@ -156,15 +156,15 @@ pub use io::{
     CompactBoundaryMessage, CompactMetadata, CompactionTrigger, ControlRequestProgressMessage,
     ElicitationCompleteMessage, FailedPersistedFile, FilesPersistedMessage, HookProgressMessage,
     HookResponseMessage, HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode,
-    KnownSystemEvent, LocalCommandOutputMessage, McpMeta, MemoryPaths, MemoryRecallItem,
-    MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage,
-    ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle,
-    PermissionDeniedMessage, PersistedFile, PluginDiagnostic, PluginInfo, PluginInstallMessage,
-    PreservedMessages, PreservedSegment, StatusMessage, StatusMessageStatus, StopReason,
-    SummarizeMetadata, SystemMessage, SystemSubtype, TaskNotificationMessage, TaskPatch,
-    TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage,
-    ThinkingTokensMessage, ToolResultMeta, ToolUseMeta, VcsMutationKind, VcsStateChangedMessage,
-    WorkerShuttingDownMessage,
+    KnownSystemEvent, LocalCommandOutputMessage, McpMeta, McpServerError, MemoryPaths,
+    MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey,
+    MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
+    NotificationMessage, OutputStyle, PermissionDeniedMessage, PersistedFile, PluginDiagnostic,
+    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, StatusMessage,
+    StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage, SystemSubtype,
+    TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage, TaskStatus,
+    TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta, ToolUseMeta,
+    VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
 };
 
 // Additional top-level output message wrappers
@@ -185,8 +185,8 @@ pub use io::{
 
 // Usage types
 pub use io::{
-    AssistantUsage, CacheCreationDetails, DeferredToolUse, ServerToolUse, SubagentResult,
-    SubagentToolStats, SubagentUsageRollup, UsageInfo,
+    AssistantUsage, CacheCreationDetails, DeferredToolUse, FastModeDisabledReason, ServerToolUse,
+    SubagentResult, SubagentToolStats, SubagentUsageRollup, UsageInfo,
 };
 
 // Typed tool input types

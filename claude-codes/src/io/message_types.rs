@@ -1466,6 +1466,9 @@ pub struct PluginInfo {
     /// Plugin registry source (e.g., "rust-analyzer-lsp@claude-plugins-official")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// Installed plugin version (e.g., "1.0.0"). Added in CLI 2.1.219.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 /// Plugin load diagnostic reported by system init.
@@ -1486,6 +1489,18 @@ pub struct MemoryPaths {
     pub team: Option<String>,
     #[serde(flatten)]
     pub extra: serde_json::Map<String, Value>,
+}
+
+/// An MCP server config entry that failed validation, reported by system
+/// init (e.g. a `url` entry with no `type`). The affected server is skipped
+/// and absent from `InitMessage::mcp_servers`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct McpServerError {
+    pub name: String,
+    /// Stable error category.
+    #[serde(rename = "type")]
+    pub error_type: String,
+    pub message: String,
 }
 
 /// Init system message data - sent at session start
@@ -1541,6 +1556,15 @@ pub struct InitMessage {
     /// Fast mode toggle state (e.g., "off")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fast_mode_state: Option<String>,
+
+    /// Why fast mode can't serve right now. Absent when nothing blocks it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast_mode_disabled_reason: Option<super::result::FastModeDisabledReason>,
+
+    /// MCP server config entries (from `--mcp-config`) that failed validation
+    /// and were skipped. Affected servers are absent from `mcp_servers`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_server_errors: Option<Vec<McpServerError>>,
 
     /// Whether analytics collection is disabled for this session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2939,6 +2963,36 @@ mod tests {
         let result = user.subagent_result().expect("lenient parse");
         assert_eq!(result.total_tokens, None);
         assert_eq!(result.agent_type, None);
+    }
+
+    #[test]
+    fn test_init_fast_mode_reason_and_mcp_server_errors_fully_wrapped() {
+        use serde_json::Value;
+
+        let raw: Value = serde_json::from_str(
+            r#"{
+            "type":"system","subtype":"init","session_id":"s1","uuid":"u1",
+            "fast_mode_state":"off",
+            "fast_mode_disabled_reason":"not_first_party",
+            "mcp_server_errors":[{"name":"broken","type":"invalid_config","message":"url entry with no type"}]
+        }"#,
+        )
+        .unwrap();
+        crate::io::assert_fully_wrapped(&raw);
+
+        let output: ClaudeOutput = serde_json::from_value(raw).unwrap();
+        let ClaudeOutput::System(sys) = output else {
+            panic!("expected System");
+        };
+        let init = sys.as_init().expect("parses as init");
+        assert_eq!(
+            init.fast_mode_disabled_reason,
+            Some(crate::FastModeDisabledReason::NotFirstParty)
+        );
+        let errs = init.mcp_server_errors.unwrap();
+        assert_eq!(errs.len(), 1);
+        assert_eq!(errs[0].name, "broken");
+        assert_eq!(errs[0].error_type, "invalid_config");
     }
 
     #[test]
