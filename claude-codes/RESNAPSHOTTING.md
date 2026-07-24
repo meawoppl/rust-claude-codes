@@ -94,6 +94,11 @@ Two caveats that save confusion:
   not the CLI schema, so "the zod says unknown" is not drift.
 - Minified names collide across bundle modules. When extracting by hand,
   prefer the definition nearest the union's byte offset.
+- Not every `ref()`-shaped call inside a schema body is a schema reference:
+  module-initializer thunks (`NAME=S(()=>{...})`, a different wrapper than the
+  schema one) and plain helper calls match the same shape. The extractor only
+  follows names defined under the schema wrapper; the rest are skipped and
+  listed on stderr as `non-schema refs skipped`.
 
 ## Manual spelunking recipes
 
