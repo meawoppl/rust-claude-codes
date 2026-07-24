@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.143.5] - 2026-07-22
+
+Re-snapshot of the app-server schema from `openai/codex@main`, resolving the
+nightly drift report (#199). Snapshots are byte-identical to upstream again
+and schema coverage is back to 100%.
+
+### Added
+
+- **`app/read` and `app/installed` client requests** — new method constants
+  (`methods::APP_READ`, `methods::APP_INSTALLED`) with generated
+  `AppsReadParams`/`AppsReadResponse` and
+  `AppsInstalledParams`/`AppsInstalledResponse` types, plus supporting
+  `ConnectorMetadata`, `InstalledApp`, and `AppToolSummary` definitions.
+- **New generated definitions**: `CodexResponseHandoffMode`,
+  `FeedbackRequirements`, `PathUri`, `ThreadRealtimeInitialItem`.
+- Additive fields across `Account`, `ConfigRequirements`,
+  `ConfiguredHookHandler`, `ContentItem`, `HookEventName`, `HookMetadata`,
+  `InputModality`, `ManagedHooksRequirements`, `PluginListParams`,
+  `PluginSummary`, `UserInput`, and the external-agent-config params.
+
+### Changed
+
+- **Breaking**: `ReviewDecision::Denied` is now a struct variant carrying a
+  required `rejection: String` (wire shape
+  `{"decision":{"denied":{"rejection":...}}}`). The
+  `ExecCommandApprovalResponse::denied()` and
+  `ApplyPatchApprovalResponse::denied()` constructors now take the rejection
+  message as an argument.
+
+### Removed
+
+- **Breaking**: `AmazonBedrockCredentialSource` — removed upstream.
+
 ## [0.143.4] - 2026-07-16
 
 Combines the `agent-portal` audit ergonomics (originally staged as an
