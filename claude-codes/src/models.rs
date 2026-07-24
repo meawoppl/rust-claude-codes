@@ -5,7 +5,7 @@
 //! `ClaudeCliBuilder::model`, which accepts the enum directly via
 //! `Into<String>`).
 //!
-//! The model table was extracted from the Claude CLI 2.1.205 binary's model
+//! The model table was extracted from the Claude CLI 2.1.219 binary's model
 //! registry. Aliases (`sonnet`, `opus`, …) float to the newest model of that
 //! family on the CLI side; pinned variants name one concrete model. Unknown
 //! or future model strings round-trip through [`ClaudeModel::Custom`].
@@ -18,7 +18,8 @@ use std::fmt;
 pub enum ClaudeModel {
     /// Newest Sonnet-family model (floating alias `sonnet`).
     Sonnet,
-    /// Newest Opus-family model (floating alias `opus`).
+    /// Newest Opus-family model (floating alias `opus`). Resolves to
+    /// `claude-opus-5` first-party as of CLI 2.1.219.
     Opus,
     /// Newest Haiku-family model (floating alias `haiku`).
     Haiku,
@@ -38,6 +39,8 @@ pub enum ClaudeModel {
     Fable5,
     /// Mythos 5 (`claude-mythos-5`).
     Mythos5,
+    /// Opus 5 (`claude-opus-5`).
+    Opus5,
     /// Opus 4.8 (`claude-opus-4-8`).
     Opus48,
     /// Opus 4.7 (`claude-opus-4-7`).
@@ -86,6 +89,7 @@ impl ClaudeModel {
             Self::Fable1m => "fable[1m]",
             Self::Fable5 => "claude-fable-5",
             Self::Mythos5 => "claude-mythos-5",
+            Self::Opus5 => "claude-opus-5",
             Self::Opus48 => "claude-opus-4-8",
             Self::Opus47 => "claude-opus-4-7",
             Self::Opus46 => "claude-opus-4-6",
@@ -124,6 +128,7 @@ impl ClaudeModel {
             Self::Fable1m => "Fable (latest, 1M context)",
             Self::Fable5 => "Fable 5",
             Self::Mythos5 => "Mythos 5",
+            Self::Opus5 => "Opus 5",
             Self::Opus48 => "Opus 4.8",
             Self::Opus47 => "Opus 4.7",
             Self::Opus46 => "Opus 4.6",
@@ -173,6 +178,7 @@ impl ClaudeModel {
             Self::Fable1m,
             Self::Fable5,
             Self::Mythos5,
+            Self::Opus5,
             Self::Opus48,
             Self::Opus47,
             Self::Opus46,
@@ -211,6 +217,7 @@ impl From<&str> for ClaudeModel {
             "fable[1m]" => Self::Fable1m,
             "claude-fable-5" => Self::Fable5,
             "claude-mythos-5" => Self::Mythos5,
+            "claude-opus-5" => Self::Opus5,
             "claude-opus-4-8" => Self::Opus48,
             "claude-opus-4-7" => Self::Opus47,
             "claude-opus-4-6" => Self::Opus46,
@@ -278,6 +285,8 @@ mod tests {
 
     #[test]
     fn test_display_names() {
+        assert_eq!(ClaudeModel::Opus5.display_name(), "Opus 5");
+        assert_eq!(ClaudeModel::Opus5.cli_arg(), "claude-opus-5");
         assert_eq!(ClaudeModel::Fable5.display_name(), "Fable 5");
         assert_eq!(ClaudeModel::Opus48.display_name(), "Opus 4.8");
         assert_eq!(ClaudeModel::Sonnet.display_name(), "Sonnet (latest)");

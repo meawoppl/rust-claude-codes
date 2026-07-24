@@ -11,8 +11,8 @@ command_lifecycle: command_uuid, session_id, state, type, uuid
 conversation_reset: new_conversation_id, session_id, type, uuid
 prompt_suggestion: session_id, suggestion, type, uuid
 rate_limit_event: rate_limit_info, session_id, type, uuid
-result: duration_api_ms, duration_ms, errors, fast_mode_state, is_error, modelUsage, num_turns, origin, permission_denials, session_id, stop_reason, subtype, terminal_reason, total_cost_usd, type, usage, uuid
-result/success: api_error_status, deferred_tool_use, duration_api_ms, duration_ms, fast_mode_state, is_error, modelUsage, num_turns, origin, permission_denials, request_sent_wall_ms, result, session_id, stop_reason, structured_output, subtype, terminal_reason, time_origin_ms, time_to_request_from_spawn_ms, time_to_request_ms, total_cost_usd, ttft_ms, ttft_stream_ms, type, usage, user_message_uuid, uuid, warm_spare_claimed
+result: duration_api_ms, duration_ms, errors, fast_mode_disabled_reason, fast_mode_state, is_error, modelUsage, num_turns, origin, permission_denials, session_id, stop_reason, subtype, terminal_reason, total_cost_usd, type, usage, uuid
+result/success: api_error_status, deferred_tool_use, duration_api_ms, duration_ms, fast_mode_disabled_reason, fast_mode_state, is_error, modelUsage, num_turns, origin, permission_denials, request_sent_wall_ms, result, session_id, stop_reason, structured_output, subtype, terminal_reason, time_origin_ms, time_to_request_from_spawn_ms, time_to_request_ms, total_cost_usd, ttft_ms, ttft_stream_ms, type, usage, user_message_uuid, uuid, warm_spare_claimed
 stream_event: event, parent_tool_use_id, session_id, ttft_ms, type, uuid
 system/api_retry: attempt, error, error_status, max_retries, retry_delay_ms, session_id, subtype, type, uuid
 system/background_tasks_changed: session_id, subtype, tasks, type, uuid
@@ -26,7 +26,7 @@ system/hook_progress: hook_event, hook_id, hook_name, output, session_id, stderr
 system/hook_response: exit_code, hook_event, hook_id, hook_name, outcome, output, session_id, stderr, stdout, subtype, type, uuid
 system/hook_started: hook_event, hook_id, hook_name, session_id, subtype, type, uuid
 system/informational: content, level, prevent_continuation, session_id, subtype, tool_use_id, type, uuid
-system/init: agents, analytics_disabled, apiKeySource, betas, capabilities, claude_code_version, cwd, fast_mode_state, mcp_servers, memory_paths, model, output_style, permissionMode, plugin_errors, plugin_warnings, plugins, product_feedback_disabled, session_id, skills, slash_commands, subtype, tools, type, uuid
+system/init: agents, analytics_disabled, apiKeySource, betas, capabilities, claude_code_version, cwd, fast_mode_disabled_reason, fast_mode_state, mcp_server_errors, mcp_servers, memory_paths, model, output_style, permissionMode, plugin_errors, plugin_warnings, plugins, product_feedback_disabled, session_id, skills, slash_commands, subtype, tools, type, uuid
 system/local_command_output: content, session_id, subtype, type, uuid
 system/memory_recall: memories, mode, session_id, subtype, type, uuid
 system/mirror_error: error, key, session_id, subtype, type, uuid

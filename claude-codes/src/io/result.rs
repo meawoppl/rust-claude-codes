@@ -85,6 +85,12 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fast_mode_state: Option<String>,
 
+    /// Why fast mode can't serve right now. Absent when nothing blocks it.
+    /// A paused-after-rate-limit run is not reported here; it rides
+    /// `fast_mode_state` as `"cooldown"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fast_mode_disabled_reason: Option<FastModeDisabledReason>,
+
     /// Per-model cost breakdown, keyed by model name (e.g. `"claude-opus-4-8"`).
     #[serde(skip_serializing_if = "Option::is_none", rename = "modelUsage")]
     pub model_usage: Option<std::collections::BTreeMap<String, ModelUsageEntry>>,
@@ -152,6 +158,89 @@ pub struct PermissionDenial {
 
     /// The unique identifier for this tool use request
     pub tool_use_id: String,
+}
+
+/// Why fast mode can't serve right now, carried on `result` frames and
+/// `system/init` (CLI 2.1.219+). Absent when nothing blocks fast mode.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FastModeDisabledReason {
+    /// Free-tier account.
+    Free,
+    /// Disabled by user preference.
+    Preference,
+    /// Extra-usage purchases are disabled for the account.
+    ExtraUsageDisabled,
+    /// A network error prevented fast-mode eligibility from resolving.
+    NetworkError,
+    /// The CLI could not determine the reason.
+    UnknownReason,
+    /// Not a first-party API session (e.g. Bedrock/Vertex).
+    NotFirstParty,
+    /// Disabled via environment variable.
+    DisabledByEnv,
+    /// The active model does not support fast mode.
+    ModelNotAllowed,
+    /// SDK sessions must opt in to fast mode.
+    SdkOptInRequired,
+    /// Eligibility is still being determined.
+    Pending,
+    /// A reason not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl FastModeDisabledReason {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Free => "free",
+            Self::Preference => "preference",
+            Self::ExtraUsageDisabled => "extra_usage_disabled",
+            Self::NetworkError => "network_error",
+            Self::UnknownReason => "unknown",
+            Self::NotFirstParty => "not_first_party",
+            Self::DisabledByEnv => "disabled_by_env",
+            Self::ModelNotAllowed => "model_not_allowed",
+            Self::SdkOptInRequired => "sdk_opt_in_required",
+            Self::Pending => "pending",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for FastModeDisabledReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for FastModeDisabledReason {
+    fn from(s: &str) -> Self {
+        match s {
+            "free" => Self::Free,
+            "preference" => Self::Preference,
+            "extra_usage_disabled" => Self::ExtraUsageDisabled,
+            "network_error" => Self::NetworkError,
+            "unknown" => Self::UnknownReason,
+            "not_first_party" => Self::NotFirstParty,
+            "disabled_by_env" => Self::DisabledByEnv,
+            "model_not_allowed" => Self::ModelNotAllowed,
+            "sdk_opt_in_required" => Self::SdkOptInRequired,
+            "pending" => Self::Pending,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for FastModeDisabledReason {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for FastModeDisabledReason {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 /// Result subtypes
@@ -536,6 +625,38 @@ mod tests {
         } else {
             panic!("Expected Result");
         }
+    }
+
+    #[test]
+    fn test_result_fast_mode_disabled_reason() {
+        let json = r#"{
+            "type":"result","subtype":"success","is_error":false,
+            "duration_ms":100,"duration_api_ms":80,"num_turns":1,
+            "session_id":"s1","total_cost_usd":0.01,
+            "fast_mode_state":"off",
+            "fast_mode_disabled_reason":"sdk_opt_in_required"
+        }"#;
+        let output: crate::ClaudeOutput = serde_json::from_str(json).unwrap();
+        let crate::ClaudeOutput::Result(res) = &output else {
+            panic!("expected Result");
+        };
+        assert_eq!(
+            res.fast_mode_disabled_reason,
+            Some(FastModeDisabledReason::SdkOptInRequired)
+        );
+        assert!(serde_json::to_string(&output)
+            .unwrap()
+            .contains("\"fast_mode_disabled_reason\":\"sdk_opt_in_required\""));
+
+        // Unknown reasons survive decode and round-trip verbatim; the wire
+        // literal "unknown" maps to the typed UnknownReason, not the fallback.
+        assert_eq!(
+            FastModeDisabledReason::from("unknown"),
+            FastModeDisabledReason::UnknownReason
+        );
+        let novel = FastModeDisabledReason::from("solar_flare");
+        assert_eq!(novel, FastModeDisabledReason::Unknown("solar_flare".into()));
+        assert_eq!(novel.as_str(), "solar_flare");
     }
 
     #[test]

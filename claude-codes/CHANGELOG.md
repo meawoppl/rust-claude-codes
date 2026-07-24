@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.164] - 2026-07-24
+
+Catches up to CLI 2.1.219 — the Opus 5 release. Snapshot baseline and
+`TESTED_VERSION` move to 2.1.219; the full integration suite passes against
+the installed binary.
+
+### Added
+
+- **`ClaudeModel::Opus5`** — pinned variant for `claude-opus-5` (display name
+  "Opus 5", knowledge cutoff May 2026). The floating `opus` alias resolves to
+  `claude-opus-5` first-party as of CLI 2.1.219 (noted on the `Opus` variant
+  doc). Model table refreshed from the 2.1.219 binary; the accepted floating
+  aliases are unchanged.
+- **`FastModeDisabledReason`** — open enum (`free`, `preference`,
+  `extra_usage_disabled`, `network_error`, `unknown`, `not_first_party`,
+  `disabled_by_env`, `model_not_allowed`, `sdk_opt_in_required`, `pending`,
+  plus `Unknown(String)`) carried as the new optional
+  `fast_mode_disabled_reason` on `ResultMessage` and `InitMessage`: why fast
+  mode can't serve right now, complementing the existing `fast_mode_state`.
+- **`InitMessage.mcp_server_errors`** — new `McpServerError` struct (`name`,
+  `type`, `message`) recording `--mcp-config` entries that failed validation
+  and were skipped.
+- **`PluginInfo.version`** — installed plugin version on the init plugin
+  list (caught by the live wire-fidelity audit, not the drift fingerprint —
+  it is a nested field).
+
 ## [2.1.163] - 2026-07-22
 
 Models the CLI 2.1.205 → 2.1.218 stream-json drift surfaced by the fixed
