@@ -130,6 +130,7 @@ async fn test_async_client_custom_initialize() {
             },
             capabilities: Some(InitializeCapabilities {
                 experimental_api: Some(false),
+                mcp_server_openai_form_elicitation: None,
                 opt_out_notification_methods: None,
                 request_attestation: None,
             }),
@@ -497,6 +498,9 @@ async fn test_typed_message_audit_strict() {
                     Notification::ExternalAgentConfigImportCompleted(_) => {
                         "ExternalAgentConfigImportCompleted"
                     }
+                    Notification::ExternalAgentConfigImportProgress(_) => {
+                        "ExternalAgentConfigImportProgress"
+                    }
                     Notification::FuzzyFileSearchSessionCompleted(_) => {
                         "FuzzyFileSearchSessionCompleted"
                     }
@@ -514,12 +518,17 @@ async fn test_typed_message_audit_strict() {
                     Notification::TerminalInteraction(_) => "TerminalInteraction",
                     Notification::McpToolCallProgress(_) => "McpToolCallProgress",
                     Notification::ModelRerouted(_) => "ModelRerouted",
+                    Notification::ModelSafetyBufferingUpdated(_) => "ModelSafetyBufferingUpdated",
                     Notification::ModelVerification(_) => "ModelVerification",
                     Notification::ProcessExited(_) => "ProcessExited",
                     Notification::ProcessOutputDelta(_) => "ProcessOutputDelta",
                     Notification::ServerRequestResolved(_) => "ServerRequestResolved",
                     Notification::ContextCompacted(_) => "ContextCompacted",
                     Notification::ThreadGoalUpdated(_) => "ThreadGoalUpdated",
+                    Notification::ThreadEnvironmentConnected(_) => "ThreadEnvironmentConnected",
+                    Notification::ThreadEnvironmentDisconnected(_) => {
+                        "ThreadEnvironmentDisconnected"
+                    }
                     Notification::ThreadRealtimeClosed(_) => "ThreadRealtimeClosed",
                     Notification::ThreadRealtimeError(_) => "ThreadRealtimeError",
                     Notification::ThreadRealtimeItemAdded(_) => "ThreadRealtimeItemAdded",

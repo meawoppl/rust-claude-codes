@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `AppServerBuilder::env` and `envs` for configuring the app-server process
+  environment.
+- `AppServerBuilder::build_command` and `build_command_sync`, plus
+  `AsyncClient::new` and `SyncClient::new`, for customizing and spawning the
+  app-server separately from client construction.
+
 ## [0.143.6] - 2026-07-25
 
 Re-snapshot of the app-server schema from `openai/codex@main`, resolving the
