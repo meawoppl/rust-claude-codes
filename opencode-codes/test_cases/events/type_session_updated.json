@@ -1,0 +1,36 @@
+{
+  "id": "evt_f9d090991001iZ2ofMYUzYrVF5",
+  "type": "session.updated",
+  "properties": {
+    "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+    "info": {
+      "id": "ses_062f6fafdffeazh6ywwvMxsbNW",
+      "slug": "witty-falcon",
+      "projectID": "global",
+      "directory": "/tmp",
+      "path": "tmp",
+      "title": "sse fixture",
+      "agent": "build",
+      "model": {
+        "id": "big-pickle",
+        "providerID": "opencode",
+        "variant": "default"
+      },
+      "version": "1.18.5",
+      "cost": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      },
+      "time": {
+        "created": 1785046041858,
+        "updated": 1785046043023
+      }
+    }
+  }
+}

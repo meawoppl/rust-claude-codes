@@ -1,0 +1,15 @@
+{
+  "id": "evt_f9d0909990014eJqW0KfcsfUCa",
+  "type": "message.part.updated",
+  "properties": {
+    "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+    "part": {
+      "type": "text",
+      "text": "Reply with the single word: ping",
+      "messageID": "msg_f9d09098f001OOkZQc5qa3iPrO",
+      "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+      "id": "prt_f9d090995001DON2ammZDgz9QQ"
+    },
+    "time": 1785046043033
+  }
+}

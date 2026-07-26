@@ -1,0 +1,20 @@
+{
+  "id": "evt_f9d090996001BqZ3GDW1X8z1D6",
+  "type": "message.updated",
+  "properties": {
+    "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+    "info": {
+      "id": "msg_f9d09098f001OOkZQc5qa3iPrO",
+      "role": "user",
+      "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+      "time": {
+        "created": 1785046043023
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "opencode",
+        "modelID": "big-pickle"
+      }
+    }
+  }
+}

@@ -1,0 +1,216 @@
+[
+  {
+    "info": {
+      "id": "msg_f9d089863001L4LF5X3Jow2Sp3",
+      "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+      "role": "user",
+      "time": {
+        "created": 1785046014051
+      },
+      "summary": {
+        "diffs": []
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "opencode",
+        "modelID": "big-pickle"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_f9d0898e6001w00v9Cd1n90h9S",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d089863001L4LF5X3Jow2Sp3",
+        "type": "text",
+        "text": "Say hello in one word."
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_f9d0898fa001Y3WFu2vo2Qoeu0",
+      "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+      "role": "assistant",
+      "time": {
+        "created": 1785046014202,
+        "completed": 1785046017122
+      },
+      "parentID": "msg_f9d089863001L4LF5X3Jow2Sp3",
+      "modelID": "big-pickle",
+      "providerID": "opencode",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/tmp",
+        "root": "/"
+      },
+      "cost": 0,
+      "tokens": {
+        "total": 8729,
+        "input": 522,
+        "output": 4,
+        "reasoning": 11,
+        "cache": {
+          "read": 8192,
+          "write": 0
+        }
+      },
+      "finish": "stop"
+    },
+    "parts": [
+      {
+        "id": "prt_f9d08a3f1001crWMRxvM9Y2gdd",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d0898fa001Y3WFu2vo2Qoeu0",
+        "type": "step-start"
+      },
+      {
+        "id": "prt_f9d08a3f6001CLLtxBr4lUkj9m",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d0898fa001Y3WFu2vo2Qoeu0",
+        "type": "reasoning",
+        "text": "The user wants me to say hello in one word.",
+        "time": {
+          "start": 1785046017014,
+          "end": 1785046017086
+        }
+      },
+      {
+        "id": "prt_f9d08a4420018YgDpwv2l0yJxR",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d0898fa001Y3WFu2vo2Qoeu0",
+        "type": "text",
+        "text": "Hello",
+        "time": {
+          "start": 1785046017090,
+          "end": 1785046017110
+        }
+      },
+      {
+        "id": "prt_f9d08a45a001XvSKq590SqfmzH",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d0898fa001Y3WFu2vo2Qoeu0",
+        "type": "step-finish",
+        "reason": "stop",
+        "cost": 0,
+        "tokens": {
+          "total": 8729,
+          "input": 522,
+          "output": 4,
+          "reasoning": 11,
+          "cache": {
+            "read": 8192,
+            "write": 0
+          }
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_f9d08ae69001YqbDmQ9gOu4eyE",
+      "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+      "role": "user",
+      "time": {
+        "created": 1785046019689
+      },
+      "summary": {
+        "diffs": []
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "opencode",
+        "modelID": "big-pickle"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_f9d08ae6a0014OHcq7d7t5Sd3a",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d08ae69001YqbDmQ9gOu4eyE",
+        "type": "text",
+        "text": "Say hello in one word."
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_f9d08ae7b001ZZdQLaUwzAr8Eq",
+      "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+      "role": "assistant",
+      "time": {
+        "created": 1785046019707,
+        "completed": 1785046026397
+      },
+      "parentID": "msg_f9d08ae69001YqbDmQ9gOu4eyE",
+      "modelID": "big-pickle",
+      "providerID": "opencode",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/tmp",
+        "root": "/"
+      },
+      "cost": 0,
+      "tokens": {
+        "total": 8770,
+        "input": 38,
+        "output": 4,
+        "reasoning": 24,
+        "cache": {
+          "read": 8704,
+          "write": 0
+        }
+      },
+      "finish": "stop"
+    },
+    "parts": [
+      {
+        "id": "prt_f9d08c6da0011bCHJDPwrtYOTO",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d08ae7b001ZZdQLaUwzAr8Eq",
+        "type": "step-start"
+      },
+      {
+        "id": "prt_f9d08c6ef001rwLaVVBTy7KYM8",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d08ae7b001ZZdQLaUwzAr8Eq",
+        "type": "reasoning",
+        "text": "The user is asking me to say hello in one word again. I should respond the same way - just \"Hello\".",
+        "time": {
+          "start": 1785046025967,
+          "end": 1785046026359
+        }
+      },
+      {
+        "id": "prt_f9d08c87b001c0J1GU9tEu0x3C",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d08ae7b001ZZdQLaUwzAr8Eq",
+        "type": "text",
+        "text": "Hello",
+        "time": {
+          "start": 1785046026364,
+          "end": 1785046026385
+        }
+      },
+      {
+        "id": "prt_f9d08c896001SZopBcFJQT7XpU",
+        "sessionID": "ses_062f7835bffeTGfH5IKNUxZZX7",
+        "messageID": "msg_f9d08ae7b001ZZdQLaUwzAr8Eq",
+        "type": "step-finish",
+        "reason": "stop",
+        "cost": 0,
+        "tokens": {
+          "total": 8770,
+          "input": 38,
+          "output": 4,
+          "reasoning": 24,
+          "cache": {
+            "read": 8704,
+            "write": 0
+          }
+        }
+      }
+    ]
+  }
+]

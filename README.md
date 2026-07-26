@@ -2,7 +2,7 @@
 
 Typed Rust interfaces for AI code agent CLI protocols.
 
-This workspace provides two independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [OpenAI Codex](https://github.com/openai/codex) via their JSON/JSONL streaming protocols.
+This workspace provides independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), and [opencode](https://opencode.ai) via their streaming protocols (JSON/JSONL over stdio, or HTTP + SSE).
 
 ## Crates
 
@@ -10,6 +10,7 @@ This workspace provides two independent crates for interacting with [Claude Code
 |-------|---------|------|----|------|
 | [`claude-codes`](./claude-codes/) | [![Crates.io](https://img.shields.io/crates/v/claude-codes.svg)](https://crates.io/crates/claude-codes) | [![docs.rs](https://docs.rs/claude-codes/badge.svg)](https://docs.rs/claude-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 | [`codex-codes`](./codex-codes/) | [![Crates.io](https://img.shields.io/crates/v/codex-codes.svg)](https://crates.io/crates/codex-codes) | [![docs.rs](https://docs.rs/codex-codes/badge.svg)](https://docs.rs/codex-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
+| [`opencode-codes`](./opencode-codes/) | [![Crates.io](https://img.shields.io/crates/v/opencode-codes.svg)](https://crates.io/crates/opencode-codes) | [![docs.rs](https://docs.rs/opencode-codes/badge.svg)](https://docs.rs/opencode-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 
 ## Versioning
 
@@ -17,8 +18,11 @@ Each crate's version tracks the CLI it wraps:
 
 - **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.165`, tested against Claude CLI `2.1.219`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.143.6`, tested against Codex CLI `0.143.0`.
+- **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.5`, tested against opencode `1.18.5`.
 
-Both crates will warn (or fail gracefully) if the installed CLI version diverges from the tested version.
+`claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
+CLI version diverges from the tested version. `opencode-codes` tracks the
+opencode release train by version but ships no runtime version-divergence check.
 
 ## Feature Flags
 
@@ -56,9 +60,26 @@ All features are enabled by default. For WASM or type-sharing use cases:
 codex-codes = { version = "0.142", default-features = false, features = ["types"] }
 ```
 
+### opencode-codes
+
+`opencode-codes` wraps an HTTP + SSE server rather than a stdio CLI, so its flags differ:
+
+| Feature | Description | WASM-compatible |
+|---------|-------------|-----------------|
+| `types` | Core protocol types only (serde) | Yes |
+| `async-client` | Async HTTP/SSE client using reqwest + tokio | No |
+| `server` | Managed `opencode serve` launcher (picks a free port) | No |
+
+`default = ["types", "async-client"]` (there is no sync client). For WASM or type-sharing use cases:
+
+```toml
+[dependencies]
+opencode-codes = { version = "1.18", default-features = false, features = ["types"] }
+```
+
 ## Testing Approach
 
-Both crates share the same testing philosophy:
+The crates share the same testing philosophy:
 
 1. **Unit tests** validate serde round-tripping for every type variant against hand-crafted JSON.
 2. **Integration tests** deserialize real JSONL captures from actual CLI sessions. These captures live in each crate's `test_cases/` directory and are checked into the repo, so deserialization is validated against real-world protocol output.
@@ -84,11 +105,15 @@ rust-code-agent-sdks/
     tests/               # Integration tests
     test_cases/          # Real CLI captures
     examples/            # async_client, sync_client, basic_repl
+  opencode-codes/        # opencode HTTP + SSE server bindings
+    src/                 # Types, async client, HTTP/SSE transport, server launcher
+    tests/               # Drift checks and schema snapshot
 ```
 
 See each crate's README for detailed usage:
 - [claude-codes README](./claude-codes/README.md)
 - [codex-codes README](./codex-codes/README.md)
+- [opencode-codes README](./opencode-codes/README.md)
 
 ## License
 

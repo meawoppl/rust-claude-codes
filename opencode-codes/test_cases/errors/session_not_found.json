@@ -1,0 +1,6 @@
+{
+  "name": "NotFoundError",
+  "data": {
+    "message": "Session not found: ses_doesnotexist000000000000"
+  }
+}

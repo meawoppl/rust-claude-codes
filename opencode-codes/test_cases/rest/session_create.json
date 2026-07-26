@@ -1,0 +1,23 @@
+{
+  "id": "ses_062f7835bffeTGfH5IKNUxZZX7",
+  "slug": "witty-circuit",
+  "projectID": "global",
+  "directory": "/tmp",
+  "path": "tmp",
+  "cost": 0,
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "reasoning": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "title": "opencode-codes fixture session",
+  "version": "1.18.5",
+  "time": {
+    "created": 1785046006948,
+    "updated": 1785046006948
+  }
+}

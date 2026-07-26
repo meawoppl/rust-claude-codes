@@ -1,0 +1,119 @@
+name: opencode Schema Drift
+
+# Nightly check: does the installed opencode server's live OpenAPI document
+# (`GET /doc`) still match our snapshot at
+# `opencode-codes/tests/schemas/opencode_openapi.json`?
+#
+# opencode has no published schema file — its wire contract is served by the
+# running binary. We npm-install opencode, let the drift script spawn
+# `opencode serve` on a free port, fetch /doc, reduce it to a
+# format-invariant fingerprint (path set + per-schema property-key sets), and
+# diff against the snapshot. On drift we open (or update) an issue.
+#
+# Sibling of codex-schema-drift.yml / claude-schema-drift.yml; kept separate
+# because the source of truth is a locally-run server, not an upstream URL or a
+# compiled binary's embedded schemas.
+
+on:
+  schedule:
+    # 06:37 UTC — offset from codex (06:17) and claude (06:47) drift checks and
+    # off the hour so we don't pile on GitHub's scheduled-workflow flush.
+    - cron: "37 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: diff live opencode /doc vs snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install the opencode CLI
+        # Best-effort: if the install fails, the drift check exits 2 (soft skip)
+        # rather than failing the job or opening a spurious issue.
+        run: |
+          set +e
+          npm install -g opencode-ai
+          opencode --version || true
+          exit 0
+
+      - name: Run drift check
+        id: check
+        # Tee both to stdout and a file so we can publish the body into the issue.
+        run: |
+          set +e
+          python3 scripts/check_opencode_schema_drift.py | tee /tmp/opencode_drift_report.md
+          STATUS=${PIPESTATUS[0]}
+          echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
+          case "$STATUS" in
+            0) echo "result=no-drift"     >> "$GITHUB_OUTPUT" ;;
+            1) echo "result=drift"        >> "$GITHUB_OUTPUT" ;;
+            *) echo "result=server-skip"  >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit 0  # don't fail the job on drift; we open an issue instead
+
+      - name: Open or update drift issue
+        if: steps.check.outputs.result == 'drift'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Single-thread by label: at most one open drift issue at a time.
+          LABEL="opencode-schema-drift"
+          TITLE="opencode-codes: opencode OpenAPI schema has drifted from our snapshot"
+          BODY_FILE=/tmp/opencode_drift_report.md
+          gh label create "$LABEL" \
+            --color "0E8A16" \
+            --description "Nightly check found drift between the live opencode /doc schema and our snapshot" \
+            --force \
+            || true
+          EXISTING=$(gh issue list --state open --label "$LABEL" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing drift issue #$EXISTING"
+            {
+              echo "_Nightly drift re-check (run #${{ github.run_number }}, $(date -u +%Y-%m-%dT%H:%MZ)):_"
+              echo
+              cat "$BODY_FILE"
+            } | gh issue comment "$EXISTING" --body-file -
+          else
+            echo "Opening new drift issue"
+            gh issue create \
+              --title "$TITLE" \
+              --label "$LABEL" \
+              --body-file "$BODY_FILE"
+          fi
+
+      - name: Report server skip (job summary only — don't open issue)
+        if: steps.check.outputs.result == 'server-skip'
+        run: |
+          {
+            echo "## opencode schema drift check skipped"
+            echo
+            echo "Could not install or start the opencode server on the runner"
+            echo "(install failure, or the server never answered \`/doc\`). Will"
+            echo "retry on the next nightly run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: All clear (job summary only)
+        if: steps.check.outputs.result == 'no-drift'
+        run: |
+          {
+            echo "## ✅ No opencode schema drift"
+            echo
+            echo "The live \`/doc\` OpenAPI document's path set and per-schema"
+            echo "property keys match"
+            echo "\`opencode-codes/tests/schemas/opencode_openapi.json\`."
+          } >> "$GITHUB_STEP_SUMMARY"
