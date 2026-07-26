@@ -869,6 +869,20 @@
         "description": {
           "type": "string"
         },
+        "disabledReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "isEnabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "isReadOnly": {
+          "default": false,
+          "type": "boolean"
+        },
         "name": {
           "type": "string"
         },
@@ -1219,6 +1233,17 @@
         "agent"
       ],
       "type": "string"
+    },
+    "BrowserUseRequirements": {
+      "properties": {
+        "disableAutoReview": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "ByteRange": {
       "properties": {
@@ -3327,6 +3352,30 @@
             },
             "method": {
               "enum": [
+                "externalAgentConfig/import/recordHistory"
+              ],
+              "title": "ExternalAgentConfig/import/recordHistoryRequestMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/ExternalAgentConfigImportHistoryRecordParams"
+            }
+          },
+          "required": [
+            "id",
+            "method",
+            "params"
+          ],
+          "title": "ExternalAgentConfig/import/recordHistoryRequest",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/RequestId"
+            },
+            "method": {
+              "enum": [
                 "externalAgentConfig/import/readHistories"
               ],
               "title": "ExternalAgentConfig/import/readHistoriesRequestMethod",
@@ -4405,7 +4454,7 @@
           ]
         },
         "reloadUserConfig": {
-          "description": "When true, hot-reload the updated user config into all loaded threads after writing.",
+          "description": "When true, hot-reload updated runtime settings into loaded threads after writing. Session-static model, reasoning-effort, Plan-mode reasoning-effort, service-tier, and personality defaults are not reloaded.",
           "type": "boolean"
         }
       },
@@ -4775,6 +4824,16 @@
           "type": [
             "array",
             "null"
+          ]
+        },
+        "browserUse": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/BrowserUseRequirements"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "checkForUpdateOnStartup": {
@@ -5905,6 +5964,12 @@
         "importId": {
           "type": "string"
         },
+        "providerId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "successes": {
           "items": {
             "$ref": "#/definitions/ExternalAgentConfigImportItemTypeSuccess"
@@ -5918,6 +5983,41 @@
         "importId",
         "successes"
       ],
+      "type": "object"
+    },
+    "ExternalAgentConfigImportHistoryRecordParams": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "itemTypeResults": {
+          "description": "Completed results grouped by imported item type.",
+          "items": {
+            "$ref": "#/definitions/ExternalAgentConfigImportTypeResult"
+          },
+          "type": "array"
+        },
+        "providerId": {
+          "description": "Opaque provider identifier for the externally completed import.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemTypeResults",
+        "providerId"
+      ],
+      "title": "ExternalAgentConfigImportHistoryRecordParams",
+      "type": "object"
+    },
+    "ExternalAgentConfigImportHistoryRecordResponse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "importId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "importId"
+      ],
+      "title": "ExternalAgentConfigImportHistoryRecordResponse",
       "type": "object"
     },
     "ExternalAgentConfigImportItemTypeFailure": {
@@ -6009,7 +6109,7 @@
           ]
         },
         "providerId": {
-          "description": "Opaque provider identifier supplied by the caller for analytics attribution. This does not select the migration source.",
+          "description": "Opaque provider identifier supplied by the caller for analytics attribution and import history display. This does not select the migration source.",
           "type": [
             "string",
             "null"
@@ -10241,6 +10341,7 @@
         "team",
         "self_serve_business_usage_based",
         "business",
+        "ent26",
         "enterprise_cbp_usage_based",
         "enterprise",
         "edu",
@@ -10836,6 +10937,13 @@
     },
     "PluginShareContext": {
       "properties": {
+        "canPublishToWorkspace": {
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "creatorAccountUserId": {
           "type": [
             "string",
@@ -11038,6 +11146,13 @@
     "PluginShareSaveResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
+        "canPublishToWorkspace": {
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "remotePluginId": {
           "type": "string"
         },
@@ -15143,6 +15258,13 @@
             }
           ]
         },
+        "iconLargeUrl": {
+          "description": "Remote large icon URL from the plugin catalog.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "iconSmall": {
           "anyOf": [
             {
@@ -15151,6 +15273,13 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "iconSmallUrl": {
+          "description": "Remote small icon URL from the plugin catalog.",
+          "type": [
+            "string",
+            "null"
           ]
         },
         "shortDescription": {
@@ -16579,8 +16708,24 @@
             "id": {
               "type": "string"
             },
+            "pluginId": {
+              "default": null,
+              "description": "Trusted first-party plugin id when this command resolves to one plugin script.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "processId": {
               "description": "Identifier for the underlying PTY process (when available).",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scriptPath": {
+              "default": null,
+              "description": "Safe plugin-relative path when this command resolves to one plugin script.",
               "type": [
                 "string",
                 "null"

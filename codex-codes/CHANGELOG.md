@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.143.6] - 2026-07-25
+
+Re-snapshot of the app-server schema from `openai/codex@main`, resolving the
+nightly drift report (#232). Snapshots are byte-identical to upstream again
+and schema coverage is 170/170 (100%).
+
+### Added
+
+- **`externalAgentConfig/import/recordHistory` client request** — new method
+  constant (`methods::EXTERNALAGENTCONFIG_IMPORT_RECORDHISTORY`) with
+  generated `ExternalAgentConfigImportHistoryRecordParams`/`Response` types.
+- **`BrowserUseRequirements`** definition (carried on `ConfigRequirements`
+  as the new optional `browser_use` field).
+- Additive fields across `AppToolSummary`, `ConfigBatchWriteParams`,
+  `ExternalAgentConfigImportHistory`, `ExternalAgentConfigImportParams`,
+  `PlanType`, `PluginShareContext`, `PluginShareSaveResponse`,
+  `SkillInterface`, and `ThreadItem`.
+
 ## [0.143.5] - 2026-07-22
 
 Re-snapshot of the app-server schema from `openai/codex@main`, resolving the

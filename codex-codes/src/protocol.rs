@@ -118,6 +118,8 @@ pub mod methods {
     pub const ACCOUNT_WORKSPACEMESSAGES_READ: &str = "account/workspaceMessages/read";
     pub const EXTERNALAGENTCONFIG_IMPORT_READHISTORIES: &str =
         "externalAgentConfig/import/readHistories";
+    pub const EXTERNALAGENTCONFIG_IMPORT_RECORDHISTORY: &str =
+        "externalAgentConfig/import/recordHistory";
 
     // Server → client notifications
     pub const THREAD_STARTED: &str = "thread/started";
