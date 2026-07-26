@@ -970,6 +970,32 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Check if this is a code_change_published message
+    pub fn is_code_change_published(&self) -> bool {
+        self.subtype == SystemSubtype::CodeChangePublished
+    }
+
+    /// Try to parse as a code_change_published message
+    pub fn as_code_change_published(&self) -> Option<CodeChangePublishedMessage> {
+        if self.subtype != SystemSubtype::CodeChangePublished {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
+    /// Check if this is a vcs_state_changed message
+    pub fn is_vcs_state_changed(&self) -> bool {
+        self.subtype == SystemSubtype::VcsStateChanged
+    }
+
+    /// Try to parse as a vcs_state_changed message
+    pub fn as_vcs_state_changed(&self) -> Option<VcsStateChangedMessage> {
+        if self.subtype != SystemSubtype::VcsStateChanged {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
     /// Parse any typed system subtype known to this crate version.
     pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
         macro_rules! parse {
@@ -3022,6 +3048,12 @@ mod tests {
         assert_eq!(msg.provider, "github");
         assert_eq!(msg.repo, "owner/repo");
         assert_eq!(msg.identifier, "42");
+
+        assert!(sys.is_code_change_published());
+        assert!(!sys.is_vcs_state_changed());
+        let direct = sys.as_code_change_published().expect("direct accessor");
+        assert_eq!(direct.url, "https://github.com/owner/repo/pull/42");
+        assert!(sys.as_vcs_state_changed().is_none());
     }
 
     #[test]
@@ -3062,6 +3094,11 @@ mod tests {
             panic!("expected VcsStateChanged event");
         };
         assert_eq!(msg.kind, VcsMutationKind::Unknown("tag".to_string()));
+
+        assert!(sys.is_vcs_state_changed());
+        let direct = sys.as_vcs_state_changed().expect("direct accessor");
+        assert_eq!(direct.cwd, "/repo");
+        assert!(sys.as_code_change_published().is_none());
     }
 
     #[test]

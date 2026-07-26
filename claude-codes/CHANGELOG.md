@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.165] - 2026-07-25
+
+### Added
+
+- **`SystemMessage::as_code_change_published()` / `as_vcs_state_changed()`**
+  (plus `is_*` checks) — dedicated typed accessors following the
+  `as_init()` pattern, so consumers reach `CodeChangePublishedMessage` /
+  `VcsStateChangedMessage` without matching on `KnownSystemEvent` or poking
+  raw JSON (#231). Note: the `vcs_state_changed` SDK frame is flat
+  (`kind` + `cwd`) — the CLI's internal git/gh watcher event carries richer
+  `commit`/`push`/`branch`/`pr` sections, but the emitter flattens each to
+  one-or-more `kind` frames before they cross the wire.
+
 ## [2.1.164] - 2026-07-24
 
 Catches up to CLI 2.1.219 — the Opus 5 release. Snapshot baseline and
