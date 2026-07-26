@@ -566,6 +566,7 @@ mod samples {
             methods::ACCOUNT_RATELIMITRESETCREDIT_CONSUME,
             methods::ACCOUNT_WORKSPACEMESSAGES_READ,
             methods::EXTERNALAGENTCONFIG_IMPORT_READHISTORIES,
+            methods::EXTERNALAGENTCONFIG_IMPORT_RECORDHISTORY,
         ]
         .into_iter()
         .collect()
