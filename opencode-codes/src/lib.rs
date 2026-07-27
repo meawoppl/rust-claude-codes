@@ -1,5 +1,17 @@
 //! A typed Rust interface for the [opencode](https://opencode.ai) agent server.
 //!
+//! <div class="warning">
+//!
+//! **Maturity warning**: this crate is new and should be considered **highly
+//! untested** — it is under active development. The types are generated from
+//! opencode's published OpenAPI spec and the suite passes against a live
+//! server, but real-world mileage is minimal and the API may change between
+//! releases while the surface settles. Bug reports and wire captures that
+//! break the types are very welcome at
+//! <https://github.com/meawoppl/rust-code-agent-sdks/issues>.
+//!
+//! </div>
+//!
 //! Unlike its sibling crates ([`claude-codes`](https://docs.rs/claude-codes) and
 //! [`codex-codes`](https://docs.rs/codex-codes)), which wrap CLIs that speak a
 //! JSON-Lines protocol over stdio, opencode runs a **local HTTP server** with a
