@@ -1,3 +1,22 @@
 [workspace]
 members = ["claude-codes", "codex-codes", "opencode-codes"]
 resolver = "2"
+
+# Dependencies shared by two or more workspace crates. Members reference these
+# with `{ workspace = true }` so versions move in lockstep.
+[workspace.dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+thiserror = "2.0.16"
+tokio = { version = "1.49.0", features = ["full"] }
+log = "0.4.29"
+which = "8.0.2"
+env_logger = "0.11.9"
+jsonschema = "0.46.5"
+
+# Lint policy shared across workspace crates; members opt in with
+# `[lints] workspace = true`. `deny` rather than `forbid` so the one vetted
+# unsafe site (opencode-codes' process-group signal FFI) can carry a scoped
+# `#[allow]` with its SAFETY comment.
+[workspace.lints.rust]
+unsafe_code = "deny"

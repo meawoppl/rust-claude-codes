@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AsyncClient::new` and `SyncClient::new`, for customizing and spawning the
   app-server separately from client construction.
 
+### Changed
+
+- Shared dependencies and lint policy moved to the workspace root: `serde`,
+  `serde_json`, `thiserror`, `tokio`, `log`, `which`, and dev `env_logger` /
+  `jsonschema` are now `{ workspace = true }`, and the crate opts into
+  `[workspace.lints]` (`unsafe_code = "deny"`). No dependency version changes.
+
 ## [0.143.6] - 2026-07-25
 
 Re-snapshot of the app-server schema from `openai/codex@main`, resolving the

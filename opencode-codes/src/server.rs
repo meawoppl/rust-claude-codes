@@ -55,6 +55,7 @@ const SIGKILL: i32 = 9;
 /// `ESRCH`) is the desired state, and there is nothing actionable to do on any
 /// other failure during teardown.
 #[cfg(unix)]
+#[allow(unsafe_code)] // The workspace denies unsafe_code; this FFI signal call is the one vetted exception.
 fn signal_process_group(pgid: i32, sig: i32) {
     extern "C" {
         fn kill(pid: i32, sig: i32) -> i32;

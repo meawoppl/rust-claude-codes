@@ -32,3 +32,11 @@ release train.
   waits for health, and tears the process group down on drop.
 - OpenAPI 3.1 snapshot of opencode 1.18.5 at
   `tests/schemas/opencode_openapi.json` as the drift-check ground truth.
+
+### Changed
+
+- Shared dependencies and lint policy moved to the workspace root: `serde`,
+  `serde_json`, `thiserror`, `tokio`, and dev `jsonschema` are now
+  `{ workspace = true }`, and the crate opts into `[workspace.lints]`
+  (`unsafe_code = "deny"`) with a scoped `#[allow]` on the vetted
+  process-group signal FFI in `server.rs`. No dependency version changes.

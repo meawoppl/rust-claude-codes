@@ -18,19 +18,22 @@ exclude = [
     "*.sh",
 ]
 
+[lints]
+workspace = true
+
 [dependencies]
-log = { version = "0.4.29", optional = true }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.143"
-thiserror = "2.0.16"
-tokio = { version = "1.49.0", features = ["full"], optional = true }
-which = { version = "8.0.2", optional = true }
+log = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, optional = true }
+which = { workspace = true, optional = true }
 
 [dev-dependencies]
-env_logger = "0.11.9"
-jsonschema = "0.46.5"
-serde_json = "1.0.143"
-tokio = { version = "1.49.0", features = ["full"] }
+env_logger = { workspace = true }
+jsonschema = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
 
 [features]
 default = ["types", "sync-client", "async-client"]
