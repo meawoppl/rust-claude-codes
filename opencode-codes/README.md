@@ -11,6 +11,14 @@ HTTP + Server-Sent Events protocol.
 
 Part of the [rust-code-agent-sdks](https://github.com/meawoppl/rust-code-agent-sdks) workspace.
 
+> ⚠️ **Maturity warning**: this crate is new and should be considered
+> **highly untested** — it is under active development. The types are
+> generated from opencode's published OpenAPI spec and the suite passes
+> against a live server, but real-world mileage is minimal and the API may
+> change between releases while the surface settles. Bug reports and wire
+> captures that break the types are very welcome:
+> <https://github.com/meawoppl/rust-code-agent-sdks/issues>.
+
 ## Overview
 
 Where the sibling crates wrap CLIs that speak JSON-Lines over stdio,
