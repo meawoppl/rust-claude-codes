@@ -85,53 +85,14 @@ pub struct SyncClient {
 }
 
 impl SyncClient {
-    /// Start an app-server with default settings.
+    /// Create a client from an existing child process.
     ///
-    /// Spawns `codex app-server --listen stdio://`, performs the required
-    /// `initialize` handshake, and returns a connected client ready for
-    /// `thread_start()`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the `codex` CLI is not installed, the version is
-    /// incompatible, the process fails to start, or the initialization
-    /// handshake fails.
-    pub fn start() -> Result<Self> {
-        Self::start_with(AppServerBuilder::new())
-    }
-
-    /// Start an app-server with a custom [`AppServerBuilder`].
-    ///
-    /// Performs the required `initialize` handshake before returning.
-    /// Use this to configure a custom binary path or working directory.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the process fails to start, stdio pipes
-    /// cannot be established, or the initialization handshake fails.
-    pub fn start_with(builder: AppServerBuilder) -> Result<Self> {
-        let mut client = Self::spawn(builder)?;
-        client.initialize(&InitializeParams {
-            client_info: ClientInfo {
-                name: "codex-codes".to_string(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                title: None,
-            },
-            capabilities: None,
-        })?;
-        Ok(client)
-    }
-
-    /// Spawn an app-server without performing the `initialize` handshake.
-    ///
-    /// Use this if you need to send a custom [`InitializeParams`] (e.g., with
-    /// specific capabilities). You **must** call [`SyncClient::initialize`]
-    /// before any other requests.
-    pub fn spawn(builder: AppServerBuilder) -> Result<Self> {
-        crate::version::check_codex_version()?;
-
-        let mut child = builder.spawn_sync()?;
-
+    /// The child's stdin, stdout, and stderr must all be piped. This does not
+    /// perform the app-server `initialize` handshake or a Codex version check.
+    /// Use [`AppServerBuilder::build_command_sync`] to retain the SDK's
+    /// command-line and stdio configuration while customizing how the process
+    /// is spawned.
+    pub fn new(mut child: Child) -> Result<Self> {
         let stdin = child
             .stdin
             .take()
@@ -159,6 +120,54 @@ impl SyncClient {
             next_id: 1,
             buffered: VecDeque::new(),
         })
+    }
+
+    /// Start an app-server with default settings.
+    ///
+    /// Spawns `codex app-server --listen stdio://`, performs the required
+    /// `initialize` handshake, and returns a connected client ready for
+    /// `thread_start()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `codex` CLI is not installed, the version is
+    /// incompatible, the process fails to start, or the initialization
+    /// handshake fails.
+    pub fn start() -> Result<Self> {
+        Self::start_with(AppServerBuilder::new())
+    }
+
+    /// Start an app-server with a custom [`AppServerBuilder`].
+    ///
+    /// Performs the required `initialize` handshake before returning.
+    /// Use this to configure the binary path, working directory, environment,
+    /// or CLI arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the process fails to start, stdio pipes
+    /// cannot be established, or the initialization handshake fails.
+    pub fn start_with(builder: AppServerBuilder) -> Result<Self> {
+        let mut client = Self::spawn(builder)?;
+        client.initialize(&InitializeParams {
+            client_info: ClientInfo {
+                name: "codex-codes".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                title: None,
+            },
+            capabilities: None,
+        })?;
+        Ok(client)
+    }
+
+    /// Spawn an app-server without performing the `initialize` handshake.
+    ///
+    /// Use this if you need to send a custom [`InitializeParams`] (e.g., with
+    /// specific capabilities). You **must** call [`SyncClient::initialize`]
+    /// before any other requests.
+    pub fn spawn(builder: AppServerBuilder) -> Result<Self> {
+        crate::version::check_codex_version()?;
+        Self::new(builder.spawn_sync()?)
     }
 
     /// Send a JSON-RPC request and wait for the matching response.
