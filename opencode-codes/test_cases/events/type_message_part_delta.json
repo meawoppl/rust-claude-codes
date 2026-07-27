@@ -1,0 +1,11 @@
+{
+  "id": "evt_f9d09125c001exZcvhBZq1yI7T",
+  "type": "message.part.delta",
+  "properties": {
+    "sessionID": "ses_062f6fafdffeazh6ywwvMxsbNW",
+    "messageID": "msg_f9d0909a2001vdqXmbUNAg3QIa",
+    "partID": "prt_f9d091259001g1EcTFAC3S4kzv",
+    "field": "text",
+    "delta": "The user wants me"
+  }
+}

@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.18.5] - 2026-07-25
+
+Initial release. Wraps the opencode local HTTP + Server-Sent Events server,
+mirroring the sibling crates' conventions. The version tracks the opencode
+release train.
+
+### Added
+
+- `types` / `async-client` / `server` / `integration-tests` feature tiers
+  (`types` builds on `wasm32`).
+- `error` module with the `Error` enum and `Result` alias; transport and SSE
+  variants gated behind `async-client`, the server-lifecycle variant behind
+  `server`.
+- `protocol_generated` module: serde wire types generated from the opencode
+  OpenAPI 3.1 schema.
+- `http` module: `HttpTransport` REST client with base-URL normalization, HTTP
+  Basic auth, directory/workspace scoping, and typed URL builders for the six
+  hand-wrapped endpoints.
+- `sse` module: self-reconnecting `GET /event` reader (`EventStream`) with a
+  configurable exponential-backoff `RetryConfig`.
+- `client_async` module: high-level `OpencodeClient` covering session create,
+  `prompt_async`, message listing, abort, and permission reply, plus a builder
+  and a raw request escape hatch.
+- `server` module: managed `opencode serve` launcher that picks a free port,
+  waits for health, and tears the process group down on drop.
+- OpenAPI 3.1 snapshot of opencode 1.18.5 at
+  `tests/schemas/opencode_openapi.json` as the drift-check ground truth.

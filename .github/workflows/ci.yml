@@ -125,11 +125,15 @@ jobs:
           CODEX_VERSION=$(grep '^version' codex-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           CLAUDE_TESTED=$(grep 'const TESTED_VERSION' claude-codes/src/version.rs | grep -oP '\d+\.\d+\.\d+')
           CODEX_TESTED=$(grep 'Tested against.*Codex CLI' codex-codes/README.md | grep -oP '\d+\.\d+\.\d+')
+          OPENCODE_VERSION=$(grep '^version' opencode-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          OPENCODE_TESTED=$(grep 'Tested against.*opencode' opencode-codes/README.md | grep -oP '\d+\.\d+\.\d+')
 
           echo "claude-codes version: $CLAUDE_VERSION"
           echo "codex-codes version:  $CODEX_VERSION"
+          echo "opencode-codes version: $OPENCODE_VERSION"
           echo "Claude CLI tested:    $CLAUDE_TESTED"
           echo "Codex CLI tested:     $CODEX_TESTED"
+          echo "opencode tested:      $OPENCODE_TESTED"
           echo ""
 
           # Check root README contains correct claude-codes version
@@ -178,6 +182,30 @@ jobs:
             FAILED=1
           else
             echo "✅ codex-codes/README.md has Codex CLI $CODEX_TESTED"
+          fi
+
+          # Check root README contains correct opencode-codes version
+          if ! grep -q "opencode-codes $OPENCODE_VERSION" README.md; then
+            echo "❌ README.md missing 'opencode-codes $OPENCODE_VERSION'"
+            FAILED=1
+          else
+            echo "✅ README.md has opencode-codes $OPENCODE_VERSION"
+          fi
+
+          # Check root README contains correct opencode tested version
+          if ! grep -q "tested against opencode.*$OPENCODE_TESTED" README.md; then
+            echo "❌ README.md missing opencode tested version $OPENCODE_TESTED"
+            FAILED=1
+          else
+            echo "✅ README.md has opencode $OPENCODE_TESTED"
+          fi
+
+          # Check opencode-codes README contains correct opencode tested version
+          if ! grep -q "$OPENCODE_TESTED" opencode-codes/README.md; then
+            echo "❌ opencode-codes/README.md missing tested version $OPENCODE_TESTED"
+            FAILED=1
+          else
+            echo "✅ opencode-codes/README.md has opencode $OPENCODE_TESTED"
           fi
 
           if [ "$FAILED" -eq 1 ]; then

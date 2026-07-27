@@ -1,0 +1,51 @@
+[package]
+name = "opencode-codes"
+version = "1.18.5"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
+description = "Typed Rust SDK for the opencode agent server: serde models of its OpenAPI 3.1 HTTP/SSE protocol, plus an async (Tokio) client and a managed local-server launcher for driving opencode sessions, prompts, and permission flows."
+documentation = "https://docs.rs/opencode-codes"
+homepage = "https://github.com/meawoppl/rust-code-agent-sdks"
+repository = "https://github.com/meawoppl/rust-code-agent-sdks"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["opencode", "agent", "llm", "sse", "http"]
+categories = ["api-bindings", "asynchronous", "encoding", "parsing"]
+exclude = [
+    "tests/schemas/",
+    "*.sh",
+]
+
+[dependencies]
+# Core dependencies always needed for the `types` tier (must build on wasm32).
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+thiserror = "2.0.16"
+
+# Optional dependencies for the async HTTP/SSE client.
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls", "json", "stream"], optional = true }
+reqwest-eventsource = { version = "0.6.0", optional = true }
+tokio = { version = "1.49.0", features = ["full"], optional = true }
+futures-core = { version = "0.3.32", optional = true }
+
+# Optional dependency for the managed local-server launcher.
+portpicker = { version = "0.1.1", optional = true }
+
+[features]
+default = ["types", "async-client"]
+types = []
+async-client = [
+    "types",
+    "dep:reqwest",
+    "dep:reqwest-eventsource",
+    "dep:tokio",
+    "dep:futures-core",
+]
+server = ["async-client", "dep:portpicker"]
+integration-tests = []
+
+[dev-dependencies]
+jsonschema = "0.46.5"
+serde_json = "1.0.143"
+tokio = { version = "1.49.0", features = ["full"] }
