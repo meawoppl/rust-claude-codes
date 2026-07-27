@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.145.0] - 2026-07-27
+
+Version jumps 0.143.6 → 0.145.0 to re-align with the tested Codex CLI
+version, per the crate's versioning convention.
+
+### Changed
+
+- **Tested Codex CLI version** bumped to 0.145.0. Verified live: the full
+  integration suite passes against the installed binary (protocol-level
+  suite in one environment, model-turn tests under live auth in another;
+  one startup flake observed under sandboxed parallel runs — run the live
+  suite with `--test-threads=1`).
 
 ### Added
 
