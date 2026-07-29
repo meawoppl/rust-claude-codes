@@ -110,6 +110,8 @@ pub mod types;
 // Client modules
 #[cfg(feature = "async-client")]
 pub mod client_async;
+#[cfg(feature = "async-client")]
+pub mod client_raw_async;
 #[cfg(feature = "sync-client")]
 pub mod client_sync;
 
@@ -202,6 +204,8 @@ pub use tool_inputs::{
 // Client exports
 #[cfg(feature = "async-client")]
 pub use client_async::{AsyncClient, AsyncStreamProcessor};
+#[cfg(feature = "async-client")]
+pub use client_raw_async::RawAsyncClient;
 #[cfg(feature = "sync-client")]
 pub use client_sync::{StreamProcessor, SyncClient};
 

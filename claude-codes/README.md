@@ -127,6 +127,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Raw Protocol Access
 
+Use `RawAsyncClient` when the caller owns protocol interpretation and only
+needs newline framing. Neither method decodes JSON.
+
+```rust,no_run
+use claude_codes::{ClaudeCliBuilder, RawAsyncClient};
+
+# async fn example() -> claude_codes::Result<()> {
+let builder = ClaudeCliBuilder::new();
+let mut client = RawAsyncClient::start_with(builder).await?;
+let input = claude_codes::ClaudeInput::user_message_without_session("Hello");
+client.send(&input).await?;
+let raw_line = client.next_line().await?;
+# Ok(())
+# }
+```
+
+Typed protocol parsing remains available separately:
+
 ```rust
 use claude_codes::{Protocol, ClaudeOutput};
 
