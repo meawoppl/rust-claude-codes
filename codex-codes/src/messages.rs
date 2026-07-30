@@ -822,6 +822,9 @@ impl ServerRequest {
 /// Match on the outer variant first to distinguish notifications (no response)
 /// from requests (need [`crate::AsyncClient::respond`] /
 /// [`crate::SyncClient::respond`]).
+/// Keep variants unboxed so pattern matches and constructors stay ergonomic;
+/// the size skew comes from the generated notification payloads.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum ServerMessage {
     /// A notification — no response required.

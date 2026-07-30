@@ -361,12 +361,17 @@ pub fn client_request_samples() -> Vec<(&'static str, Value)> {
         ("thread/resume", json!({"threadId": "x"})),
         ("thread/rollback", json!({"numTurns": 0, "threadId": "x"})),
         (
+            "thread/section/move",
+            json!({"sectionId": "x", "threadId": "x"}),
+        ),
+        (
             "thread/shellCommand",
             json!({"command": "x", "threadId": "x"}),
         ),
         ("thread/start", json!({})),
         ("thread/unarchive", json!({"threadId": "x"})),
         ("thread/unsubscribe", json!({"threadId": "x"})),
+        ("threadSection/list", json!({})),
         ("turn/interrupt", json!({"threadId": "x", "turnId": "x"})),
         ("turn/start", json!({"input": [], "threadId": "x"})),
         (

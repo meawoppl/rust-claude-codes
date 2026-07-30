@@ -1836,7 +1836,7 @@ pub struct ExternalAgentConfigImportHistory {
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistoryRecordParams {
     #[serde(rename = "itemTypeResults", default)]
-    pub item_type_results: Vec<ExternalAgentConfigImportTypeResult>,
+    pub item_type_results: Vec<ExternalAgentConfigImportHistoryRecordTypeResultParams>,
     #[serde(rename = "providerId", default)]
     pub provider_id: String,
 }
@@ -1846,6 +1846,32 @@ pub struct ExternalAgentConfigImportHistoryRecordParams {
 pub struct ExternalAgentConfigImportHistoryRecordResponse {
     #[serde(rename = "importId", default)]
     pub import_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalAgentConfigImportHistoryRecordSuccessParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(rename = "itemType")]
+    pub item_type: ExternalAgentConfigMigrationItemType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalAgentConfigImportHistoryRecordTypeResultParams {
+    #[serde(default)]
+    pub failures: Vec<ExternalAgentConfigImportItemTypeFailure>,
+    #[serde(rename = "itemType")]
+    pub item_type: ExternalAgentConfigMigrationItemType,
+    #[serde(default)]
+    pub successes: Vec<ExternalAgentConfigImportHistoryRecordSuccessParams>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1882,6 +1908,8 @@ pub struct ExternalAgentConfigImportItemTypeSuccess {
     pub source: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -3301,6 +3329,8 @@ pub struct MarketplaceUpgradeResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum McpAuthStatus {
+    #[serde(rename = "unknown")]
+    Unknown,
     #[serde(rename = "unsupported")]
     Unsupported,
     #[serde(rename = "notLoggedIn")]
@@ -4404,6 +4434,8 @@ pub enum PlanType {
     Prolite,
     #[serde(rename = "team")]
     Team,
+    #[serde(rename = "self_serve_business_prolite")]
+    Self_serve_business_prolite,
     #[serde(rename = "self_serve_business_usage_based")]
     Self_serve_business_usage_based,
     #[serde(rename = "business")]
@@ -4468,6 +4500,18 @@ pub struct PluginDetail {
     pub skills: Vec<SkillSummary>,
     #[serde()]
     pub summary: PluginSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PluginDisabledReason {
+    #[serde(rename = "disabled_by_admin")]
+    Disabled_by_admin,
+    #[serde(rename = "plan_not_eligible")]
+    Plan_not_eligible,
+    #[serde(rename = "required_app_unavailable")]
+    Required_app_unavailable,
+    #[serde(rename = "unknown")]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5023,6 +5067,18 @@ pub struct PluginSummary {
     pub auth_policy: PluginAuthPolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability: Option<Value>,
+    #[serde(
+        rename = "disabledReason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub disabled_reason: Option<PluginDisabledReason>,
+    #[serde(
+        rename = "eligiblePlanTypes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub eligible_plan_types: Option<Vec<String>>,
     #[serde(default)]
     pub enabled: bool,
     #[serde(default)]
@@ -5037,6 +5093,12 @@ pub struct PluginSummary {
     pub install_policy_source: Option<PluginInstallPolicySource>,
     #[serde(default)]
     pub installed: bool,
+    #[serde(
+        rename = "installedAt",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub installed_at: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interface: Option<PluginInterface>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6031,8 +6093,6 @@ pub struct Thread {
     pub git_info: Option<GitInfo>,
     #[serde(default)]
     pub id: String,
-    #[serde(rename = "isPinned", default, skip_serializing_if = "Option::is_none")]
-    pub is_pinned: Option<bool>,
     #[serde(rename = "modelProvider", default)]
     pub model_provider: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6049,6 +6109,14 @@ pub struct Thread {
     pub preview: String,
     #[serde(rename = "recencyAt", default, skip_serializing_if = "Option::is_none")]
     pub recency_at: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<ThreadSection>,
+    #[serde(
+        rename = "sectionEnteredAt",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub section_entered_at: Option<i64>,
     #[serde(rename = "sessionId", default)]
     pub session_id: String,
     #[serde(default)]
@@ -6493,6 +6561,12 @@ pub enum ThreadItem {
         mcp_app_resource_uri: Option<String>,
         #[serde(rename = "pluginId", default, skip_serializing_if = "Option::is_none")]
         plugin_id: Option<String>,
+        #[serde(
+            rename = "readOnlyHint",
+            default,
+            skip_serializing_if = "Option::is_none"
+        )]
+        read_only_hint: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         result: Option<McpToolCallResult>,
         server: String,
@@ -6618,8 +6692,6 @@ pub struct ThreadListParams {
     pub cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwd: Option<ThreadListCwdFilter>,
-    #[serde(rename = "isPinned", default, skip_serializing_if = "Option::is_none")]
-    pub is_pinned: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<i64>,
     #[serde(
@@ -6634,6 +6706,8 @@ pub struct ThreadListParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub search_term: Option<String>,
+    #[serde(rename = "sectionId", default, skip_serializing_if = "Option::is_none")]
+    pub section_id: Option<String>,
     #[serde(
         rename = "sortDirection",
         default,
@@ -6713,8 +6787,6 @@ pub struct ThreadMetadataGitInfoUpdateParams {
 pub struct ThreadMetadataUpdateParams {
     #[serde(rename = "gitInfo", default, skip_serializing_if = "Option::is_none")]
     pub git_info: Option<ThreadMetadataGitInfoUpdateParams>,
-    #[serde(rename = "isPinned", default, skip_serializing_if = "Option::is_none")]
-    pub is_pinned: Option<bool>,
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
@@ -6968,6 +7040,59 @@ pub struct ThreadRollbackResponse {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ThreadSection {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionListParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionListResponse {
+    #[serde(default)]
+    pub data: Vec<ThreadSection>,
+    #[serde(
+        rename = "nextCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionMoveParams {
+    #[serde(
+        rename = "beforeThreadId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub before_thread_id: Option<String>,
+    #[serde(rename = "sectionId", default, skip_serializing_if = "Option::is_none")]
+    pub section_id: Option<String>,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionMoveResponse {
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ThreadSetNameParams {
     #[serde(default)]
     pub name: String,
@@ -7052,6 +7177,8 @@ pub enum ThreadSortKey {
     Updated_at,
     #[serde(rename = "recency_at")]
     Recency_at,
+    #[serde(rename = "section_position")]
+    Section_position,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
