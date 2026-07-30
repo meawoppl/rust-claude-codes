@@ -5,17 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.145.1] - 2026-07-30
 
 ### Added
 
 - `RawAsyncClient` for newline-framed, undecoded access to the Codex app-server
   protocol.
+- **`threadSection/list` and `thread/section/move` client requests** — new
+  method constants with generated `ThreadSection`,
+  `ThreadSectionListParams`/`Response`, and
+  `ThreadSectionMoveParams`/`Response` types.
+- **New generated definitions**: `PluginDisabledReason`, `ThreadSearchSortKey`,
+  `ExternalAgentConfigImportHistoryRecordSuccessParams` /
+  `RecordTypeResultParams`; additive fields across `Thread`,
+  `ThreadListParams`, `ThreadMetadataUpdateParams`, `PlanType`, and the
+  plugin/import types.
 
 ### Changed
 
 - On Windows, Codex app-server launches and version checks now use
   `CREATE_NO_WINDOW` to avoid opening console windows.
+- **Re-snapshotted the Codex app-server schemas** against `openai/codex@main`
+  (resolves the codex-schema-drift report, issue #241); both snapshots are
+  byte-identical to upstream and schema coverage is 172/172 (100%).
 
 ## [0.145.0] - 2026-07-27
 

@@ -563,6 +563,8 @@ mod samples {
             methods::THREAD_GOAL_GET,
             methods::THREAD_GOAL_SET,
             methods::THREAD_GOAL_CLEAR,
+            methods::THREADSECTION_LIST,
+            methods::THREAD_SECTION_MOVE,
             methods::ACCOUNT_RATELIMITRESETCREDIT_CONSUME,
             methods::ACCOUNT_WORKSPACEMESSAGES_READ,
             methods::EXTERNALAGENTCONFIG_IMPORT_READHISTORIES,
