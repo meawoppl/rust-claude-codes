@@ -803,6 +803,7 @@ impl ClaudeCliBuilder {
             cmd.env("ANTHROPIC_API_KEY", key);
         }
 
+        crate::process::configure_no_window(cmd.as_std_mut());
         let child = cmd.spawn().map_err(Error::Io)?;
 
         Ok(child)
@@ -835,6 +836,7 @@ impl ClaudeCliBuilder {
             cmd.env("ANTHROPIC_API_KEY", key);
         }
 
+        crate::process::configure_no_window(cmd.as_std_mut());
         Ok(cmd)
     }
 
@@ -871,6 +873,7 @@ impl ClaudeCliBuilder {
             cmd.env("ANTHROPIC_API_KEY", key);
         }
 
+        crate::process::configure_no_window(&mut cmd);
         cmd.spawn().map_err(Error::Io)
     }
 }

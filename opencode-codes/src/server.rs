@@ -40,6 +40,7 @@ use crate::http::DEFAULT_USERNAME;
 const LISTENING_MARKER: &str = "listening on ";
 
 /// Grace period between `SIGTERM` and `SIGKILL` when terminating the group.
+#[cfg(unix)]
 const KILL_GRACE: Duration = Duration::from_millis(250);
 
 #[cfg(unix)]
@@ -194,6 +195,7 @@ pub struct ManagedServer {
     port: u16,
     password: Option<String>,
     /// Process-group id for whole-tree termination on Unix.
+    #[cfg(unix)]
     pgid: Option<i32>,
 }
 
@@ -242,6 +244,7 @@ impl ManagedServer {
             cmd.env("OPENCODE_SERVER_PASSWORD", password);
         }
 
+        crate::process::configure_no_window(cmd.as_std_mut());
         let mut child = cmd.spawn().map_err(|e| {
             Error::Server(format!(
                 "failed to spawn `{}`: {e}",
@@ -285,6 +288,7 @@ impl ManagedServer {
             base_url,
             port,
             password: builder.password,
+            #[cfg(unix)]
             pgid,
         };
 

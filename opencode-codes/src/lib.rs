@@ -98,4 +98,7 @@ pub use client_async::{OpencodeClient, OpencodeClientBuilder};
 pub mod server;
 
 #[cfg(feature = "server")]
+mod process;
+
+#[cfg(feature = "server")]
 pub use server::{ManagedServer, ManagedServerBuilder};

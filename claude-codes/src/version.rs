@@ -25,10 +25,10 @@ pub fn check_claude_version() -> Result<()> {
 /// Internal implementation of version checking
 fn check_version_impl() -> Result<()> {
     // Run claude --version
-    let output = Command::new("claude")
-        .arg("--version")
-        .output()
-        .map_err(crate::error::Error::Io)?;
+    let mut command = Command::new("claude");
+    command.arg("--version");
+    crate::process::configure_no_window(&mut command);
+    let output = command.output().map_err(crate::error::Error::Io)?;
 
     if !output.status.success() {
         debug!("Failed to check Claude CLI version - command failed");
@@ -107,11 +107,10 @@ async fn check_version_impl_async() -> Result<()> {
     use tokio::process::Command;
 
     // Run claude --version
-    let output = Command::new("claude")
-        .arg("--version")
-        .output()
-        .await
-        .map_err(crate::error::Error::Io)?;
+    let mut command = Command::new("claude");
+    command.arg("--version");
+    crate::process::configure_no_window(command.as_std_mut());
+    let output = command.output().await.map_err(crate::error::Error::Io)?;
 
     if !output.status.success() {
         debug!("Failed to check Claude CLI version - command failed");
