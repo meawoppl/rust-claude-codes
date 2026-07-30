@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ClaudeCliBuilder::working_directory` for setting the working directory of
+  spawned Claude CLI processes.
+
 ### Changed
 
 - On Windows, Claude CLI launches and version checks now use

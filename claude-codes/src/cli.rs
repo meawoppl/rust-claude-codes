@@ -381,6 +381,7 @@ impl CliFlag {
 #[derive(Debug, Clone)]
 pub struct ClaudeCliBuilder {
     command: PathBuf,
+    working_directory: Option<PathBuf>,
     prompt: Option<String>,
     debug: Option<String>,
     verbose: bool,
@@ -420,6 +421,7 @@ impl ClaudeCliBuilder {
     pub fn new() -> Self {
         Self {
             command: PathBuf::from("claude"),
+            working_directory: None,
             prompt: None,
             debug: None,
             verbose: false,
@@ -449,6 +451,12 @@ impl ClaudeCliBuilder {
     /// Set custom path to Claude binary
     pub fn command<P: Into<PathBuf>>(mut self, path: P) -> Self {
         self.command = path.into();
+        self
+    }
+
+    /// Set the working directory for the Claude process.
+    pub fn working_directory<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.working_directory = Some(path.into());
         self
     }
 
@@ -779,6 +787,10 @@ impl ClaudeCliBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
+        if let Some(ref dir) = self.working_directory {
+            cmd.current_dir(dir);
+        }
+
         if self.allow_recursion {
             cmd.env_remove("CLAUDECODE");
         }
@@ -807,6 +819,10 @@ impl ClaudeCliBuilder {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+
+        if let Some(ref dir) = self.working_directory {
+            cmd.current_dir(dir);
+        }
 
         if self.allow_recursion {
             cmd.env_remove("CLAUDECODE");
@@ -841,6 +857,10 @@ impl ClaudeCliBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
+        if let Some(ref dir) = self.working_directory {
+            cmd.current_dir(dir);
+        }
+
         if self.allow_recursion {
             cmd.env_remove("CLAUDECODE");
         }
@@ -861,6 +881,12 @@ impl ClaudeCliBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_working_directory() {
+        let builder = ClaudeCliBuilder::new().working_directory("workspace");
+        assert_eq!(builder.working_directory, Some(PathBuf::from("workspace")));
+    }
 
     #[test]
     fn test_streaming_flags_always_present() {
