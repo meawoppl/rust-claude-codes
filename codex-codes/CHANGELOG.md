@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `RawAsyncClient` for newline-framed, undecoded access to the Codex app-server
+  protocol.
+
 ### Changed
 
 - On Windows, Codex app-server launches and version checks now use

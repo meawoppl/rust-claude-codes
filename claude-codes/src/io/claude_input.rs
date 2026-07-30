@@ -30,6 +30,16 @@ pub enum ClaudeInput {
 impl ClaudeInput {
     /// Create a simple text user message
     pub fn user_message(text: impl Into<String>, session_id: Uuid) -> Self {
+        Self::text_user_message(text, Some(session_id))
+    }
+
+    /// Create a simple text user message associated with the current CLI
+    /// process session.
+    pub fn user_message_without_session(text: impl Into<String>) -> Self {
+        Self::text_user_message(text, None)
+    }
+
+    fn text_user_message(text: impl Into<String>, session_id: Option<Uuid>) -> Self {
         ClaudeInput::User(UserMessage {
             message: MessageContent {
                 role: super::MessageRole::User,
@@ -38,7 +48,7 @@ impl ClaudeInput {
                     citations: Vec::new(),
                 })],
             },
-            session_id: Some(session_id),
+            session_id,
             parent_tool_use_id: None,
             uuid: None,
             timestamp: None,
@@ -185,5 +195,13 @@ mod tests {
         assert!(json.contains("\"role\":\"user\""));
         assert!(json.contains("\"text\":\"Hello, Claude!\""));
         assert!(json.contains("550e8400-e29b-41d4-a716-446655440000"));
+    }
+
+    #[test]
+    fn test_serialize_user_message_without_session() {
+        let input = ClaudeInput::user_message_without_session("Hello, Claude!");
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("\"type\":\"user\""));
+        assert!(!json.contains("session_id"));
     }
 }

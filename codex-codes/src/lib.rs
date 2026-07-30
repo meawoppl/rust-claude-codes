@@ -131,6 +131,9 @@ pub mod client_sync;
 #[cfg(feature = "async-client")]
 pub mod client_async;
 
+#[cfg(feature = "async-client")]
+pub mod client_raw_async;
+
 // Exec-level event types (JSONL protocol)
 pub use io::events::{
     ItemCompletedEvent, ItemStartedEvent, ItemUpdatedEvent, ThreadError, ThreadErrorEvent,
@@ -167,3 +170,6 @@ pub use client_sync::{EventIterator, SyncClient};
 // Async client
 #[cfg(feature = "async-client")]
 pub use client_async::{AsyncClient, EventStream};
+
+#[cfg(feature = "async-client")]
+pub use client_raw_async::RawAsyncClient;

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `RawAsyncClient` for newline-framed, undecoded access to the Claude
+  stream-json protocol.
+- `ClaudeInput::user_message_without_session` for messages associated with the
+  current CLI process session.
 - `ClaudeCliBuilder::working_directory` for setting the working directory of
   spawned Claude CLI processes.
 

@@ -128,6 +128,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Raw Protocol Access
 
+Use `RawAsyncClient` when the caller owns JSON-RPC correlation and only needs
+newline framing. Neither method decodes JSON.
+
+```rust,no_run
+use codex_codes::{AppServerBuilder, JsonRpcRequest, RawAsyncClient, RequestId};
+
+# async fn example() -> codex_codes::Result<()> {
+let builder = AppServerBuilder::new().working_directory("/workspace");
+let mut client = RawAsyncClient::start_with(builder).await?;
+let request = JsonRpcRequest {
+    id: RequestId::Integer(1),
+    method: "initialize".to_string(),
+    params: Some(serde_json::json!({})),
+};
+client.send(&request).await?;
+let raw_line = client.next_line().await?;
+# Ok(())
+# }
+```
+
+Typed protocol parsing remains available separately:
+
 ```rust
 use codex_codes::{ThreadItem, JsonRpcMessage, RequestId};
 
