@@ -24,10 +24,10 @@ pub fn check_codex_version() -> Result<()> {
 }
 
 fn check_version_impl() -> Result<()> {
-    let output = Command::new("codex")
-        .arg("--version")
-        .output()
-        .map_err(crate::error::Error::Io)?;
+    let mut command = Command::new("codex");
+    command.arg("--version");
+    crate::process::configure_no_window(&mut command);
+    let output = command.output().map_err(crate::error::Error::Io)?;
 
     if !output.status.success() {
         debug!("Failed to check Codex CLI version - command failed");
@@ -102,11 +102,10 @@ pub async fn check_codex_version_async() -> Result<()> {
 async fn check_version_impl_async() -> Result<()> {
     use tokio::process::Command;
 
-    let output = Command::new("codex")
-        .arg("--version")
-        .output()
-        .await
-        .map_err(crate::error::Error::Io)?;
+    let mut command = Command::new("codex");
+    command.arg("--version");
+    crate::process::configure_no_window(command.as_std_mut());
+    let output = command.output().await.map_err(crate::error::Error::Io)?;
 
     if !output.status.success() {
         debug!("Failed to check Codex CLI version - command failed");

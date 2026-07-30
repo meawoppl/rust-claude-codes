@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stream-json protocol.
 - `ClaudeInput::user_message_without_session` for messages associated with the
   current CLI process session.
+- `ClaudeCliBuilder::working_directory` for setting the working directory of
+  spawned Claude CLI processes.
+
+### Changed
+
+- On Windows, Claude CLI launches and version checks now use
+  `CREATE_NO_WINDOW` to avoid opening console windows.
 
 ## [2.1.166] - 2026-07-27
 

@@ -223,6 +223,7 @@ impl AppServerBuilder {
             command.current_dir(dir);
         }
 
+        crate::process::configure_no_window(&mut command);
         Ok(command)
     }
 

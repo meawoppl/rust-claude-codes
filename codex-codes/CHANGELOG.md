@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RawAsyncClient` for newline-framed, undecoded access to the Codex app-server
   protocol.
 
+### Changed
+
+- On Windows, Codex app-server launches and version checks now use
+  `CREATE_NO_WINDOW` to avoid opening console windows.
+
 ## [0.145.0] - 2026-07-27
 
 Version jumps 0.143.6 → 0.145.0 to re-align with the tested Codex CLI

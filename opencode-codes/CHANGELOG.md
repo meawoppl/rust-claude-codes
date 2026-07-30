@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- On Windows, managed `opencode serve` launches now use `CREATE_NO_WINDOW` to
+  avoid opening console windows.
+
 ## [1.18.5] - 2026-07-25
 
 Initial release. Wraps the opencode local HTTP + Server-Sent Events server,
