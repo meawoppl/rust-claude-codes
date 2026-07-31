@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking**: `UsageInfo.iterations` is now `Vec<UsageIteration>` (was
+  `Vec<serde_json::Value>`), with typed `input_tokens`, `output_tokens`,
+  optional per-iteration cache fields (`cache_read_input_tokens`,
+  `cache_creation_input_tokens`, `cache_creation`), and the wire `type`
+  exposed as `kind` (`"turn"` and `"message"` observed). (#250)
+- **`UsageInfo` docs now state the counters are accumulated roll-ups** across
+  the turn's API iterations — correct for cost, wrong for context occupancy
+  (`cache_read_input_tokens` can exceed the context window several times over
+  on tool-heavy turns). Use the last `iterations` entry for context
+  estimates, as the CLI does. (#250)
+
 ## [2.1.220] - 2026-07-31
 
 Version jumps 2.1.166 → 2.1.220 to re-align with the tested Claude CLI
