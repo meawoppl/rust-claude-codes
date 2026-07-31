@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.146.0] - 2026-07-31
+
+### Changed
+
+- **Tested Codex CLI version** bumped to 0.146.0. Verified live: the full
+  `codex-codes` integration suite passes against the installed binary with
+  `--test-threads=1`.
+
+### Contributors
+
+- Thanks to @ozitrance for the Codex-side `RawAsyncClient` contribution and
+  Windows `CREATE_NO_WINDOW` process-launch support that landed in this release
+  train.
+
 ## [0.145.1] - 2026-07-30
 
 ### Added
