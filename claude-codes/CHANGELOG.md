@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.220] - 2026-07-31
+
+Version jumps 2.1.166 → 2.1.220 to re-align with the tested Claude CLI
+version, per the crate's versioning convention.
 
 ### Added
 
@@ -20,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On Windows, Claude CLI launches and version checks now use
   `CREATE_NO_WINDOW` to avoid opening console windows.
+
+### Contributors
+
+- Thanks to @ozitrance — a first-time contributor to this crate — for the
+  entire feature set in this release: `RawAsyncClient`,
+  `user_message_without_session`, `working_directory`, and the Windows
+  `CREATE_NO_WINDOW` support (#243, #244, #245).
 
 ## [2.1.166] - 2026-07-27
 
