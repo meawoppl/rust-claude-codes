@@ -826,7 +826,7 @@ pub enum CommandAction {
     Read {
         command: String,
         name: String,
-        path: AbsolutePathBuf,
+        path: LegacyAppPathString,
     },
     #[serde(rename = "listFiles")]
     ListFiles {
@@ -1791,6 +1791,8 @@ pub struct ExternalAgentConfigDetectParams {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigDetectResponse {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connectors: Option<Vec<ExternalAgentDetectedConnectorCandidate>>,
     #[serde(default)]
     pub items: Vec<ExternalAgentConfigMigrationItem>,
 }
@@ -1995,6 +1997,25 @@ pub enum ExternalAgentConfigMigrationItemType {
     MEMORY,
     #[serde(rename = "SESSIONS")]
     SESSIONS,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalAgentDetectedConnectorCandidate {
+    #[serde(default)]
+    pub name: String,
+    #[serde(rename = "sessionCount", default)]
+    pub session_count: i64,
+    #[serde()]
+    pub source: ExternalAgentDetectedConnectorSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ExternalAgentDetectedConnectorSource {
+    #[serde(rename = "remoteMcpServersConfig")]
+    RemoteMcpServersConfig,
+    #[serde(rename = "sessionToolUse")]
+    SessionToolUse,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4442,6 +4463,8 @@ pub enum PlanType {
     Business,
     #[serde(rename = "ent26")]
     Ent26,
+    #[serde(rename = "enterprise_cbp_automation")]
+    Enterprise_cbp_automation,
     #[serde(rename = "enterprise_cbp_usage_based")]
     Enterprise_cbp_usage_based,
     #[serde(rename = "enterprise")]
