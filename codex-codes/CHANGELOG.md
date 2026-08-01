@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`Default` is now derived for every generated struct whose fields are all
+  serde-defaultable** (291 types) — any params type that deserializes from
+  `{}` can be built with `Params::default()`. Emitted by the codegen itself,
+  replacing the hand-written impls that covered only
+  `ThreadStartParams` / `TurnStartParams` / `ThreadResumeParams` /
+  `ThreadForkParams`. (#203)
+
 ## [0.146.1] - 2026-07-31
 
 ### Changed

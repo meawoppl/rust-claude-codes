@@ -233,19 +233,16 @@ def schema_to_rust(node: Any) -> str:
 def emit_struct(name: str, schema: dict[str, Any]) -> str:
     props = schema.get("properties") or {}
     required = set(schema.get("required") or [])
-    rs = []
-    # PartialEq (but not Eq) so structs compose into enums that need
-    # equality; serde_json::Value implements PartialEq but not Eq, so Eq
-    # would propagate-fail on any field carrying raw JSON.
-    rs.append("#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]")
-    rs.append('#[serde(rename_all = "camelCase")]')
-    rs.append(f"pub struct {rust_name(name)} {{")
+    body: list[str] = []
+    # Derive `Default` when every field is serde-defaultable — i.e. the
+    # struct deserializes from `{}` — so all-optional params can be built
+    # with `Params::default()` instead of spelling out every `None` (#203).
+    all_default = True
+    body.append(f"pub struct {rust_name(name)} {{")
     if not props:
         # Empty struct - allow extra fields via a flatten map.
-        rs.append("    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]")
-        rs.append("    pub extra: serde_json::Map<String, Value>,")
-        rs.append("}")
-        return "\n".join(rs)
+        body.append("    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]")
+        body.append("    pub extra: serde_json::Map<String, Value>,")
     for field_name in sorted(props):
         f_schema = props[field_name]
         rs_field = to_snake(field_name)
@@ -267,9 +264,21 @@ def emit_struct(name: str, schema: dict[str, Any]) -> str:
             # has a `Default` impl, fill in the default rather than
             # failing typed deserialization.
             attrs.append("default")
-        rs.append("    #[serde(" + ", ".join(attrs) + ")]")
-        rs.append(f"    pub {rs_field}: {rs_type},")
-    rs.append("}")
+        else:
+            all_default = False
+        body.append("    #[serde(" + ", ".join(attrs) + ")]")
+        body.append(f"    pub {rs_field}: {rs_type},")
+    body.append("}")
+    rs = []
+    # PartialEq (but not Eq) so structs compose into enums that need
+    # equality; serde_json::Value implements PartialEq but not Eq, so Eq
+    # would propagate-fail on any field carrying raw JSON.
+    derives = "Debug, Clone, PartialEq, Serialize, Deserialize"
+    if all_default:
+        derives += ", Default"
+    rs.append(f"#[derive({derives})]")
+    rs.append('#[serde(rename_all = "camelCase")]')
+    rs.extend(body)
     return "\n".join(rs)
 
 
