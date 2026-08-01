@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Session forking**: `ClaudeCliBuilder::fork_from(source_session_id)`
+  assembles the full `--resume <src> --fork-session --session-id <new>`
+  combination (generating a fresh UUID unless one is chained via
+  `session_id`), and `fork_session(bool)` exposes the raw flag — which the
+  builder previously could not emit at all. Covered by a live integration
+  test proving the fork carries the source's history under the new session
+  id. (#227)
+
 ### Changed
 
 - **Breaking**: `UsageInfo.iterations` is now `Vec<UsageIteration>` (was

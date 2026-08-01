@@ -40,6 +40,80 @@ async fn test_async_client_start_and_thread_start() {
     client.shutdown().await.expect("Failed to shutdown");
 }
 
+/// Fork a thread with `thread/fork`. The source needs at least one persisted
+/// turn first — forking a fresh, turn-less thread is rejected with
+/// "no rollout found for thread id …".
+#[tokio::test]
+async fn test_async_client_thread_fork() {
+    let mut client = AsyncClient::start()
+        .await
+        .expect("Failed to start app-server");
+
+    let source = client
+        .thread_start(&serde_json::from_value::<ThreadStartParams>(serde_json::json!({})).unwrap())
+        .await
+        .expect("Failed to start source thread");
+
+    client
+        .turn_start(&TurnStartParams {
+            thread_id: source.thread.id.clone(),
+            input: vec![UserInput::Text {
+                text: "Reply with just OK.".to_string(),
+                text_elements: None,
+            }],
+            approval_policy: None,
+            approvals_reviewer: None,
+            client_user_message_id: None,
+            cwd: None,
+            effort: None,
+            model: None,
+            output_schema: None,
+            personality: None,
+            sandbox_policy: None,
+            service_tier: None,
+            summary: None,
+        })
+        .await
+        .expect("Failed to start seed turn");
+
+    let mut message_count = 0;
+    while let Some(msg) = client.next_message().await.expect("Failed to read message") {
+        message_count += 1;
+        match msg {
+            ServerMessage::Notification(Notification::TurnCompleted(_)) => break,
+            ServerMessage::Notification(_) => {}
+            ServerMessage::Request { id, .. } => {
+                client
+                    .respond(id, &serde_json::json!({"decision": "accept"}))
+                    .await
+                    .expect("Failed to respond");
+            }
+        }
+        if message_count > 100 {
+            panic!("seed turn did not complete");
+        }
+    }
+
+    let fork = client
+        .thread_fork(
+            &serde_json::from_value(serde_json::json!({ "threadId": source.thread.id }))
+                .expect("valid fork params"),
+        )
+        .await
+        .expect("Failed to fork thread");
+
+    assert!(
+        !fork.thread.id.is_empty(),
+        "forked thread id must not be empty"
+    );
+    assert_ne!(
+        fork.thread.id, source.thread.id,
+        "fork must get a NEW thread id"
+    );
+
+    client.shutdown().await.expect("Failed to shutdown");
+}
+
 // ── Async client: full turn lifecycle ───────────────────────────────
 
 #[tokio::test]
