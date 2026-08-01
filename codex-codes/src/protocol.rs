@@ -213,43 +213,14 @@ pub mod methods {
 // Ergonomic constructors over the generated wire types.
 //
 // The types themselves are code-generated from the upstream schema; these
-// hand-written impls live here so they survive regeneration. They cover two
-// pain points for downstream consumers:
+// hand-written impls live here so they survive regeneration. (`Default` for
+// params whose fields are all serde-defaultable is derived by the codegen
+// itself since #203.) They cover one pain point for downstream consumers:
 //
-//   * `Default` for the all-optional client request params, so callers don't
-//     have to spell out every `None` field or construct via `from_value`.
 //   * `accept` / `decline` / `approved` / `denied` constructors for the
 //     approval-response payloads, so callers don't hand-roll `serde_json`
 //     objects and can't typo the wire `decision` string.
 // ──────────────────────────────────────────────────────────────────────────
-
-macro_rules! default_from_empty_object {
-    ($($ty:ident),+ $(,)?) => {
-        $(
-            impl Default for $ty {
-                fn default() -> Self {
-                    // Every field is `#[serde(default)]`, so an empty object
-                    // yields the fully-unset params. Deserializing (rather than
-                    // listing fields) keeps this correct as the upstream schema
-                    // adds optional fields, and mirrors the construction idiom
-                    // shown in the crate docs.
-                    serde_json::from_value(serde_json::Value::Object(Default::default()))
-                        .expect(concat!(
-                            stringify!($ty),
-                            ": every field is serde-default, so `{}` must deserialize"
-                        ))
-                }
-            }
-        )+
-    };
-}
-
-default_from_empty_object!(
-    ThreadStartParams,
-    TurnStartParams,
-    ThreadResumeParams,
-    ThreadForkParams,
-);
 
 impl FileChangeRequestApprovalResponse {
     /// Approve this file-change request (`{"decision":"accept"}`).

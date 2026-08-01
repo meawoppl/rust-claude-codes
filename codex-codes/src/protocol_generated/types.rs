@@ -45,7 +45,7 @@ pub enum Account {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountLoginCompletedNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -63,7 +63,7 @@ pub struct AccountRateLimitsUpdatedNotification {
     pub rate_limits: RateLimitSnapshot,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountTokenUsageDailyBucket {
     #[serde(rename = "startDate", default)]
@@ -72,7 +72,7 @@ pub struct AccountTokenUsageDailyBucket {
     pub tokens: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountTokenUsageSummary {
     #[serde(
@@ -107,7 +107,7 @@ pub struct AccountTokenUsageSummary {
     pub peak_daily_tokens: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountUpdatedNotification {
     #[serde(rename = "authMode", default, skip_serializing_if = "Option::is_none")]
@@ -116,7 +116,7 @@ pub struct AccountUpdatedNotification {
     pub plan_type: Option<PlanType>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivePermissionProfile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,7 +141,7 @@ pub enum AddCreditsNudgeEmailStatus {
     Cooldown_active,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AdditionalFileSystemPermissions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -158,14 +158,14 @@ pub struct AdditionalFileSystemPermissions {
     pub write: Option<Vec<LegacyAppPathString>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AdditionalNetworkPermissions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentMessageDeltaNotification {
     #[serde(default)]
@@ -182,14 +182,14 @@ pub struct AgentMessageDeltaNotification {
 #[serde(transparent)]
 pub struct AgentPath(pub String);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyticsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBranding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -214,7 +214,7 @@ pub struct AppBranding {
     pub website: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     #[serde(
@@ -281,14 +281,14 @@ pub struct AppInfo {
     pub plugin_display_names: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppListUpdatedNotification {
     #[serde(default)]
     pub data: Vec<AppInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -335,14 +335,14 @@ pub struct AppMetadata {
     pub version_notes: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppReview {
     #[serde(default)]
     pub status: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppScreenshot {
     #[serde(rename = "fileId", default, skip_serializing_if = "Option::is_none")]
@@ -353,7 +353,7 @@ pub struct AppScreenshot {
     pub user_prompt: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -372,7 +372,7 @@ pub struct AppSummary {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppTemplateSummary {
     #[serde(
@@ -411,7 +411,7 @@ pub enum AppTemplateUnavailableReason {
     NO_ACTIVE_WORKSPACE,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppToolSummary {
     #[serde(default)]
@@ -468,7 +468,7 @@ pub enum ApprovalsReviewer {
     Guardian_subagent,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsInstalledParams {
     #[serde(
@@ -481,14 +481,14 @@ pub struct AppsInstalledParams {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsInstalledResponse {
     #[serde(default)]
     pub apps: Vec<InstalledApp>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -505,7 +505,7 @@ pub struct AppsListParams {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsListResponse {
     #[serde(default)]
@@ -518,7 +518,7 @@ pub struct AppsListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsReadParams {
     #[serde(rename = "appIds", default)]
@@ -531,7 +531,7 @@ pub struct AppsReadParams {
     pub include_tools: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppsReadResponse {
     #[serde(default)]
@@ -560,14 +560,14 @@ pub enum AskForApproval {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AttestationGenerateParams {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AttestationGenerateResponse {
     #[serde(default)]
@@ -606,7 +606,7 @@ pub enum AutoReviewDecisionSource {
     Agent,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserUseRequirements {
     #[serde(
@@ -617,7 +617,7 @@ pub struct BrowserUseRequirements {
     pub disable_auto_review: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ByteRange {
     #[serde(default)]
@@ -626,7 +626,7 @@ pub struct ByteRange {
     pub start: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelLoginAccountParams {
     #[serde(rename = "loginId", default)]
@@ -667,7 +667,7 @@ pub enum ChatgptAuthTokensRefreshReason {
     Unauthorized,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatgptAuthTokensRefreshResponse {
     #[serde(rename = "accessToken", default)]
@@ -682,7 +682,7 @@ pub struct ChatgptAuthTokensRefreshResponse {
     pub chatgpt_plan_type: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientInfo {
     #[serde(default)]
@@ -846,7 +846,7 @@ pub enum CommandAction {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecOutputDeltaNotification {
     #[serde(rename = "capReached", default)]
@@ -867,7 +867,7 @@ pub enum CommandExecOutputStream {
     Stderr,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecParams {
     #[serde(default)]
@@ -922,7 +922,7 @@ pub struct CommandExecParams {
     pub tty: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecResizeParams {
     #[serde(rename = "processId", default)]
@@ -931,14 +931,14 @@ pub struct CommandExecResizeParams {
     pub size: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecResizeResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecResponse {
     #[serde(rename = "exitCode", default)]
@@ -949,7 +949,7 @@ pub struct CommandExecResponse {
     pub stdout: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecTerminalSize {
     #[serde(default)]
@@ -958,21 +958,21 @@ pub struct CommandExecTerminalSize {
     pub rows: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecTerminateParams {
     #[serde(rename = "processId", default)]
     pub process_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecTerminateResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecWriteParams {
     #[serde(
@@ -991,7 +991,7 @@ pub struct CommandExecWriteParams {
     pub process_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecWriteResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -1016,7 +1016,7 @@ pub enum CommandExecutionApprovalDecision {
     Cancel,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecutionOutputDeltaNotification {
     #[serde(default)]
@@ -1029,7 +1029,7 @@ pub struct CommandExecutionOutputDeltaNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecutionRequestApprovalParams {
     #[serde(
@@ -1115,14 +1115,14 @@ pub enum CommandExecutionStatus {
     Declined,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandMigration {
     #[serde(default)]
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ComputerUseRequirements {
     #[serde(
@@ -1133,7 +1133,7 @@ pub struct ComputerUseRequirements {
     pub allow_locked_computer_use: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1184,7 +1184,7 @@ pub struct Config {
     pub web_search: Option<WebSearchMode>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigBatchWriteParams {
     #[serde(default)]
@@ -1276,7 +1276,7 @@ pub enum ConfigLayerSource {
     LegacyManagedConfigTomlFromMdm,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigReadParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1300,7 +1300,7 @@ pub struct ConfigReadResponse {
     pub origins: std::collections::BTreeMap<String, ConfigLayerMetadata>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRequirements {
     #[serde(
@@ -1419,7 +1419,7 @@ pub struct ConfigRequirements {
     pub windows_sandbox_private_desktop: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRequirementsReadResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1445,7 +1445,7 @@ pub struct ConfigValueWriteParams {
     pub value: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigWarningNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1475,7 +1475,7 @@ pub struct ConfigWriteResponse {
     pub version: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectorMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1530,7 +1530,7 @@ pub enum ConsumeAccountRateLimitResetCreditOutcome {
     AlreadyRedeemed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsumeAccountRateLimitResetCreditParams {
     #[serde(rename = "creditId", default, skip_serializing_if = "Option::is_none")]
@@ -1546,7 +1546,7 @@ pub struct ConsumeAccountRateLimitResetCreditResponse {
     pub outcome: ConsumeAccountRateLimitResetCreditOutcome,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContextCompactedNotification {
     #[serde(rename = "threadId", default)]
@@ -1555,7 +1555,7 @@ pub struct ContextCompactedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CreditsSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1566,7 +1566,7 @@ pub struct CreditsSnapshot {
     pub unlimited: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DeprecationNoticeNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1592,7 +1592,7 @@ pub enum DynamicToolCallOutputContentItem {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicToolCallParams {
     #[serde(default)]
@@ -1609,7 +1609,7 @@ pub struct DynamicToolCallParams {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicToolCallResponse {
     #[serde(rename = "contentItems", default)]
@@ -1628,7 +1628,7 @@ pub enum DynamicToolCallStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvironmentConnectionNotification {
     #[serde(rename = "environmentId", default)]
@@ -1680,7 +1680,7 @@ pub struct ExecCommandApprovalResponse {
     pub decision: ReviewDecision,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalFeature {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1703,21 +1703,21 @@ pub struct ExperimentalFeature {
     pub stage: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalFeatureEnablementSetParams {
     #[serde(default)]
     pub enablement: std::collections::BTreeMap<String, bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalFeatureEnablementSetResponse {
     #[serde(default)]
     pub enablement: std::collections::BTreeMap<String, bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalFeatureListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1728,7 +1728,7 @@ pub struct ExperimentalFeatureListParams {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentalFeatureListResponse {
     #[serde(default)]
@@ -1755,7 +1755,7 @@ pub enum ExperimentalFeatureStage {
     Removed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigDetectParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1788,7 +1788,7 @@ pub struct ExternalAgentConfigDetectParams {
     pub source: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigDetectResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1797,7 +1797,7 @@ pub struct ExternalAgentConfigDetectResponse {
     pub items: Vec<ExternalAgentConfigMigrationItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportCompletedNotification {
     #[serde(rename = "importId", default)]
@@ -1806,7 +1806,7 @@ pub struct ExternalAgentConfigImportCompletedNotification {
     pub item_type_results: Vec<ExternalAgentConfigImportTypeResult>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistoriesReadResponse {
     #[serde(default)]
@@ -1815,7 +1815,7 @@ pub struct ExternalAgentConfigImportHistoriesReadResponse {
     pub data: Vec<ExternalAgentConfigImportHistory>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistory {
     #[serde(rename = "completedAtMs", default)]
@@ -1834,7 +1834,7 @@ pub struct ExternalAgentConfigImportHistory {
     pub successes: Vec<ExternalAgentConfigImportItemTypeSuccess>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistoryRecordParams {
     #[serde(rename = "itemTypeResults", default)]
@@ -1843,7 +1843,7 @@ pub struct ExternalAgentConfigImportHistoryRecordParams {
     pub provider_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportHistoryRecordResponse {
     #[serde(rename = "importId", default)]
@@ -1914,7 +1914,7 @@ pub struct ExternalAgentConfigImportItemTypeSuccess {
     pub title: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportParams {
     #[serde(rename = "migrationItems", default)]
@@ -1935,7 +1935,7 @@ pub struct ExternalAgentConfigImportParams {
     pub source: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportProgressNotification {
     #[serde(rename = "importId", default)]
@@ -1944,7 +1944,7 @@ pub struct ExternalAgentConfigImportProgressNotification {
     pub item_type_results: Vec<ExternalAgentConfigImportTypeResult>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ExternalAgentConfigImportResponse {
     #[serde(rename = "importId", default)]
@@ -2035,14 +2035,14 @@ pub enum ExternalAgentImportedConnectorSource {
     RemoteMcpServersConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedbackRequirements {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedbackUploadParams {
     #[serde(default)]
@@ -2067,7 +2067,7 @@ pub struct FeedbackUploadParams {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FeedbackUploadResponse {
     #[serde(rename = "threadId", default)]
@@ -2102,7 +2102,7 @@ pub enum FileChangeApprovalDecision {
     Cancel,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChangeOutputDeltaNotification {
     #[serde(default)]
@@ -2115,7 +2115,7 @@ pub struct FileChangeOutputDeltaNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChangePatchUpdatedNotification {
     #[serde(default)]
@@ -2128,7 +2128,7 @@ pub struct FileChangePatchUpdatedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChangeRequestApprovalParams {
     #[serde(rename = "grantRoot", default, skip_serializing_if = "Option::is_none")]
@@ -2223,7 +2223,7 @@ pub enum ForcedLoginMethod {
     Api,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsChangedNotification {
     #[serde(rename = "changedPaths", default)]
@@ -2232,7 +2232,7 @@ pub struct FsChangedNotification {
     pub watch_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsCopyParams {
     #[serde(rename = "destinationPath", default)]
@@ -2243,14 +2243,14 @@ pub struct FsCopyParams {
     pub source_path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsCopyResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsCreateDirectoryParams {
     #[serde(default)]
@@ -2259,21 +2259,21 @@ pub struct FsCreateDirectoryParams {
     pub recursive: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsCreateDirectoryResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsGetMetadataParams {
     #[serde(default)]
     pub path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsGetMetadataResponse {
     #[serde(rename = "createdAtMs", default)]
@@ -2288,7 +2288,7 @@ pub struct FsGetMetadataResponse {
     pub modified_at_ms: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsReadDirectoryEntry {
     #[serde(rename = "fileName", default)]
@@ -2299,35 +2299,35 @@ pub struct FsReadDirectoryEntry {
     pub is_file: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsReadDirectoryParams {
     #[serde(default)]
     pub path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsReadDirectoryResponse {
     #[serde(default)]
     pub entries: Vec<FsReadDirectoryEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsReadFileParams {
     #[serde(default)]
     pub path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsReadFileResponse {
     #[serde(rename = "dataBase64", default)]
     pub data_base64: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsRemoveParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2338,28 +2338,28 @@ pub struct FsRemoveParams {
     pub recursive: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsRemoveResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsUnwatchParams {
     #[serde(rename = "watchId", default)]
     pub watch_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsUnwatchResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsWatchParams {
     #[serde(default)]
@@ -2368,14 +2368,14 @@ pub struct FsWatchParams {
     pub watch_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsWatchResponse {
     #[serde(default)]
     pub path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsWriteFileParams {
     #[serde(rename = "dataBase64", default)]
@@ -2384,7 +2384,7 @@ pub struct FsWriteFileParams {
     pub path: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FsWriteFileResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -2399,7 +2399,7 @@ pub enum FuzzyFileSearchMatchType {
     Directory,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FuzzyFileSearchParams {
     #[serde(
@@ -2414,7 +2414,7 @@ pub struct FuzzyFileSearchParams {
     pub roots: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FuzzyFileSearchResponse {
     #[serde(default)]
@@ -2438,14 +2438,14 @@ pub struct FuzzyFileSearchResult {
     pub score: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FuzzyFileSearchSessionCompletedNotification {
     #[serde(rename = "sessionId", default)]
     pub session_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FuzzyFileSearchSessionUpdatedNotification {
     #[serde(default)]
@@ -2456,7 +2456,7 @@ pub struct FuzzyFileSearchSessionUpdatedNotification {
     pub session_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountParams {
     #[serde(
@@ -2467,7 +2467,7 @@ pub struct GetAccountParams {
     pub refresh_token: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountRateLimitsResponse {
     #[serde(
@@ -2486,7 +2486,7 @@ pub struct GetAccountRateLimitsResponse {
     pub rate_limits_by_limit_id: Option<std::collections::BTreeMap<String, RateLimitSnapshot>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2508,7 +2508,7 @@ pub struct GetAccountTokenUsageResponse {
     pub summary: AccountTokenUsageSummary,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetWorkspaceMessagesResponse {
     #[serde(rename = "featureEnabled", default)]
@@ -2517,7 +2517,7 @@ pub struct GetWorkspaceMessagesResponse {
     pub messages: Vec<WorkspaceMessage>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2528,7 +2528,7 @@ pub struct GitInfo {
     pub sha: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GrantedPermissionProfile {
     #[serde(
@@ -2658,7 +2658,7 @@ pub enum GuardianUserAuthorization {
     High,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GuardianWarningNotification {
     #[serde(default)]
@@ -2678,7 +2678,7 @@ pub struct HookCompletedNotification {
     pub turn_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HookErrorInfo {
     #[serde(default)]
@@ -2776,7 +2776,7 @@ pub struct HookMetadata {
     pub trust_status: HookTrustStatus,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HookMigration {
     #[serde(default)]
@@ -2806,7 +2806,7 @@ pub enum HookOutputEntryKind {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HookPromptFragment {
     #[serde(rename = "hookRunId", default)]
@@ -2931,7 +2931,7 @@ pub enum HookTrustStatus {
     Modified,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HooksListEntry {
     #[serde(default)]
@@ -2944,14 +2944,14 @@ pub struct HooksListEntry {
     pub warnings: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HooksListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwds: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HooksListResponse {
     #[serde(default)]
@@ -2970,7 +2970,7 @@ pub enum ImageDetail {
     Original,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct InitializeCapabilities {
     #[serde(
@@ -3008,7 +3008,7 @@ pub struct InitializeParams {
     pub client_info: ClientInfo,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct InitializeResponse {
     #[serde(rename = "codexHome", default)]
@@ -3031,7 +3031,7 @@ pub enum InputModality {
     Audio,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledApp {
     #[serde(default)]
@@ -3137,7 +3137,7 @@ pub struct JSONRPCResponse {
 #[serde(transparent)]
 pub struct LegacyAppPathString(pub String);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListMcpServerStatusParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3150,7 +3150,7 @@ pub struct ListMcpServerStatusParams {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListMcpServerStatusResponse {
     #[serde(default)]
@@ -3244,14 +3244,14 @@ pub enum LoginAppBrand {
     Chatgpt,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LogoutAccountResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceAddParams {
     #[serde(rename = "refName", default, skip_serializing_if = "Option::is_none")]
@@ -3277,7 +3277,7 @@ pub struct MarketplaceAddResponse {
     pub marketplace_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceInterface {
     #[serde(
@@ -3297,14 +3297,14 @@ pub struct MarketplaceLoadErrorInfo {
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceRemoveParams {
     #[serde(rename = "marketplaceName", default)]
     pub marketplace_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceRemoveResponse {
     #[serde(
@@ -3317,7 +3317,7 @@ pub struct MarketplaceRemoveResponse {
     pub marketplace_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceUpgradeErrorInfo {
     #[serde(rename = "marketplaceName", default)]
@@ -3326,7 +3326,7 @@ pub struct MarketplaceUpgradeErrorInfo {
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceUpgradeParams {
     #[serde(
@@ -3337,7 +3337,7 @@ pub struct MarketplaceUpgradeParams {
     pub marketplace_name: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketplaceUpgradeResponse {
     #[serde(default)]
@@ -3387,7 +3387,7 @@ pub enum McpElicitationBooleanType {
     Boolean,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpElicitationConstOption {
     #[serde(rename = "const", default)]
@@ -3525,7 +3525,7 @@ pub enum McpElicitationStringType {
     String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpElicitationTitledEnumItems {
     #[serde(rename = "anyOf", default)]
@@ -3609,7 +3609,7 @@ pub struct McpElicitationUntitledSingleSelectEnumSchema {
     pub type_: McpElicitationStringType,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpResourceReadParams {
     #[serde(default)]
@@ -3620,7 +3620,7 @@ pub struct McpResourceReadParams {
     pub uri: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpResourceReadResponse {
     #[serde(default)]
@@ -3676,7 +3676,7 @@ pub struct McpServerElicitationRequestResponse {
     pub content: Option<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3697,14 +3697,14 @@ pub struct McpServerInfo {
     pub website_url: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerMigration {
     #[serde(default)]
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerOauthLoginCompletedNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3717,7 +3717,7 @@ pub struct McpServerOauthLoginCompletedNotification {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerOauthLoginParams {
     #[serde(default)]
@@ -3734,14 +3734,14 @@ pub struct McpServerOauthLoginParams {
     pub timeout_secs: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerOauthLoginResponse {
     #[serde(rename = "authorizationUrl", default)]
     pub authorization_url: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerRefreshResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -3814,7 +3814,7 @@ pub struct McpServerStatusUpdatedNotification {
     pub thread_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerToolCallParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3829,7 +3829,7 @@ pub struct McpServerToolCallParams {
     pub tool: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerToolCallResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3846,7 +3846,7 @@ pub struct McpServerToolCallResponse {
     pub structured_content: Option<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpToolCallAppContext {
     #[serde(
@@ -3869,14 +3869,14 @@ pub struct McpToolCallAppContext {
     pub resource_uri: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpToolCallError {
     #[serde(default)]
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpToolCallProgressNotification {
     #[serde(rename = "itemId", default)]
@@ -3889,7 +3889,7 @@ pub struct McpToolCallProgressNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpToolCallResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3914,7 +3914,7 @@ pub enum McpToolCallStatus {
     Failed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryCitation {
     #[serde(default)]
@@ -3923,7 +3923,7 @@ pub struct MemoryCitation {
     pub thread_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryCitationEntry {
     #[serde(rename = "lineEnd", default)]
@@ -3952,7 +3952,7 @@ pub enum MessagePhase {
     FinalAnswer,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MigrationDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4050,14 +4050,14 @@ pub struct Model {
     pub upgrade_info: Option<ModelUpgradeInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelAvailabilityNux {
     #[serde(default)]
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4072,7 +4072,7 @@ pub struct ModelListParams {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelListResponse {
     #[serde(default)]
@@ -4085,14 +4085,14 @@ pub struct ModelListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelProviderCapabilitiesReadParams {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelProviderCapabilitiesReadResponse {
     #[serde(rename = "imageGeneration", default)]
@@ -4124,7 +4124,7 @@ pub struct ModelReroutedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelSafetyBufferingUpdatedNotification {
     #[serde(
@@ -4147,7 +4147,7 @@ pub struct ModelSafetyBufferingUpdatedNotification {
     pub use_cases: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelServiceTier {
     #[serde(default)]
@@ -4158,7 +4158,7 @@ pub struct ModelServiceTier {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelUpgradeInfo {
     #[serde(
@@ -4185,7 +4185,7 @@ pub enum ModelVerification {
     TrustedAccessForCyber,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelVerificationNotification {
     #[serde(rename = "threadId", default)]
@@ -4196,7 +4196,7 @@ pub struct ModelVerificationNotification {
     pub verifications: Vec<ModelVerification>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelsRequirements {
     #[serde(rename = "newThread", default, skip_serializing_if = "Option::is_none")]
@@ -4249,7 +4249,7 @@ pub enum NetworkPolicyRuleAction {
     Deny,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NewThreadModelDefaults {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4343,7 +4343,7 @@ pub enum PermissionGrantScope {
     Session,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PermissionProfileListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4354,7 +4354,7 @@ pub struct PermissionProfileListParams {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PermissionProfileListResponse {
     #[serde(default)]
@@ -4367,7 +4367,7 @@ pub struct PermissionProfileListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PermissionProfileSummary {
     #[serde(default)]
@@ -4428,7 +4428,7 @@ pub enum Personality {
     Pragmatic,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanDeltaNotification {
     #[serde(default)]
@@ -4546,7 +4546,7 @@ pub struct PluginHookSummary {
     pub key: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInstallParams {
     #[serde(
@@ -4592,7 +4592,7 @@ pub struct PluginInstallResponse {
     pub auth_policy: PluginAuthPolicy,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInstalledParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4605,7 +4605,7 @@ pub struct PluginInstalledParams {
     pub install_suggestion_plugin_names: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInstalledResponse {
     #[serde(
@@ -4618,7 +4618,7 @@ pub struct PluginInstalledResponse {
     pub marketplaces: Vec<PluginMarketplaceEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInterface {
     #[serde(
@@ -4723,7 +4723,7 @@ pub enum PluginListMarketplaceKind {
     Created_by_me_remote,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4742,7 +4742,7 @@ pub struct PluginListParams {
     pub marketplace_kinds: Option<Vec<PluginListMarketplaceKind>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginListResponse {
     #[serde(
@@ -4761,7 +4761,7 @@ pub struct PluginListResponse {
     pub marketplaces: Vec<PluginMarketplaceEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginMarketplaceEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -4774,7 +4774,7 @@ pub struct PluginMarketplaceEntry {
     pub plugins: Vec<PluginSummary>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginReadParams {
     #[serde(
@@ -4800,7 +4800,7 @@ pub struct PluginReadResponse {
     pub plugin: PluginDetail,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareCheckoutParams {
     #[serde(rename = "remotePluginId", default)]
@@ -4830,7 +4830,7 @@ pub struct PluginShareCheckoutResponse {
     pub remote_version: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareContext {
     #[serde(
@@ -4871,14 +4871,14 @@ pub struct PluginShareContext {
     pub share_url: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareDeleteParams {
     #[serde(rename = "remotePluginId", default)]
     pub remote_plugin_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareDeleteResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -4908,14 +4908,14 @@ pub struct PluginShareListItem {
     pub plugin: PluginSummary,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareListParams {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareListResponse {
     #[serde(default)]
@@ -4976,7 +4976,7 @@ pub struct PluginShareSaveParams {
     pub share_targets: Option<Vec<PluginShareTarget>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareSaveResponse {
     #[serde(
@@ -5040,7 +5040,7 @@ pub struct PluginShareUpdateTargetsResponse {
     pub principals: Vec<PluginSharePrincipal>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginSkillReadParams {
     #[serde(rename = "remoteMarketplaceName", default)]
@@ -5051,7 +5051,7 @@ pub struct PluginSkillReadParams {
     pub skill_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginSkillReadResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5158,21 +5158,21 @@ pub struct PluginSummary {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginUninstallParams {
     #[serde(rename = "pluginId", default)]
     pub plugin_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginUninstallResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginsMigration {
     #[serde(rename = "marketplaceName", default)]
@@ -5181,7 +5181,7 @@ pub struct PluginsMigration {
     pub plugin_names: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessExitedNotification {
     #[serde(rename = "exitCode", default)]
@@ -5198,7 +5198,7 @@ pub struct ProcessExitedNotification {
     pub stdout_cap_reached: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessOutputDeltaNotification {
     #[serde(rename = "capReached", default)]
@@ -5264,7 +5264,7 @@ pub enum RateLimitResetCreditStatus {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RateLimitResetCreditsSummary {
     #[serde(rename = "availableCount", default)]
@@ -5281,7 +5281,7 @@ pub enum RateLimitResetType {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RateLimitSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5316,7 +5316,7 @@ pub struct RateLimitSnapshot {
     pub spend_control_reached: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RateLimitWindow {
     #[serde(rename = "resetsAt", default, skip_serializing_if = "Option::is_none")]
@@ -5367,7 +5367,7 @@ pub enum ReasoningSummary {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ReasoningSummaryPartAddedNotification {
     #[serde(rename = "itemId", default)]
@@ -5380,7 +5380,7 @@ pub struct ReasoningSummaryPartAddedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ReasoningSummaryTextDeltaNotification {
     #[serde(default)]
@@ -5395,7 +5395,7 @@ pub struct ReasoningSummaryTextDeltaNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ReasoningTextDeltaNotification {
     #[serde(rename = "contentIndex", default)]
@@ -5446,7 +5446,7 @@ pub enum RequestId {
     Variant1(i64),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestPermissionProfile {
     #[serde(
@@ -5465,7 +5465,7 @@ pub enum ResidencyRequirement {
     Us,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Resource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5495,7 +5495,7 @@ pub enum ResourceContent {
     Variant1(Value),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceTemplate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5643,7 +5643,7 @@ pub enum SandboxPolicy {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SandboxWorkspaceWrite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5731,7 +5731,7 @@ pub struct ServerRequestResolvedNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionMigration {
     #[serde(default)]
@@ -5760,7 +5760,7 @@ pub enum SessionSource {
     SubAgent(SubAgentSource),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5771,14 +5771,14 @@ pub struct Settings {
     pub reasoning_effort: Option<ReasoningEffort>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillDependencies {
     #[serde(default)]
     pub tools: Vec<SkillToolDependency>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillErrorInfo {
     #[serde(default)]
@@ -5787,7 +5787,7 @@ pub struct SkillErrorInfo {
     pub path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillInterface {
     #[serde(
@@ -5857,7 +5857,7 @@ pub struct SkillMetadata {
     pub short_description: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillMigration {
     #[serde(default)]
@@ -5876,7 +5876,7 @@ pub enum SkillScope {
     Admin,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillSummary {
     #[serde(default)]
@@ -5897,7 +5897,7 @@ pub struct SkillSummary {
     pub short_description: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillToolDependency {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5914,14 +5914,14 @@ pub struct SkillToolDependency {
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsChangedNotification {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsConfigWriteParams {
     #[serde(default)]
@@ -5932,28 +5932,28 @@ pub struct SkillsConfigWriteParams {
     pub path: Option<AbsolutePathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsConfigWriteResponse {
     #[serde(rename = "effectiveEnabled", default)]
     pub effective_enabled: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsExtraRootsSetParams {
     #[serde(rename = "extraRoots", default)]
     pub extra_roots: Vec<AbsolutePathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsExtraRootsSetResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsListEntry {
     #[serde(default)]
@@ -5964,7 +5964,7 @@ pub struct SkillsListEntry {
     pub skills: Vec<SkillMetadata>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5977,7 +5977,7 @@ pub struct SkillsListParams {
     pub force_reload: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillsListResponse {
     #[serde(default)]
@@ -5992,7 +5992,7 @@ pub enum SortDirection {
     Desc,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SpendControlLimitSnapshot {
     #[serde(default)]
@@ -6038,14 +6038,14 @@ pub enum SubAgentSource {
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SubagentMigration {
     #[serde(default)]
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalInteractionNotification {
     #[serde(rename = "itemId", default)]
@@ -6060,7 +6060,7 @@ pub struct TerminalInteractionNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TextElement {
     #[serde(rename = "byteRange", default)]
@@ -6069,7 +6069,7 @@ pub struct TextElement {
     pub placeholder: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TextPosition {
     #[serde(default)]
@@ -6087,7 +6087,7 @@ pub struct TextRange {
     pub start: TextPosition,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Thread {
     #[serde(
@@ -6166,7 +6166,7 @@ pub enum ThreadActiveFlag {
     WaitingOnUserInput,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadApproveGuardianDeniedActionParams {
     #[serde(default)]
@@ -6175,77 +6175,77 @@ pub struct ThreadApproveGuardianDeniedActionParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadApproveGuardianDeniedActionResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadArchiveParams {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadArchiveResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadArchivedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadClosedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadCompactStartParams {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadCompactStartResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadDeleteParams {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadDeleteResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadDeletedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadForkParams {
     #[serde(
@@ -6372,42 +6372,42 @@ pub struct ThreadGoal {
     pub updated_at: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalClearParams {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalClearResponse {
     #[serde(default)]
     pub cleared: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalClearedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalGetParams {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalGetResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goal: Option<ThreadGoal>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadGoalSetParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6462,7 +6462,7 @@ pub struct ThreadGoalUpdatedNotification {
 #[serde(transparent)]
 pub struct ThreadId(pub String);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadInjectItemsParams {
     #[serde(default)]
@@ -6471,7 +6471,7 @@ pub struct ThreadInjectItemsParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadInjectItemsResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -6706,7 +6706,7 @@ pub enum ThreadListCwdFilter {
     Variant1(Vec<String>),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6753,7 +6753,7 @@ pub struct ThreadListParams {
     pub use_state_db_only: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadListResponse {
     #[serde(
@@ -6772,7 +6772,7 @@ pub struct ThreadListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadLoadedListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6781,7 +6781,7 @@ pub struct ThreadLoadedListParams {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadLoadedListResponse {
     #[serde(default)]
@@ -6794,7 +6794,7 @@ pub struct ThreadLoadedListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadMetadataGitInfoUpdateParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6805,7 +6805,7 @@ pub struct ThreadMetadataGitInfoUpdateParams {
     pub sha: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadMetadataUpdateParams {
     #[serde(rename = "gitInfo", default, skip_serializing_if = "Option::is_none")]
@@ -6821,7 +6821,7 @@ pub struct ThreadMetadataUpdateResponse {
     pub thread: Thread,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadNameUpdatedNotification {
     #[serde(rename = "threadId", default)]
@@ -6834,7 +6834,7 @@ pub struct ThreadNameUpdatedNotification {
     pub thread_name: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadReadParams {
     #[serde(
@@ -6854,7 +6854,7 @@ pub struct ThreadReadResponse {
     pub thread: Thread,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeAudioChunk {
     #[serde(default)]
@@ -6873,7 +6873,7 @@ pub struct ThreadRealtimeAudioChunk {
     pub samples_per_channel: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeClosedNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6882,7 +6882,7 @@ pub struct ThreadRealtimeClosedNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeErrorNotification {
     #[serde(default)]
@@ -6891,7 +6891,7 @@ pub struct ThreadRealtimeErrorNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeItemAddedNotification {
     #[serde(default)]
@@ -6909,7 +6909,7 @@ pub struct ThreadRealtimeOutputAudioDeltaNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeSdpNotification {
     #[serde(default)]
@@ -6933,7 +6933,7 @@ pub struct ThreadRealtimeStartedNotification {
     pub version: RealtimeConversationVersion,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeTranscriptDeltaNotification {
     #[serde(default)]
@@ -6944,7 +6944,7 @@ pub struct ThreadRealtimeTranscriptDeltaNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRealtimeTranscriptDoneNotification {
     #[serde(default)]
@@ -6955,7 +6955,7 @@ pub struct ThreadRealtimeTranscriptDoneNotification {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadResumeParams {
     #[serde(
@@ -7045,7 +7045,7 @@ pub struct ThreadResumeResponse {
     pub thread: Thread,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRollbackParams {
     #[serde(rename = "numTurns", default)]
@@ -7054,14 +7054,14 @@ pub struct ThreadRollbackParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRollbackResponse {
     #[serde(default)]
     pub thread: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSection {
     #[serde(default)]
@@ -7070,7 +7070,7 @@ pub struct ThreadSection {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSectionListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7079,7 +7079,7 @@ pub struct ThreadSectionListParams {
     pub limit: Option<i64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSectionListResponse {
     #[serde(default)]
@@ -7092,7 +7092,7 @@ pub struct ThreadSectionListResponse {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSectionMoveParams {
     #[serde(
@@ -7107,14 +7107,14 @@ pub struct ThreadSectionMoveParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSectionMoveResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSetNameParams {
     #[serde(default)]
@@ -7123,7 +7123,7 @@ pub struct ThreadSetNameParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSetNameResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -7176,7 +7176,7 @@ pub struct ThreadSettingsUpdatedNotification {
     pub thread_settings: ThreadSettings,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadShellCommandParams {
     #[serde(default)]
@@ -7185,7 +7185,7 @@ pub struct ThreadShellCommandParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadShellCommandResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -7232,7 +7232,7 @@ pub enum ThreadSourceKind {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadStartParams {
     #[serde(
@@ -7404,7 +7404,7 @@ pub struct ThreadTokenUsageUpdatedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadUnarchiveParams {
     #[serde(rename = "threadId", default)]
@@ -7418,14 +7418,14 @@ pub struct ThreadUnarchiveResponse {
     pub thread: Thread,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadUnarchivedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadUnsubscribeParams {
     #[serde(rename = "threadId", default)]
@@ -7449,7 +7449,7 @@ pub enum ThreadUnsubscribeStatus {
     Unsubscribed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenUsageBreakdown {
     #[serde(
@@ -7470,7 +7470,7 @@ pub struct TokenUsageBreakdown {
     pub total_tokens: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Tool {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7495,14 +7495,14 @@ pub struct Tool {
     pub title: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRequestUserInputAnswer {
     #[serde(default)]
     pub answers: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRequestUserInputOption {
     #[serde(default)]
@@ -7511,7 +7511,7 @@ pub struct ToolRequestUserInputOption {
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRequestUserInputParams {
     #[serde(
@@ -7530,7 +7530,7 @@ pub struct ToolRequestUserInputParams {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRequestUserInputQuestion {
     #[serde(default)]
@@ -7547,14 +7547,14 @@ pub struct ToolRequestUserInputQuestion {
     pub question: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRequestUserInputResponse {
     #[serde(default)]
     pub answers: std::collections::BTreeMap<String, ToolRequestUserInputAnswer>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolsV2 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7599,7 +7599,7 @@ pub struct TurnCompletedNotification {
     pub turn: Turn,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnDiffUpdatedNotification {
     #[serde(default)]
@@ -7610,7 +7610,7 @@ pub struct TurnDiffUpdatedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnError {
     #[serde(
@@ -7629,7 +7629,7 @@ pub struct TurnError {
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnInterruptParams {
     #[serde(rename = "threadId", default)]
@@ -7638,7 +7638,7 @@ pub struct TurnInterruptParams {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnInterruptResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -7655,7 +7655,7 @@ pub enum TurnItemsView {
     Full,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnModerationMetadataNotification {
     #[serde(default)]
@@ -7685,7 +7685,7 @@ pub enum TurnPlanStepStatus {
     Completed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnPlanUpdatedNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7698,7 +7698,7 @@ pub struct TurnPlanUpdatedNotification {
     pub turn_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnStartParams {
     #[serde(
@@ -7781,7 +7781,7 @@ pub enum TurnStatus {
     InProgress,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnSteerParams {
     #[serde(
@@ -7798,7 +7798,7 @@ pub struct TurnSteerParams {
     pub thread_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TurnSteerResponse {
     #[serde(rename = "turnId", default)]
@@ -7851,7 +7851,7 @@ pub enum Verbosity {
     High,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WarningNotification {
     #[serde(default)]
@@ -7894,7 +7894,7 @@ pub enum WebSearchContextSize {
     High,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WebSearchLocation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7919,7 +7919,7 @@ pub enum WebSearchMode {
     Live,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WebSearchToolConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7975,14 +7975,14 @@ pub struct WindowsSandboxSetupStartParams {
     pub mode: WindowsSandboxSetupMode,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowsSandboxSetupStartResponse {
     #[serde(default)]
     pub started: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowsWorldWritableWarningNotification {
     #[serde(rename = "extraCount", default)]
