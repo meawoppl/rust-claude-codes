@@ -178,6 +178,81 @@ async fn test_async_client_conversation() {
     );
 }
 
+/// Fork a session with `fork_from`: the fork must carry the source's
+/// history under a NEW session id, leaving the source session untouched.
+#[tokio::test]
+async fn test_fork_session_carries_history_under_new_id() {
+    let source_id = Uuid::new_v4();
+
+    // Seed the source session with a memorable fact, then close it.
+    let builder = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .session_id(source_id);
+    let mut client = AsyncClient::from_builder(builder)
+        .await
+        .expect("Failed to create source client");
+    let mut stream = client
+        .query_stream("Remember the word 'pineapple'. Reply with just OK.")
+        .await
+        .expect("Failed to seed source session");
+    while let Some(result) = stream.next().await {
+        if let Ok(ClaudeOutput::Result(_)) = result {
+            break;
+        }
+    }
+    drop(stream);
+    client.shutdown().await.expect("Failed to shutdown source");
+
+    // Fork it and ask the fork to recall the fact.
+    let fork_id = Uuid::new_v4();
+    let builder = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .fork_from(source_id.to_string())
+        .session_id(fork_id);
+    let mut fork = AsyncClient::from_builder(builder)
+        .await
+        .expect("Failed to create forked client");
+    let mut stream = fork
+        .query_stream("What word did I ask you to remember? Reply with just that word.")
+        .await
+        .expect("Failed to query fork");
+
+    let mut recalled = false;
+    let mut fork_session_seen = None;
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(ClaudeOutput::Assistant(msg)) => {
+                for content in &msg.message.content {
+                    if let claude_codes::io::ContentBlock::Text(text) = content {
+                        if text.text.to_lowercase().contains("pineapple") {
+                            recalled = true;
+                        }
+                    }
+                }
+            }
+            Ok(ClaudeOutput::Result(res)) => {
+                fork_session_seen = Some(res.session_id.clone());
+                break;
+            }
+            _ => {}
+        }
+    }
+    drop(stream);
+    fork.shutdown().await.expect("Failed to shutdown fork");
+
+    assert!(
+        recalled,
+        "Fork should recall 'pineapple' from source history"
+    );
+    assert_eq!(
+        fork_session_seen.as_deref(),
+        Some(fork_id.to_string().as_str()),
+        "Fork must run under the NEW session id, not the source's"
+    );
+}
+
 /// Test handling various message types
 #[tokio::test]
 async fn test_message_types() {

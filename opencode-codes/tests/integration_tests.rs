@@ -114,6 +114,34 @@ async fn create_list_abort_loop() {
     let _aborted: bool = client.abort(&session.id).await.expect("abort");
 }
 
+/// Fork a session — the fork must be a NEW `ses…` handle distinct from the
+/// source, with the source left intact.
+#[tokio::test]
+async fn fork_session_returns_new_session() {
+    let client = client();
+
+    let source = client
+        .create_session(&create_params("opencode-codes fork source"))
+        .await
+        .expect("create source session");
+
+    let fork = client.fork_session(&source.id).await.expect("fork session");
+
+    assert!(
+        fork.id.starts_with("ses"),
+        "fork id should be a ses… handle, got {}",
+        fork.id
+    );
+    assert_ne!(fork.id, source.id, "fork must get a NEW session id");
+
+    // Source is untouched and still addressable.
+    let messages = client
+        .list_messages(&source.id)
+        .await
+        .expect("source still listable after fork");
+    assert!(messages.is_empty());
+}
+
 /// Submit a prompt, then reconcile via the authoritative message listing.
 ///
 /// The user message the server records is deterministic and provider-free, so

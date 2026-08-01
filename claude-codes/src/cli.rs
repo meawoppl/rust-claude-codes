@@ -393,6 +393,7 @@ pub struct ClaudeCliBuilder {
     permission_mode: Option<PermissionMode>,
     continue_conversation: bool,
     resume: Option<String>,
+    fork_session: bool,
     model: Option<String>,
     fallback_model: Option<String>,
     settings: Option<String>,
@@ -433,6 +434,7 @@ impl ClaudeCliBuilder {
             permission_mode: None,
             continue_conversation: false,
             resume: None,
+            fork_session: false,
             model: None,
             fallback_model: None,
             settings: None,
@@ -538,6 +540,39 @@ impl ClaudeCliBuilder {
     /// Resume a specific conversation
     pub fn resume<S: Into<String>>(mut self, session_id: Option<S>) -> Self {
         self.resume = session_id.map(|s| s.into());
+        self
+    }
+
+    /// When resuming (or continuing), create a new session ID instead of
+    /// reusing the source session's — i.e. fork. The CLI only accepts
+    /// `--session-id` alongside `--resume`/`--continue` when this is set.
+    ///
+    /// Prefer [`fork_from`](Self::fork_from), which assembles the whole
+    /// combination.
+    pub fn fork_session(mut self, fork: bool) -> Self {
+        self.fork_session = fork;
+        self
+    }
+
+    /// Fork an existing session: resume `source_session_id`'s full history
+    /// into a **new** session, leaving the source untouched.
+    ///
+    /// Assembles `--resume <source> --fork-session --session-id <new>`,
+    /// generating a fresh UUID for the fork (override it by chaining
+    /// [`session_id`](Self::session_id)). The forked session starts with the
+    /// source's entire history — the Claude CLI has no headless
+    /// fork-at-a-point cut; for that semantic see `codex-codes`'
+    /// `thread_fork` with `last_turn_id`.
+    ///
+    /// ```no_run
+    /// # use claude_codes::ClaudeCliBuilder;
+    /// let builder = ClaudeCliBuilder::new()
+    ///     .fork_from("0b8fa762-6c48-4f3b-a3a1-0347f96a52bc")
+    ///     .prompt("Continue, but try the other approach");
+    /// ```
+    pub fn fork_from<S: Into<String>>(mut self, source_session_id: S) -> Self {
+        self.resume = Some(source_session_id.into());
+        self.fork_session = true;
         self
     }
 
@@ -708,6 +743,10 @@ impl ClaudeCliBuilder {
             args.push(session.clone());
         }
 
+        if self.fork_session {
+            args.push("--fork-session".to_string());
+        }
+
         if let Some(ref model) = self.model {
             args.push("--model".to_string());
             args.push(model.clone());
@@ -748,10 +787,11 @@ impl ClaudeCliBuilder {
             args.push(tool.clone());
         }
 
-        // Only add --session-id when NOT resuming/continuing an existing session
-        // (Claude CLI error: --session-id can only be used with --continue or --resume
-        // if --fork-session is also specified)
-        if self.resume.is_none() && !self.continue_conversation {
+        // --session-id is only legal alongside --resume/--continue when
+        // --fork-session is set (it names the fork); otherwise emit it only
+        // for fresh sessions. Either way a UUID is generated when unset so
+        // the session id is known before spawn.
+        if (self.resume.is_none() && !self.continue_conversation) || self.fork_session {
             args.push("--session-id".to_string());
             let session_uuid = self.session_id.unwrap_or_else(|| {
                 let uuid = Uuid::new_v4();
@@ -1042,5 +1082,46 @@ mod tests {
             !args.contains(&"--session-id".to_string()),
             "--session-id should NOT be present when continuing"
         );
+    }
+
+    #[test]
+    fn test_fork_from_assembles_resume_fork_and_new_session_id() {
+        let new_id = Uuid::new_v4();
+        let args = ClaudeCliBuilder::new()
+            .fork_from("source-uuid")
+            .session_id(new_id)
+            .build_args();
+
+        let resume_pos = args.iter().position(|a| a == "--resume").unwrap();
+        assert_eq!(args[resume_pos + 1], "source-uuid");
+        assert!(args.contains(&"--fork-session".to_string()));
+        let sid_pos = args.iter().position(|a| a == "--session-id").unwrap();
+        assert_eq!(args[sid_pos + 1], new_id.to_string());
+    }
+
+    #[test]
+    fn test_fork_from_generates_session_id_when_unset() {
+        let args = ClaudeCliBuilder::new()
+            .fork_from("source-uuid")
+            .build_args();
+
+        assert!(args.contains(&"--fork-session".to_string()));
+        let sid_pos = args.iter().position(|a| a == "--session-id").unwrap();
+        assert!(
+            Uuid::parse_str(&args[sid_pos + 1]).is_ok(),
+            "generated fork session id should be a UUID"
+        );
+    }
+
+    #[test]
+    fn test_fork_session_with_continue_emits_session_id() {
+        let args = ClaudeCliBuilder::new()
+            .continue_conversation(true)
+            .fork_session(true)
+            .build_args();
+
+        assert!(args.contains(&"--continue".to_string()));
+        assert!(args.contains(&"--fork-session".to_string()));
+        assert!(args.contains(&"--session-id".to_string()));
     }
 }

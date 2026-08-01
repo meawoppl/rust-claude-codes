@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`OpencodeClient::fork_session`** — wraps `POST /session/{sessionID}/fork`
+  (operation `session.fork`), branching a session's whole history into a new
+  server-assigned session. Verified against a live 1.18.10 server. (#227)
+
 ### Changed
 
 - On Windows, managed `opencode serve` launches now use `CREATE_NO_WINDOW` to

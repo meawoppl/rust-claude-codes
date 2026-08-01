@@ -77,6 +77,24 @@ codex-codes = { version = "0.142", default-features = false, features = ["types"
 opencode-codes = { version = "1.18", default-features = false, features = ["types"] }
 ```
 
+## Session Forking
+
+All three runtimes can fork a session/thread — branch an existing history
+into a new one and diverge without touching the source — but the semantics
+differ, and consumers should design for the asymmetry:
+
+| | claude-codes | codex-codes | opencode-codes |
+|---|---|---|---|
+| Mechanism | `ClaudeCliBuilder::fork_from(src)` → `--resume <src> --fork-session --session-id <new>` | `AsyncClient::thread_fork(ThreadForkParams)` (`thread/fork`) | `fork_session(id)` (`POST /session/{id}/fork`) |
+| Fork point | **Whole history only** — the CLI's headless surface exposes no at-point cut | **Any turn** — `last_turn_id` cuts the source at that turn | **Whole history only** — no at-point cut in the 1.18.x spec |
+| New identity | Caller-supplied or generated UUID, known **before** spawn | Server-assigned thread id, returned in the response | Server-assigned `ses…` id, returned in the response |
+| Per-fork overrides | Anything expressible as CLI flags (model, cwd, tools, …) | `model`, `cwd`, `sandbox`, `approval_policy`, `ephemeral`, … | `directory` / `workspace` targeting only |
+| Precondition | Source session must exist on disk | Source thread needs ≥ 1 persisted turn (else "no rollout found") | None — a fresh session forks fine |
+
+All three are covered by live integration tests
+(`test_fork_session_carries_history_under_new_id`,
+`test_async_client_thread_fork`, `fork_session_returns_new_session`).
+
 ## Testing Approach
 
 The crates share the same testing philosophy:
