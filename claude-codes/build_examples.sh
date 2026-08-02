@@ -25,7 +25,9 @@ for example in "$EXAMPLES_DIR"/*.rs; do
         # Use cargo's exit code — grepping the output for "error" used to
         # false-positive on crate names like `thiserror` whose compile lines
         # contain the substring.
-        if cargo build -p claude-codes --example "$example_name" >/dev/null 2>&1; then
+        # --all-features so examples gated on non-default features
+        # (required-features in Cargo.toml, e.g. `auth`) build too.
+        if cargo build -p claude-codes --all-features --example "$example_name" >/dev/null 2>&1; then
             echo "  ✅ Successfully built $example_name"
         else
             echo "  ❌ Failed to build $example_name"

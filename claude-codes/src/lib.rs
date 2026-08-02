@@ -107,6 +107,10 @@ pub mod protocol;
 pub mod tool_inputs;
 pub mod types;
 
+// Login support tooling (PTY-driven `claude auth login` / `setup-token`)
+#[cfg(feature = "auth")]
+pub mod auth;
+
 // Client modules
 #[cfg(feature = "async-client")]
 pub mod client_async;
