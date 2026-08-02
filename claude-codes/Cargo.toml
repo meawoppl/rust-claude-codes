@@ -63,3 +63,7 @@ required-features = ["async-client"]
 [[example]]
 name = "sync_client"
 required-features = ["sync-client"]
+
+[[example]]
+name = "login"
+required-features = ["auth"]
