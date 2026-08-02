@@ -24,8 +24,10 @@ jobs:
             args: "-p claude-codes --no-default-features --features async-client"
           - name: "sync-and-async"
             args: "-p claude-codes --no-default-features --features sync-client,async-client"
+          - name: "auth"
+            args: "-p claude-codes --no-default-features --features auth"
           - name: "all-features"
-            args: "-p claude-codes"
+            args: "-p claude-codes --features auth"
 
     steps:
     - uses: actions/checkout@v4

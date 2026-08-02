@@ -2461,3 +2461,31 @@ async fn test_ask_user_question_answered_and_converges() {
         panic!("{}", diff);
     }
 }
+
+/// Live auth tooling: `auth_status` parses the real CLI's JSON, and a real
+/// `setup-token` flow started under a PTY yields the OAuth authorize URL.
+/// The flow is then dropped (= cancelled) — no human completes the login.
+#[cfg(feature = "auth")]
+#[test]
+fn test_login_flow_yields_auth_url_live() {
+    use claude_codes::auth::{auth_status, LoginFlow, LoginMode};
+    use std::time::Duration;
+
+    let status = auth_status().expect("auth status parses");
+    // This test runs in environments with working credentials.
+    assert!(status.logged_in, "expected a logged-in environment");
+
+    let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+    let url = flow
+        .auth_url(Duration::from_secs(30))
+        .expect("authorize URL appears");
+    assert!(
+        url.starts_with("https://") && url.contains("oauth/authorize"),
+        "unexpected authorize URL: {url}"
+    );
+    assert!(
+        url.contains("code_challenge="),
+        "authorize URL should carry a PKCE challenge: {url}"
+    );
+    // Dropping the flow cancels the login and kills the CLI.
+}

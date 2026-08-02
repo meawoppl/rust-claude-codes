@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Login support tooling** behind a new `auth` feature. The CLI's login
+  flows are interactive Ink TUIs (they hang forever on a pipe), so
+  `auth::LoginFlow` drives them under a pseudo-terminal (`portable-pty`) and
+  exposes the flow's human shape as an API: `start(LoginMode)` →
+  `auth_url()` (lifted intact from the CLI's OSC 8 hyperlink) → user visits
+  the URL and brings back a code → `submit_code()` → `finish()`, which
+  returns the minted `sk-ant-oat01-…` token for `LoginMode::SetupToken`.
+  Dropping the flow cancels it. `auth::auth_status()` types
+  `claude auth status --json`. Live-tested: a real `setup-token` flow yields
+  the PKCE authorize URL; `examples/login.rs` walks the full interactive
+  loop. (#255)
+
 - **Session forking**: `ClaudeCliBuilder::fork_from(source_session_id)`
   assembles the full `--resume <src> --fork-session --session-id <new>`
   combination (generating a fresh UUID unless one is chained via
