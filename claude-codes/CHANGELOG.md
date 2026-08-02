@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Dropping the flow cancels it. `auth::auth_status()` types
   `claude auth status --json`. Live-tested: a real `setup-token` flow yields
   the PKCE authorize URL; `examples/login.rs` walks the full interactive
-  loop. (#255)
+  loop. (#257)
 
 - **Session forking**: `ClaudeCliBuilder::fork_from(source_session_id)`
   assembles the full `--resume <src> --fork-session --session-id <new>`
