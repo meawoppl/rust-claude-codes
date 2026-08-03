@@ -152,9 +152,10 @@ impl LoginFlow {
         let pair = pty
             .openpty(PtySize {
                 rows: 40,
-                // Wide enough that the authorize URL also survives unwrapped
-                // in the visible text, not only inside the OSC 8 hyperlink.
-                cols: 500,
+                // Very wide on purpose: display-wrapping is what breaks text
+                // extraction (URLs, minted tokens), so make it impossible at
+                // the source rather than reassembling wrapped output later.
+                cols: 1000,
                 pixel_width: 0,
                 pixel_height: 0,
             })
@@ -254,6 +255,81 @@ impl LoginFlow {
         Ok(())
     }
 
+    /// Submit the authorization code and wait for a definitive outcome by
+    /// watching the CLI's output — not its exit. The CLI does not exit on a
+    /// bad code (it prints an OAuth error and waits for a retry), and its
+    /// prompts render with cursor-column escapes instead of spaces, so text
+    /// gating on human-readable phrases hangs forever.
+    ///
+    /// Outcomes:
+    /// - Minted token found → `Ok(LoginOutcome)`; the child is left for the
+    ///   caller to drop (which kills it).
+    /// - `OAuth error` printed after this submission → [`Error::CodeRejected`]
+    ///   carrying the CLI's message. The flow stays **alive** — the same
+    ///   session (and its PKCE verifier) accepts a corrected code via another
+    ///   `submit_code_and_wait` call.
+    /// - Child exit → outcome from the transcript, as [`finish`](Self::finish).
+    /// - Timeout → [`Error::Timeout`]; the flow is left for the caller to drop.
+    pub fn submit_code_and_wait(&mut self, code: &str, timeout: Duration) -> Result<LoginOutcome> {
+        let offset = {
+            let (lock, _) = &*self.buf;
+            let len = lock.lock().unwrap().0.len();
+            len
+        };
+        self.submit_code(code)?;
+
+        let deadline = Instant::now() + timeout;
+        let (lock, cv) = &*self.buf;
+        let mut guard = lock.lock().unwrap();
+        loop {
+            let stripped = strip_ansi(&guard.0);
+
+            if let Some(token) = extract_token(&stripped) {
+                if token_wrap_suspect(&stripped) {
+                    // A silently truncated token would fail far from here at
+                    // first use; fail loudly instead.
+                    self.finished = true;
+                    let _ = self.killer.kill();
+                    return Err(Error::Protocol(
+                        "minted token appears display-wrapped in PTY output; cannot extract reliably"
+                            .to_string(),
+                    ));
+                }
+                return Ok(LoginOutcome {
+                    token: Some(token),
+                    transcript: stripped,
+                });
+            }
+
+            // Only output produced after THIS submission counts as its error;
+            // a previous attempt's error text must not fail a retry.
+            let tail = strip_ansi(&guard.0[offset.min(guard.0.len())..]);
+            if let Some(message) = detect_oauth_error(&tail) {
+                return Err(Error::CodeRejected { message });
+            }
+
+            if guard.1 {
+                let transcript = strip_ansi(&guard.0);
+                self.finished = true;
+                let token = extract_token(&transcript);
+                if self.mode == LoginMode::SetupToken && token.is_none() {
+                    return Err(Error::Protocol(format!(
+                        "setup-token ended without minting a token; output:\n{transcript}"
+                    )));
+                }
+                return Ok(LoginOutcome { token, transcript });
+            }
+
+            let now = Instant::now();
+            if now >= deadline {
+                return Err(Error::Timeout);
+            }
+            let wait = (deadline - now).min(Duration::from_millis(200));
+            let (g, _) = cv.wait_timeout(guard, wait).unwrap();
+            guard = g;
+        }
+    }
+
     /// Wait for the flow to complete and collect the outcome.
     ///
     /// For [`LoginMode::SetupToken`] the minted token is extracted from the
@@ -339,6 +415,55 @@ fn extract_auth_url(raw: &[u8]) -> Option<String> {
         .take_while(|c| !c.is_whitespace() && *c != '"' && *c != ')')
         .collect();
     url.contains("oauth/authorize").then_some(url)
+}
+
+/// Whitespace-insensitive, case-insensitive form for matching the CLI's TUI
+/// text: its renderer positions words with cursor-column escapes instead of
+/// spaces, so ANSI-stripped output runs words together
+/// (`Pastecodehereifprompted>`). Presence checks must collapse whitespace on
+/// both sides; boundary extraction (tokens, URLs) must NOT use this form,
+/// because adjacent text would glue onto the match.
+fn collapsed_lower(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_whitespace())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// Detect the CLI's `OAuth error:` output and return its message text
+/// (single-line, truncated). The CLI does not exit on this — it waits for a
+/// retry — so callers must treat detection as the failure signal.
+fn detect_oauth_error(stripped: &str) -> Option<String> {
+    if !collapsed_lower(stripped).contains("oautherror") {
+        return None;
+    }
+    let lower = stripped.to_lowercase();
+    let start = lower.find("oauth").unwrap_or(0);
+    let message: String = stripped[start..]
+        .chars()
+        .map(|c| if c == '\n' { ' ' } else { c })
+        .take(240)
+        .collect();
+    Some(message.trim().to_string())
+}
+
+/// True when a found token ends exactly at a line break and token-charset
+/// characters continue on the next line — the signature of display-wrapping,
+/// which would silently truncate the extracted token.
+fn token_wrap_suspect(text: &str) -> bool {
+    let Some(start) = text.find("sk-ant-oat01-") else {
+        return false;
+    };
+    let rest = &text[start..];
+    let end = rest
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        .unwrap_or(rest.len());
+    let after = &rest[end..];
+    let mut chars = after.chars();
+    matches!(
+        (chars.next(), chars.next()),
+        (Some('\n'), Some(c)) if c.is_ascii_alphanumeric() || c == '-' || c == '_'
+    )
 }
 
 /// Pull a long-lived OAuth token (`sk-ant-oat01-…`) out of flow output.
@@ -461,5 +586,40 @@ mod tests {
         let s: AuthStatus = serde_json::from_str(r#"{"loggedIn": false}"#).unwrap();
         assert!(!s.logged_in);
         assert_eq!(s.auth_method, None);
+    }
+
+    /// Infra-captured literal bytes: the CLI positions words with
+    /// cursor-column escapes (CSI n G) instead of spaces.
+    #[test]
+    fn column_escape_prompt_strips_to_run_together_text() {
+        let raw = b"Paste\x1b[8Gcode\x1b[13Ghere\x1b[18Gif\x1b[21Gprompted\x1b[30G>";
+        let stripped = strip_ansi(raw);
+        assert_eq!(stripped, "Pastecodehereifprompted>");
+        // Word-boundary matching cannot work; collapsed matching does.
+        assert!(!stripped.contains("Paste code here"));
+        assert!(collapsed_lower(&stripped).contains("pastecodehere"));
+    }
+
+    #[test]
+    fn oauth_error_detected_despite_run_together_rendering() {
+        let stripped =
+            "OAuth error: Invalidcode. Please makesure the fullcde wascopied\nPress Enter to retry.";
+        let msg = detect_oauth_error(stripped).expect("detected");
+        assert!(msg.starts_with("OAuth error"));
+        assert!(msg.contains("Press Enter to retry"));
+        assert!(detect_oauth_error("Welcometo Claude Codev2.1.220").is_none());
+    }
+
+    #[test]
+    fn wrapped_token_is_flagged_not_truncated() {
+        assert!(token_wrap_suspect("token: sk-ant-oat01-abc\ndef more"));
+        // Ends at newline but next line is prose punctuation-first: not a wrap
+        assert!(!token_wrap_suspect("token: sk-ant-oat01-abcdef\n(copied)"));
+        // No newline at boundary: clean extraction
+        assert!(!token_wrap_suspect("token: sk-ant-oat01-abcdef done"));
+        assert_eq!(
+            extract_token("token: sk-ant-oat01-abcdef done").as_deref(),
+            Some("sk-ant-oat01-abcdef")
+        );
     }
 }

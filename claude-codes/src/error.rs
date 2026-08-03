@@ -23,6 +23,9 @@ pub enum Error {
     #[error("Invalid state transition: {0}")]
     InvalidState(String),
 
+    #[error("Authorization code rejected: {message}")]
+    CodeRejected { message: String },
+
     #[error("Timeout occurred")]
     Timeout,
 

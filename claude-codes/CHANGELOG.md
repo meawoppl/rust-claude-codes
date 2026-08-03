@@ -21,6 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the PKCE authorize URL; `examples/login.rs` walks the full interactive
   loop. (#257)
 
+- **`LoginFlow::submit_code_and_wait`**: outcome-driven completion that
+  watches the CLI's *output* instead of its exit. Production use showed two
+  hangs `finish()` cannot see: the CLI never exits on a rejected code (it
+  prints `OAuth error … Press Enter to retry` and waits), and its Ink TUI
+  positions words with cursor-column escapes instead of spaces, so
+  ANSI-stripped text runs together (`Pastecodehereifprompted>`) and
+  phrase-matching never fires. The new method returns as soon as a minted
+  token appears, fails fast with the new `Error::CodeRejected { message }`
+  when an OAuth error is printed (scanning only output after the current
+  submission, so a retry can't trip on a prior attempt's error), and leaves
+  the flow alive on rejection so a corrected code reaches the same PKCE
+  session. Presence checks collapse whitespace; token extraction stays
+  newline-bounded (collapsing would glue trailing prose onto the token) with
+  a loud display-wrap detector instead of silent truncation. PTY width is
+  raised to 1000 columns so wrapping is impossible at the source.
+
 - **Session forking**: `ClaudeCliBuilder::fork_from(source_session_id)`
   assembles the full `--resume <src> --fork-session --session-id <new>`
   combination (generating a fresh UUID unless one is chained via
