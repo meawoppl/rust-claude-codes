@@ -191,8 +191,12 @@ pub struct LoginFlow {
     child: Box<dyn portable_pty::Child + Send + Sync>,
     killer: Box<dyn ChildKiller + Send + Sync>,
     writer: Box<dyn std::io::Write + Send>,
-    // Keeps the PTY master (and thus the reader) alive for the flow's life.
-    _pair: portable_pty::PtyPair,
+    // The master must outlive the flow; the SLAVE is deliberately dropped
+    // right after spawn. Holding the slave open means the master never sees
+    // EOF when the child dies — the reader blocks forever and a 5-second
+    // child death presents as a full-timeout mystery (production attempt
+    // four: 85 seconds of polling a corpse).
+    _master: Box<dyn portable_pty::MasterPty + Send>,
     buf: OutBuf,
     mode: LoginMode,
     finished: bool,
@@ -335,11 +339,16 @@ impl LoginFlow {
             cv.notify_all();
         });
 
+        // Drop the slave NOW: the child owns its own copies of the PTY fds,
+        // and holding ours would suppress master-side EOF on child death.
+        let portable_pty::PtyPair { master, slave } = pair;
+        drop(slave);
+
         Ok(Self {
             child,
             killer,
             writer,
-            _pair: pair,
+            _master: master,
             buf,
             mode,
             finished: false,
@@ -363,9 +372,14 @@ impl LoginFlow {
             }
             if guard.1 {
                 let transcript = strip_ansi(&guard.0);
-                return Err(Error::Unknown(format!(
-                    "login flow exited before printing an authorize URL; output:\n{transcript}"
-                )));
+                self.finished = true;
+                let code = reap_exit_code(&mut self.child);
+                return Err(Error::LoginChildExited {
+                    code,
+                    transcript: format!(
+                        "[child=exited({code:?}) before printing an authorize URL]\n{transcript}"
+                    ),
+                });
             }
             let now = Instant::now();
             if now >= deadline {
@@ -450,6 +464,23 @@ impl LoginFlow {
             let len = lock.lock().unwrap().0.len();
             len
         };
+        // Pre-submit liveness check: timestamps a death BEFORE the paste
+        // against one at/after it — the discriminator between "the frame
+        // killed it" and "it was already gone when we wrote".
+        if let Ok(Some(status)) = self.child.try_wait() {
+            self.finished = true;
+            let transcript = {
+                let (lock, _) = &*self.buf;
+                strip_ansi(&lock.lock().unwrap().0)
+            };
+            return Err(Error::LoginChildExited {
+                code: Some(status.exit_code()),
+                transcript: format!(
+                    "[child=exited({}) BEFORE code submission — nothing was written]\n{transcript}",
+                    status.exit_code()
+                ),
+            });
+        }
         self.submit_code(code)?;
 
         let deadline = Instant::now() + timeout;
@@ -458,6 +489,8 @@ impl LoginFlow {
         // success-without-token.
         let mut creds_seen_at: Option<Instant> = None;
         let mut nudged = false;
+        // (exit_code, first seen) — set the moment try_wait reports death.
+        let mut child_exit: Option<(u32, Instant)> = None;
         const CREDS_TOKEN_GRACE: Duration = Duration::from_secs(3);
 
         let (lock, cv) = &*self.buf;
@@ -550,21 +583,49 @@ impl LoginFlow {
                 }
             }
 
-            if guard.1 {
+            // Child death is a first-class outcome, detected two ways:
+            // reader EOF (the slave is dropped at spawn, so the master EOFs
+            // the moment the child's side closes) and a direct try_wait
+            // (catches a dead parent whose PTY is still held open by an
+            // orphaned grandchild). Production attempt four: the child died
+            // ~5s after submission and the flow spent 85s polling a corpse,
+            // reporting benign absence on every channel.
+            if child_exit.is_none() {
+                if let Ok(Some(status)) = self.child.try_wait() {
+                    child_exit = Some((status.exit_code(), Instant::now()));
+                }
+            }
+            let exit_drained = child_exit
+                .map(|(_, at)| at.elapsed() > Duration::from_secs(1))
+                .unwrap_or(false);
+            if guard.1 || exit_drained {
                 let transcript = strip_ansi(&guard.0);
                 self.finished = true;
-                if self.mode == LoginMode::SetupToken && !creds_updated {
-                    return Err(Error::Protocol(format!(
-                        "setup-token ended without minting a token; output:\n{transcript}"
-                    )));
+                // The buffer is complete here and the token / OSC 52 /
+                // rejection checks above already ran on it this iteration,
+                // so the only success still possible is a credentials write
+                // racing the exit.
+                if creds_updated || self.creds.updated() {
+                    return Ok(LoginOutcome {
+                        token: None,
+                        token_source: None,
+                        credentials_updated: true,
+                        osc52: Osc52Status::from(&osc52),
+                        copy_nudge_sent: nudged,
+                        transcript,
+                    });
                 }
-                return Ok(LoginOutcome {
-                    token: None,
-                    token_source: None,
-                    credentials_updated: creds_updated,
-                    osc52: Osc52Status::from(&osc52),
-                    copy_nudge_sent: nudged,
-                    transcript,
+                let code = child_exit
+                    .map(|(c, _)| c)
+                    .or_else(|| reap_exit_code(&mut self.child));
+                let tail = strip_ansi(&guard.0[offset.min(guard.0.len())..]);
+                return Err(Error::LoginChildExited {
+                    code,
+                    transcript: format!(
+                        "[channels: screen=no-token osc52={:?} credentials=unchanged copy-nudge={} submit-path={SUBMIT_PATH} child=exited({code:?})]\n{tail}",
+                        Osc52Status::from(&osc52),
+                        if nudged { "sent" } else { "not-sent" },
+                    ),
                 });
             }
 
@@ -581,7 +642,7 @@ impl LoginFlow {
                 }
                 return Err(Error::LoginTimeout {
                     transcript: format!(
-                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={} submit-path={SUBMIT_PATH}]\n{}",
+                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={} submit-path={SUBMIT_PATH} child=alive]\n{}",
                         Osc52Status::from(&osc52),
                         if creds_updated {
                             "updated"
@@ -782,11 +843,28 @@ fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
 /// from a single log line instead of requiring binary forensics — release
 /// builds inline the frame bytes into immediates, so byte-grepping a binary
 /// for `ESC[200~` proves nothing in either direction.
-pub const SUBMIT_PATH: &str = "bracketed-paste+lone-cr-150ms+term-forced+env-scrubbed/v4";
+pub const SUBMIT_PATH: &str =
+    "bracketed-paste+lone-cr-150ms+term-forced+env-scrubbed+exit-aware/v5";
 
 /// Pause between the paste frame and the Enter keypress in
 /// [`LoginFlow::submit_code`].
 const SUBMIT_ENTER_DELAY: Duration = Duration::from_millis(150);
+
+/// Best-effort exit-code reap after EOF: the child's death is imminent or
+/// already happened, but `wait()` could block forever if a grandchild holds
+/// the PTY while the parent lingers — poll briefly instead.
+fn reap_exit_code(child: &mut Box<dyn portable_pty::Child + Send + Sync>) -> Option<u32> {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Some(status.exit_code()),
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            _ => return None,
+        }
+    }
+}
 
 /// The paste frame a code submission writes to the PTY: the trimmed code
 /// wrapped in bracketed-paste markers (`ESC[200~ … ESC[201~`), NO trailing
