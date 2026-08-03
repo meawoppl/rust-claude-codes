@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Success-path OSC 52 telemetry**: `LoginOutcome` gains
+  `osc52: Osc52Status` (`Absent` / `Unterminated` / `Undecodable` /
+  `PresentNoToken` / `TokenRecovered`) and `copy_nudge_sent: bool`, and the
+  `LoginTimeout` channel line gains `copy-nudge=sent|not-sent` — so a
+  `token: None` success distinguishes "screen offers no copy affordance"
+  from "affordance fired with a non-token payload", crate-side, where the
+  PTY bytes are actually observable. The copy nudge is also recorded so any
+  unexpected TUI consequence is attributable. (#261)
 - **Copy-affordance nudge on confirmed success**: when the credentials store
   updates but no token is yet observable, `submit_code_and_wait` presses `c`
   (the TUI's "c to copy" affordance) once, giving the OSC 52 channel a chance
