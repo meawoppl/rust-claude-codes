@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Login code submission failed silently for every production-length
+  code.** The TUI classifies any single PTY write of **≥ 64 bytes** as a
+  paste and swallows a trailing CR into the paste payload instead of
+  treating it as Enter (measured on CLI 2.1.220: 62-char code + CR submits;
+  63-char + CR sits at the prompt forever). Real authorization codes are
+  ~90+ chars, so no unframed single-chunk write could ever submit — this is
+  what produced the silent 30s/90s timeouts in production, undetected
+  because every test fixture happened to be under 64 bytes. `submit_code`
+  now writes the code wrapped in **bracketed-paste framing**
+  (`ESC[200~…ESC[201~` — the paste path the CLI explicitly enables via
+  `ESC[?2004h`), then sends CR as its own write 150 ms later. Live-verified
+  across a 36–120 byte matrix including both previously-silent boundary
+  lengths; unit fixtures moved to production lengths (64/92/108/120) and a
+  live integration test now submits 92- and 108-char codes, both of which
+  any sub-64-byte fixture is structurally incapable of covering. (#263)
+
 ### Added
 
 - **Three-source success detection for login flows**, driven by the prod

@@ -2489,3 +2489,38 @@ fn test_login_flow_yields_auth_url_live() {
     );
     // Dropping the flow cancels the login and kills the CLI.
 }
+
+/// Regression net for the 64-byte paste-classification bug: submission of a
+/// PRODUCTION-LENGTH code must produce a definitive rejection, not silence.
+/// Single-chunk writes of >= 64 bytes are classified as pastes by the TUI
+/// and a trailing CR is swallowed (62-char code + CR submits, 63-char + CR
+/// hangs forever, measured on CLI 2.1.220) — every fixture below 64 bytes
+/// is structurally incapable of catching this class of bug.
+#[cfg(feature = "auth")]
+#[test]
+fn test_production_length_code_submission_is_acknowledged_live() {
+    use claude_codes::auth::{LoginFlow, LoginMode};
+    use claude_codes::Error;
+    use std::time::{Duration, Instant};
+
+    for len in [92usize, 108] {
+        let code: String = "aB3".repeat(40)[..len - 6].to_string() + "#state";
+        assert!(code.len() >= 64, "fixture must exceed the paste threshold");
+
+        let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+        flow.auth_url(Duration::from_secs(30)).expect("url appears");
+        let t0 = Instant::now();
+        let err = flow
+            .submit_code_and_wait(&code, Duration::from_secs(20))
+            .expect_err("bogus code must be rejected");
+        match err {
+            Error::CodeRejected { .. } => {}
+            other => panic!("len {len}: expected CodeRejected, got: {other}"),
+        }
+        assert!(
+            t0.elapsed() < Duration::from_secs(15),
+            "len {len}: rejection took {:?} — submission may not have registered",
+            t0.elapsed()
+        );
+    }
+}
