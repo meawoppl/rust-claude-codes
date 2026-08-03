@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Login flows were structurally blind to child death.** `LoginFlow` held
+  the PTY *slave* open for its whole life, so when the CLI exited, the
+  master never saw EOF and the reader blocked forever — production attempt
+  four's child died ~5 s after code submission and the flow spent the
+  remaining 85 s polling a corpse, reporting benign absence on every
+  channel. The slave is now dropped at spawn (the child owns its own fds),
+  making master-side EOF fire on exit. (#267)
+
 ### Added
+
+- **Child death is a first-class outcome** (#267):
+  - New `Error::LoginChildExited { code, transcript }`, returned within
+    ~1 s of death from `auth_url` and `submit_code_and_wait` (EOF-driven,
+    with a `try_wait` backstop for a dead parent whose PTY is held open by
+    an orphaned grandchild). Replaces the generic `Unknown`/`Protocol`
+    errors on the exited-without-outcome paths — downstream match arms
+    with a catch-all are unaffected.
+  - **Pre-submit liveness check**: a death *before* the paste is reported
+    as such ("BEFORE code submission — nothing was written"), timestamping
+    death against the write — the discriminator between "the frame killed
+    it" and "it was already gone".
+  - Channel lines now carry `child=alive|exited(code)`; `SUBMIT_PATH`
+    bumps to `…+exit-aware/v5`.
+  - An exit that races a credentials write still resolves to success.
+  Live-verified: kill-after-submit surfaces `LoginChildExited(code=143)`
+  in ~570 ms with the masked input echo intact in the tail; kill-before
+  is caught in microseconds; the rejection path is unchanged (~375 ms).
 
 - **Write-path provenance**: `auth::SUBMIT_PATH` identifies the compiled
   code-submission mechanism and is stamped into the `LoginTimeout` channel

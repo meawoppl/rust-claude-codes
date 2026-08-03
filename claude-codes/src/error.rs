@@ -31,6 +31,12 @@ pub enum Error {
     )]
     LoginTimeout { transcript: String },
 
+    #[error("Login CLI exited (code {code:?}) without a login outcome; output:\n{transcript}")]
+    LoginChildExited {
+        code: Option<u32>,
+        transcript: String,
+    },
+
     #[error("Timeout occurred")]
     Timeout,
 
