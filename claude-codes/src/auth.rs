@@ -125,6 +125,26 @@ pub enum TokenSource {
     Osc52,
 }
 
+/// What the OSC 52 clipboard channel showed by the time the flow settled —
+/// success-path telemetry so a `token: None` outcome names the reason
+/// instead of leaving "no affordance" and "affordance fired with a non-token
+/// payload" indistinguishable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Osc52Status {
+    /// No OSC 52 sequence ever appeared (the screen may offer no copy
+    /// affordance, or the nudge didn't trigger it).
+    Absent,
+    /// A sequence started but never terminated before the flow settled.
+    Unterminated,
+    /// Terminated sequence(s) whose payload wasn't valid base64.
+    Undecodable,
+    /// Valid payload(s) seen, none containing a token (e.g. the URL copy).
+    PresentNoToken,
+    /// The token was recovered from this channel
+    /// ([`LoginOutcome::token_source`] is [`TokenSource::Osc52`]).
+    TokenRecovered,
+}
+
 /// Result of a completed [`LoginFlow`].
 #[derive(Debug, Clone)]
 pub struct LoginOutcome {
@@ -140,9 +160,27 @@ pub struct LoginOutcome {
     /// code submission — the authoritative success signal, independent of
     /// anything rendered on screen.
     pub credentials_updated: bool,
+    /// State of the OSC 52 clipboard channel when the flow settled.
+    pub osc52: Osc52Status,
+    /// True when the flow pressed the TUI's `c` copy affordance after
+    /// success was confirmed — so any unexpected TUI consequence is
+    /// attributable rather than mysterious.
+    pub copy_nudge_sent: bool,
     /// The flow's full terminal output with ANSI escapes stripped — for
     /// surfacing the CLI's own error text when something goes wrong.
     pub transcript: String,
+}
+
+impl From<&Osc52Scan> for Osc52Status {
+    fn from(scan: &Osc52Scan) -> Self {
+        match scan {
+            Osc52Scan::Absent => Osc52Status::Absent,
+            Osc52Scan::Unterminated => Osc52Status::Unterminated,
+            Osc52Scan::Undecodable => Osc52Status::Undecodable,
+            Osc52Scan::NoTokenInPayload => Osc52Status::PresentNoToken,
+            Osc52Scan::Token(_) => Osc52Status::TokenRecovered,
+        }
+    }
 }
 
 /// Shared PTY output buffer: bytes so far + whether the reader hit EOF.
@@ -371,6 +409,7 @@ impl LoginFlow {
         // extraction gets this long afterwards to surface before we accept
         // success-without-token.
         let mut creds_seen_at: Option<Instant> = None;
+        let mut nudged = false;
         const CREDS_TOKEN_GRACE: Duration = Duration::from_secs(3);
 
         let (lock, cv) = &*self.buf;
@@ -390,6 +429,8 @@ impl LoginFlow {
                             token: Some(token),
                             token_source: Some(TokenSource::Osc52),
                             credentials_updated: creds_updated,
+                            osc52: Osc52Status::TokenRecovered,
+                            copy_nudge_sent: nudged,
                             transcript: stripped,
                         });
                     }
@@ -404,6 +445,8 @@ impl LoginFlow {
                     token: Some(token),
                     token_source: Some(TokenSource::Screen),
                     credentials_updated: creds_updated,
+                    osc52: Osc52Status::from(&osc52),
+                    copy_nudge_sent: nudged,
                     transcript: stripped,
                 });
             }
@@ -413,6 +456,8 @@ impl LoginFlow {
                     token: Some(token.clone()),
                     token_source: Some(TokenSource::Osc52),
                     credentials_updated: creds_updated,
+                    osc52: Osc52Status::TokenRecovered,
+                    copy_nudge_sent: nudged,
                     transcript: stripped,
                 });
             }
@@ -434,18 +479,24 @@ impl LoginFlow {
                     // supports it, the CLI emits the token over OSC 52 —
                     // exact bytes — before the grace window closes. Best
                     // effort: on screens without the affordance this is a
-                    // stray keypress in an already-succeeded flow.
+                    // stray keypress in an already-succeeded flow. Guarded:
+                    // reaching this branch means the post-submission tail
+                    // carried no rejection anchor this iteration (that check
+                    // returns above), so this is not a retry prompt.
                     use std::io::Write;
-                    let _ = self
+                    nudged = self
                         .writer
                         .write_all(b"c")
-                        .and_then(|()| self.writer.flush());
+                        .and_then(|()| self.writer.flush())
+                        .is_ok();
                 }
                 if seen.elapsed() >= CREDS_TOKEN_GRACE {
                     return Ok(LoginOutcome {
                         token: None,
                         token_source: None,
                         credentials_updated: true,
+                        osc52: Osc52Status::from(&osc52),
+                        copy_nudge_sent: nudged,
                         transcript: stripped,
                     });
                 }
@@ -463,6 +514,8 @@ impl LoginFlow {
                     token: None,
                     token_source: None,
                     credentials_updated: creds_updated,
+                    osc52: Osc52Status::from(&osc52),
+                    copy_nudge_sent: nudged,
                     transcript,
                 });
             }
@@ -480,12 +533,14 @@ impl LoginFlow {
                 }
                 return Err(Error::LoginTimeout {
                     transcript: format!(
-                        "[channels: screen=no-token osc52={osc52:?} credentials={}]\n{}",
+                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={}]\n{}",
+                        Osc52Status::from(&osc52),
                         if creds_updated {
                             "updated"
                         } else {
                             "unchanged"
                         },
+                        if nudged { "sent" } else { "not-sent" },
                         &tail[start..]
                     ),
                 });
@@ -536,6 +591,7 @@ impl LoginFlow {
         drop(guard);
 
         let credentials_updated = self.creds.updated();
+        let osc52_status = Osc52Status::from(&osc52);
         let (token, token_source) = match (extract_token(&transcript), osc52) {
             (Some(t), _) => (Some(t), Some(TokenSource::Screen)),
             (None, Osc52Scan::Token(t)) => (Some(t), Some(TokenSource::Osc52)),
@@ -550,6 +606,8 @@ impl LoginFlow {
             token,
             token_source,
             credentials_updated,
+            osc52: osc52_status,
+            copy_nudge_sent: false,
             transcript,
         })
     }
