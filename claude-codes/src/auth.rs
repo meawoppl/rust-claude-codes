@@ -267,6 +267,14 @@ impl LoginFlow {
 
         let mut cmd = CommandBuilder::new(binary);
         cmd.args(mode.args());
+        // The crate IS the terminal on the other side of this PTY (it parses
+        // OSC 8/52, strips ANSI, and speaks bracketed paste), so advertise a
+        // deterministic capability surface instead of inheriting whatever
+        // TERM the host process happens to have (server processes often have
+        // none). Measured on CLI 2.1.220: submission works under TERM=dumb
+        // and TERM-unset too — this is eliminating an environment axis, not
+        // fixing a reproduced failure.
+        cmd.env("TERM", "xterm-256color");
         if let Ok(cwd) = std::env::current_dir() {
             cmd.cwd(cwd);
         }
@@ -556,7 +564,7 @@ impl LoginFlow {
                 }
                 return Err(Error::LoginTimeout {
                     transcript: format!(
-                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={}]\n{}",
+                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={} submit-path={SUBMIT_PATH}]\n{}",
                         Osc52Status::from(&osc52),
                         if creds_updated {
                             "updated"
@@ -750,6 +758,14 @@ fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
     }
     best
 }
+
+/// Identifies the code-submission write path compiled into this build.
+/// Recorded in the [`Error::LoginTimeout`] channel line (and available to
+/// downstream logs), so "which write path is actually deployed" is readable
+/// from a single log line instead of requiring binary forensics — release
+/// builds inline the frame bytes into immediates, so byte-grepping a binary
+/// for `ESC[200~` proves nothing in either direction.
+pub const SUBMIT_PATH: &str = "bracketed-paste+lone-cr-150ms+term-forced/v3";
 
 /// Pause between the paste frame and the Enter keypress in
 /// [`LoginFlow::submit_code`].
