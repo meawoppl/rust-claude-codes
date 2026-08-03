@@ -426,7 +426,21 @@ impl LoginFlow {
 
             // Credentials write = accepted, even with nothing on screen.
             if creds_updated {
+                let first_detection = creds_seen_at.is_none();
                 let seen = *creds_seen_at.get_or_insert_with(Instant::now);
+                if first_detection {
+                    // Success is confirmed, so nudge the TUI's copy
+                    // affordance ("c to copy") once: if the success screen
+                    // supports it, the CLI emits the token over OSC 52 —
+                    // exact bytes — before the grace window closes. Best
+                    // effort: on screens without the affordance this is a
+                    // stray keypress in an already-succeeded flow.
+                    use std::io::Write;
+                    let _ = self
+                        .writer
+                        .write_all(b"c")
+                        .and_then(|()| self.writer.flush());
+                }
                 if seen.elapsed() >= CREDS_TOKEN_GRACE {
                     return Ok(LoginOutcome {
                         token: None,

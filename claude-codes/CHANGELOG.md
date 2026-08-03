@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Copy-affordance nudge on confirmed success**: when the credentials store
+  updates but no token is yet observable, `submit_code_and_wait` presses `c`
+  (the TUI's "c to copy" affordance) once, giving the OSC 52 channel a chance
+  to deliver the exact token bytes before the grace window closes — reducing
+  the frequency of `token: None` successes that downstream must treat as
+  re-login-after-redeploy mode. Best-effort: a stray keypress on screens
+  without the affordance, in a flow that has already succeeded. (#260)
 - **Login rejection detection widened**: the collapsed `Press Enter to retry`
   prompt now anchors `CodeRejected` as a fallback when the error wording
   doesn't contain `OAuth error` — live capture shows the renderer mangles
