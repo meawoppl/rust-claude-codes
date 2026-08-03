@@ -353,14 +353,33 @@ impl LoginFlow {
 
     /// Paste the authorization code back into the flow.
     ///
-    /// The code is trimmed and terminated with a single carriage return
-    /// (`0x0D` — the Enter keycode the raw-mode TUI expects; LF does not
-    /// submit), written as one chunk. A code that is empty after trimming is
-    /// rejected here: pressing Enter on an empty field produces no
-    /// detectable outcome, only a silent hang.
+    /// The code is written wrapped in **bracketed-paste framing**
+    /// (`ESC[200~ … ESC[201~`), then — after a short beat — a single
+    /// carriage return (`0x0D`, the Enter keycode; LF does not submit) as
+    /// its own write.
+    ///
+    /// Both parts are load-bearing. The TUI classifies any single write of
+    /// **≥ 64 bytes** as a paste and absorbs a trailing CR into the paste
+    /// payload instead of treating it as Enter — measured live on CLI
+    /// 2.1.220: a 62-char code + CR (63 bytes) submits, a 63-char code + CR
+    /// (64 bytes) sits silently at the prompt forever. Every real
+    /// authorization code (~90+ chars) is over the threshold, so an unframed
+    /// single-chunk write can never submit in production. The CLI enables
+    /// bracketed paste (`ESC[?2004h`), so explicit framing is the paste path
+    /// it is actually expecting; the separated, delayed CR then lands
+    /// outside the paste boundary as a genuine keypress.
+    ///
+    /// A code that is empty after trimming is rejected here: pressing Enter
+    /// on an empty field produces no detectable outcome, only a silent hang.
     pub fn submit_code(&mut self, code: &str) -> Result<()> {
         use std::io::Write;
-        self.writer.write_all(&prepare_code_bytes(code)?)?;
+        self.writer.write_all(&prepare_code_paste(code)?)?;
+        self.writer.flush()?;
+        // Let the TUI consume the paste before Enter arrives; also keeps the
+        // CR temporally separate from the burst (the second independently
+        // verified fix for the 64-byte swallow).
+        std::thread::sleep(SUBMIT_ENTER_DELAY);
+        self.writer.write_all(b"\r")?;
         self.writer.flush()?;
         Ok(())
     }
@@ -728,21 +747,29 @@ fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
     best
 }
 
-/// The exact bytes a code submission writes to the PTY: the trimmed code
-/// followed by a single carriage return, as ONE chunk. CR (`0x0D`) is the
-/// Enter keycode the raw-mode TUI expects — LF lands in the input buffer and
-/// never submits. An empty-after-trim code is refused: pressing Enter on an
-/// empty field produces no detectable outcome, only a silent hang.
-fn prepare_code_bytes(code: &str) -> Result<Vec<u8>> {
+/// Pause between the paste frame and the Enter keypress in
+/// [`LoginFlow::submit_code`].
+const SUBMIT_ENTER_DELAY: Duration = Duration::from_millis(150);
+
+/// The paste frame a code submission writes to the PTY: the trimmed code
+/// wrapped in bracketed-paste markers (`ESC[200~ … ESC[201~`), NO trailing
+/// CR — Enter is sent separately after [`SUBMIT_ENTER_DELAY`]. See
+/// [`LoginFlow::submit_code`] for why: single writes of ≥ 64 bytes are
+/// classified as pastes and a trailing CR inside the burst is swallowed, so
+/// the frame declares the paste explicitly and the keypress travels alone.
+/// An empty-after-trim code is refused: pressing Enter on an empty field
+/// produces no detectable outcome, only a silent hang.
+fn prepare_code_paste(code: &str) -> Result<Vec<u8>> {
     let code = code.trim();
     if code.is_empty() {
         return Err(Error::Protocol(
             "authorization code is empty after trimming; refusing to submit".to_string(),
         ));
     }
-    let mut buf = Vec::with_capacity(code.len() + 1);
+    let mut buf = Vec::with_capacity(code.len() + 12);
+    buf.extend_from_slice(b"\x1b[200~");
     buf.extend_from_slice(code.as_bytes());
-    buf.push(b'\r');
+    buf.extend_from_slice(b"\x1b[201~");
     Ok(buf)
 }
 
@@ -1049,15 +1076,29 @@ mod tests {
     }
 
     #[test]
-    fn code_bytes_are_trimmed_cr_terminated_single_chunk() {
-        // Browser pastes carry trailing newlines; exactly one CR must follow
-        // the code, with the caller's LF/CR stripped, in one write chunk.
-        assert_eq!(prepare_code_bytes("abc#def\n").unwrap(), b"abc#def\r");
-        assert_eq!(prepare_code_bytes(" abc \r\n").unwrap(), b"abc\r");
-        assert_eq!(prepare_code_bytes("abc").unwrap(), b"abc\r");
+    fn code_paste_is_bracketed_trimmed_and_cr_free() {
+        // Fixtures at PRODUCTION lengths. The 64-byte paste-classification
+        // bug was invisible to every sub-64-byte fixture; codes under 64
+        // bytes are a different input class from real ones (~92 observed,
+        // 108 = credentials-token length).
+        for len in [64usize, 92, 108, 120] {
+            let code: String = "x".repeat(len - 6) + "#state";
+            let frame = prepare_code_paste(&format!("{code}\n")).unwrap();
+            let mut expected = b"\x1b[200~".to_vec();
+            expected.extend_from_slice(code.as_bytes());
+            expected.extend_from_slice(b"\x1b[201~");
+            assert_eq!(frame, expected, "len {len}");
+            // The frame itself must never carry the Enter keypress: a CR
+            // inside a ≥64-byte burst is swallowed as paste payload.
+            assert!(!frame.contains(&b'\r'), "len {len}: CR must travel alone");
+        }
+        assert_eq!(
+            prepare_code_paste(" abc \r\n").unwrap(),
+            b"\x1b[200~abc\x1b[201~"
+        );
         for empty in ["", "  ", "\n", "\r\n", "\t"] {
             assert!(
-                prepare_code_bytes(empty).is_err(),
+                prepare_code_paste(empty).is_err(),
                 "empty guard must fire for {empty:?}"
             );
         }
