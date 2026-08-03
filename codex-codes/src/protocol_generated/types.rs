@@ -52,6 +52,12 @@ pub struct AccountLoginCompletedNotification {
     pub error: Option<String>,
     #[serde(rename = "loginId", default, skip_serializing_if = "Option::is_none")]
     pub login_id: Option<String>,
+    #[serde(
+        rename = "onboardingEntrypoint",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub onboarding_entrypoint: Option<DesktopOnboardingEntrypoint>,
     #[serde(default)]
     pub success: bool,
 }
@@ -1573,6 +1579,12 @@ pub struct DeprecationNoticeNotification {
     pub details: Option<String>,
     #[serde(default)]
     pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum DesktopOnboardingEntrypoint {
+    #[serde(rename = "life_sciences")]
+    Life_sciences,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -7072,6 +7084,34 @@ pub struct ThreadSection {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ThreadSectionCreateParams {
+    #[serde(default)]
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionCreateResponse {
+    #[serde()]
+    pub section: ThreadSection,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionDeleteParams {
+    #[serde(rename = "sectionId", default)]
+    pub section_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionDeleteResponse {
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ThreadSectionListParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -7112,6 +7152,22 @@ pub struct ThreadSectionMoveParams {
 pub struct ThreadSectionMoveResponse {
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionUpdateParams {
+    #[serde(default)]
+    pub name: String,
+    #[serde(rename = "sectionId", default)]
+    pub section_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSectionUpdateResponse {
+    #[serde()]
+    pub section: ThreadSection,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -7520,6 +7576,8 @@ pub struct ToolRequestUserInputParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub auto_resolution_ms: Option<i64>,
+    #[serde(rename = "isBlocking", default)]
+    pub is_blocking: bool,
     #[serde(rename = "itemId", default)]
     pub item_id: String,
     #[serde(default)]

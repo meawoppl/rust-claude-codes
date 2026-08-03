@@ -115,6 +115,9 @@ pub mod methods {
     pub const THREAD_GOAL_SET: &str = "thread/goal/set";
     pub const THREAD_GOAL_CLEAR: &str = "thread/goal/clear";
     pub const THREADSECTION_LIST: &str = "threadSection/list";
+    pub const THREADSECTION_CREATE: &str = "threadSection/create";
+    pub const THREADSECTION_UPDATE: &str = "threadSection/update";
+    pub const THREADSECTION_DELETE: &str = "threadSection/delete";
     pub const THREAD_SECTION_MOVE: &str = "thread/section/move";
     pub const ACCOUNT_RATELIMITRESETCREDIT_CONSUME: &str = "account/rateLimitResetCredit/consume";
     pub const ACCOUNT_WORKSPACEMESSAGES_READ: &str = "account/workspaceMessages/read";
