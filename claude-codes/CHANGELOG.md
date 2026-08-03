@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Write-path provenance**: `auth::SUBMIT_PATH` identifies the compiled
+  code-submission mechanism and is stamped into the `LoginTimeout` channel
+  line (`submit-path=bracketed-paste+lone-cr-150ms+term-forced/v3`) — which
+  deployed binary is running becomes readable from one log line. Necessary
+  because release builds inline the paste-frame bytes into immediates, so
+  byte-grepping a binary for `ESC[200~` proves nothing in either
+  direction. (#265)
+
+### Changed
+
+- **Login flows now force `TERM=xterm-256color` on the spawned CLI.** The
+  crate is the terminal on the other side of the PTY (it parses OSC 8/52
+  and speaks bracketed paste), so it advertises a deterministic capability
+  surface instead of inheriting the host process's TERM (server processes
+  often have none). Measured on CLI 2.1.220, submission works under
+  `TERM=dumb` and TERM-unset too — this eliminates an environment axis
+  rather than fixing a reproduced failure. (#265)
+
 ### Fixed
 
 - **Login code submission failed silently for every production-length
