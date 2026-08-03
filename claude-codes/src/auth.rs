@@ -375,9 +375,13 @@ impl LoginFlow {
         use std::io::Write;
         self.writer.write_all(&prepare_code_paste(code)?)?;
         self.writer.flush()?;
-        // Let the TUI consume the paste before Enter arrives; also keeps the
-        // CR temporally separate from the burst (the second independently
-        // verified fix for the 64-byte swallow).
+        // REDUNDANT ON PURPOSE — do not "optimise away". The framing alone
+        // is sufficient (verified in-container: framed burst + CR in the
+        // SAME write submits at 92 bytes), and the delayed lone CR is
+        // sufficient alone too. Keeping both means a future change must
+        // break two independent mechanisms to reintroduce the 64-byte
+        // swallow, and either can quietly save us if the CLI's paste
+        // handling shifts.
         std::thread::sleep(SUBMIT_ENTER_DELAY);
         self.writer.write_all(b"\r")?;
         self.writer.flush()?;
