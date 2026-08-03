@@ -34,6 +34,7 @@ tokio = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
 portable-pty = { version = "0.9.0", optional = true }
+base64 = { version = "0.22.1", optional = true }
 
 [features]
 default = ["types", "sync-client", "async-client"]
@@ -43,7 +44,7 @@ async-client = ["types", "anyhow", "tokio", "log", "uuid/v4", "dep:which"]
 integration-tests = []
 corpus-test = []
 log = ["dep:log"]
-auth = ["types", "dep:portable-pty"]
+auth = ["types", "dep:portable-pty", "dep:base64"]
 
 [dev-dependencies]
 env_logger = { workspace = true }

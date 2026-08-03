@@ -26,6 +26,11 @@ pub enum Error {
     #[error("Authorization code rejected: {message}")]
     CodeRejected { message: String },
 
+    #[error(
+        "Timed out awaiting a login outcome; CLI screen content after submission:\n{transcript}"
+    )]
+    LoginTimeout { transcript: String },
+
     #[error("Timeout occurred")]
     Timeout,
 

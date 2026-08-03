@@ -115,11 +115,31 @@ impl LoginMode {
     }
 }
 
+/// Which PTY channel a minted token was recovered from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenSource {
+    /// Rendered in the terminal's visible text.
+    Screen,
+    /// Carried in an OSC 52 clipboard-copy escape's base64 payload — exact
+    /// bytes, immune to display wrapping, column positioning, and masking.
+    Osc52,
+}
+
 /// Result of a completed [`LoginFlow`].
 #[derive(Debug, Clone)]
 pub struct LoginOutcome {
-    /// The minted long-lived token (`SetupToken` mode only).
+    /// The minted long-lived token (`SetupToken` mode only). Sourced from the
+    /// CLI's screen output or its OSC 52 clipboard copy; `None` when the CLI
+    /// never exposed the token over the PTY (it masks secret material), even
+    /// on success — check [`credentials_updated`](Self::credentials_updated).
     pub token: Option<String>,
+    /// Channel the token came from; `None` when `token` is `None`.
+    pub token_source: Option<TokenSource>,
+    /// True when the CLI's credentials store (`.credentials.json` under
+    /// `CLAUDE_CONFIG_DIR` or `~/.claude`) was created or updated after the
+    /// code submission — the authoritative success signal, independent of
+    /// anything rendered on screen.
+    pub credentials_updated: bool,
     /// The flow's full terminal output with ANSI escapes stripped — for
     /// surfacing the CLI's own error text when something goes wrong.
     pub transcript: String,
@@ -138,6 +158,50 @@ pub struct LoginFlow {
     buf: OutBuf,
     mode: LoginMode,
     finished: bool,
+    /// Credentials store path + its state when the flow started, so
+    /// create-or-update after submission is detectable as a success signal.
+    creds: CredsWatch,
+}
+
+/// Snapshot-based watcher for the CLI's credentials file.
+#[derive(Debug, Clone)]
+struct CredsWatch {
+    path: Option<std::path::PathBuf>,
+    baseline: Option<std::time::SystemTime>,
+}
+
+impl CredsWatch {
+    fn snapshot() -> Self {
+        let path = credentials_path();
+        let baseline = path.as_ref().and_then(|p| mtime(p));
+        Self { path, baseline }
+    }
+
+    /// True when the credentials file now exists with an mtime newer than
+    /// (or absent from) the baseline taken at flow start.
+    fn updated(&self) -> bool {
+        let Some(path) = &self.path else { return false };
+        match (mtime(path), self.baseline) {
+            (Some(now), Some(then)) => now > then,
+            (Some(_), None) => true,
+            (None, _) => false,
+        }
+    }
+}
+
+/// `$CLAUDE_CONFIG_DIR/.credentials.json`, else `~/.claude/.credentials.json`.
+/// (On macOS the CLI may use the keychain instead; absence of the file there
+/// just means this signal stays quiet — the PTY-based signals still work.)
+fn credentials_path() -> Option<std::path::PathBuf> {
+    if let Some(dir) = std::env::var_os("CLAUDE_CONFIG_DIR") {
+        return Some(std::path::PathBuf::from(dir).join(".credentials.json"));
+    }
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    Some(std::path::PathBuf::from(home).join(".claude/.credentials.json"))
+}
+
+fn mtime(path: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
 impl LoginFlow {
@@ -148,6 +212,8 @@ impl LoginFlow {
 
     /// [`start`](Self::start) with a specific CLI binary path.
     pub fn start_with_binary(binary: &str, mode: LoginMode) -> Result<Self> {
+        // Baseline the credentials store before the CLI can touch it.
+        let creds = CredsWatch::snapshot();
         let pty = native_pty_system();
         let pair = pty
             .openpty(PtySize {
@@ -214,6 +280,7 @@ impl LoginFlow {
             buf,
             mode,
             finished: false,
+            creds,
         })
     }
 
@@ -247,10 +314,15 @@ impl LoginFlow {
     }
 
     /// Paste the authorization code back into the flow.
+    ///
+    /// The code is trimmed and terminated with a single carriage return
+    /// (`0x0D` — the Enter keycode the raw-mode TUI expects; LF does not
+    /// submit), written as one chunk. A code that is empty after trimming is
+    /// rejected here: pressing Enter on an empty field produces no
+    /// detectable outcome, only a silent hang.
     pub fn submit_code(&mut self, code: &str) -> Result<()> {
         use std::io::Write;
-        self.writer.write_all(code.trim().as_bytes())?;
-        self.writer.write_all(b"\r")?;
+        self.writer.write_all(&prepare_code_bytes(code)?)?;
         self.writer.flush()?;
         Ok(())
     }
@@ -261,15 +333,31 @@ impl LoginFlow {
     /// prompts render with cursor-column escapes instead of spaces, so text
     /// gating on human-readable phrases hangs forever.
     ///
+    /// Success is detected via a three-source ladder, because the TUI cannot
+    /// be trusted to *display* the secret (it masks input, positions words
+    /// with cursor-column escapes, and may soft-wrap):
+    ///
+    /// 1. **Screen** — the token rendered in visible text.
+    /// 2. **OSC 52** — the token inside a clipboard-copy escape's base64
+    ///    payload, read from RAW bytes (exact, unmaskable).
+    /// 3. **Credentials file** — `.credentials.json` created/updated after
+    ///    submission: authoritative success even when no token is observable
+    ///    on the PTY (a short grace period allows a late token to surface).
+    ///
     /// Outcomes:
-    /// - Minted token found → `Ok(LoginOutcome)`; the child is left for the
-    ///   caller to drop (which kills it).
-    /// - `OAuth error` printed after this submission → [`Error::CodeRejected`]
-    ///   carrying the CLI's message. The flow stays **alive** — the same
-    ///   session (and its PKCE verifier) accepts a corrected code via another
+    /// - Token found → `Ok`, with [`LoginOutcome::token_source`] naming the
+    ///   channel; the child is left for the caller to drop (which kills it).
+    /// - Credentials updated but no token observable → `Ok` with
+    ///   `token: None`, `credentials_updated: true`.
+    /// - Rejection printed after this submission (`OAuth error`, or the
+    ///   stable `Press Enter to retry` prompt under any wording) →
+    ///   [`Error::CodeRejected`]. The flow stays **alive** — the same session
+    ///   (and its PKCE verifier) accepts a corrected code via another
     ///   `submit_code_and_wait` call.
     /// - Child exit → outcome from the transcript, as [`finish`](Self::finish).
-    /// - Timeout → [`Error::Timeout`]; the flow is left for the caller to drop.
+    /// - Timeout → [`Error::LoginTimeout`] carrying a per-channel status line
+    ///   and the post-submission screen content, so a silent failure names
+    ///   the blind channel instead of guessing.
     pub fn submit_code_and_wait(&mut self, code: &str, timeout: Duration) -> Result<LoginOutcome> {
         let offset = {
             let (lock, _) = &*self.buf;
@@ -279,15 +367,32 @@ impl LoginFlow {
         self.submit_code(code)?;
 
         let deadline = Instant::now() + timeout;
+        // First moment the credentials file was seen created/updated; token
+        // extraction gets this long afterwards to surface before we accept
+        // success-without-token.
+        let mut creds_seen_at: Option<Instant> = None;
+        const CREDS_TOKEN_GRACE: Duration = Duration::from_secs(3);
+
         let (lock, cv) = &*self.buf;
         let mut guard = lock.lock().unwrap();
         loop {
             let stripped = strip_ansi(&guard.0);
+            let osc52 = extract_osc52_token(&guard.0);
+            let creds_updated = creds_seen_at.is_some() || self.creds.updated();
 
             if let Some(token) = extract_token(&stripped) {
                 if token_wrap_suspect(&stripped) {
                     // A silently truncated token would fail far from here at
-                    // first use; fail loudly instead.
+                    // first use; fail loudly instead — unless the exact bytes
+                    // are recoverable from the clipboard channel.
+                    if let Osc52Scan::Token(token) = osc52 {
+                        return Ok(LoginOutcome {
+                            token: Some(token),
+                            token_source: Some(TokenSource::Osc52),
+                            credentials_updated: creds_updated,
+                            transcript: stripped,
+                        });
+                    }
                     self.finished = true;
                     let _ = self.killer.kill();
                     return Err(Error::Protocol(
@@ -297,6 +402,17 @@ impl LoginFlow {
                 }
                 return Ok(LoginOutcome {
                     token: Some(token),
+                    token_source: Some(TokenSource::Screen),
+                    credentials_updated: creds_updated,
+                    transcript: stripped,
+                });
+            }
+
+            if let Osc52Scan::Token(token) = &osc52 {
+                return Ok(LoginOutcome {
+                    token: Some(token.clone()),
+                    token_source: Some(TokenSource::Osc52),
+                    credentials_updated: creds_updated,
                     transcript: stripped,
                 });
             }
@@ -308,21 +424,57 @@ impl LoginFlow {
                 return Err(Error::CodeRejected { message });
             }
 
+            // Credentials write = accepted, even with nothing on screen.
+            if creds_updated {
+                let seen = *creds_seen_at.get_or_insert_with(Instant::now);
+                if seen.elapsed() >= CREDS_TOKEN_GRACE {
+                    return Ok(LoginOutcome {
+                        token: None,
+                        token_source: None,
+                        credentials_updated: true,
+                        transcript: stripped,
+                    });
+                }
+            }
+
             if guard.1 {
                 let transcript = strip_ansi(&guard.0);
                 self.finished = true;
-                let token = extract_token(&transcript);
-                if self.mode == LoginMode::SetupToken && token.is_none() {
+                if self.mode == LoginMode::SetupToken && !creds_updated {
                     return Err(Error::Protocol(format!(
                         "setup-token ended without minting a token; output:\n{transcript}"
                     )));
                 }
-                return Ok(LoginOutcome { token, transcript });
+                return Ok(LoginOutcome {
+                    token: None,
+                    token_source: None,
+                    credentials_updated: creds_updated,
+                    transcript,
+                });
             }
 
             let now = Instant::now();
             if now >= deadline {
-                return Err(Error::Timeout);
+                // Carry what was actually observable on every channel — a
+                // bare timeout renders absence of evidence as evidence of
+                // absence, and cannot distinguish "code never landed" from
+                // "outcome appeared where nothing was looking".
+                let tail = strip_ansi(&guard.0[offset.min(guard.0.len())..]);
+                let mut start = tail.len().saturating_sub(2000);
+                while !tail.is_char_boundary(start) {
+                    start += 1;
+                }
+                return Err(Error::LoginTimeout {
+                    transcript: format!(
+                        "[channels: screen=no-token osc52={osc52:?} credentials={}]\n{}",
+                        if creds_updated {
+                            "updated"
+                        } else {
+                            "unchanged"
+                        },
+                        &tail[start..]
+                    ),
+                });
             }
             let wait = (deadline - now).min(Duration::from_millis(200));
             let (g, _) = cv.wait_timeout(guard, wait).unwrap();
@@ -366,15 +518,26 @@ impl LoginFlow {
             guard = g;
         }
         let transcript = strip_ansi(&guard.0);
+        let osc52 = extract_osc52_token(&guard.0);
         drop(guard);
 
-        let token = extract_token(&transcript);
-        if self.mode == LoginMode::SetupToken && token.is_none() {
+        let credentials_updated = self.creds.updated();
+        let (token, token_source) = match (extract_token(&transcript), osc52) {
+            (Some(t), _) => (Some(t), Some(TokenSource::Screen)),
+            (None, Osc52Scan::Token(t)) => (Some(t), Some(TokenSource::Osc52)),
+            (None, _) => (None, None),
+        };
+        if self.mode == LoginMode::SetupToken && token.is_none() && !credentials_updated {
             return Err(Error::Unknown(format!(
                 "setup-token completed without minting a token; output:\n{transcript}"
             )));
         }
-        Ok(LoginOutcome { token, transcript })
+        Ok(LoginOutcome {
+            token,
+            token_source,
+            credentials_updated,
+            transcript,
+        })
     }
 }
 
@@ -430,15 +593,113 @@ fn collapsed_lower(s: &str) -> String {
         .collect()
 }
 
-/// Detect the CLI's `OAuth error:` output and return its message text
+/// Outcome of scanning raw PTY bytes for an OSC 52 clipboard-copy token —
+/// granular so failures name the blind channel instead of silently falling
+/// through to the next source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Osc52Scan {
+    /// No OSC 52 sequence in the stream (the CLI may simply not auto-copy).
+    Absent,
+    /// A sequence has started but its terminator hasn't arrived yet —
+    /// decoding now would truncate the secret; wait for more bytes.
+    Unterminated,
+    /// Terminated sequence whose payload isn't valid base64.
+    Undecodable,
+    /// Valid payload(s), none containing a token (e.g. the URL copy).
+    NoTokenInPayload,
+    Token(String),
+}
+
+/// Scan raw PTY bytes for OSC 52 sequences (`ESC ] 52 ; c ; BASE64`,
+/// terminated by BEL or ST) and extract a minted token from their payloads.
+///
+/// Runs on RAW bytes deliberately: ANSI stripping discards OSC content,
+/// which is exactly where the clipboard payload lives. Only terminated
+/// sequences are decoded — a payload still straddling read boundaries
+/// reports [`Osc52Scan::Unterminated`] rather than decoding a truncated
+/// prefix into a corrupt secret.
+fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
+    use base64::Engine as _;
+    let hay = String::from_utf8_lossy(raw);
+    let mut best = Osc52Scan::Absent;
+    let mut rest: &str = &hay;
+    while let Some(start) = rest.find("\x1b]52;") {
+        let body = &rest[start + 5..];
+        // Payload begins after the selection-parameter field (e.g. `c;`).
+        let Some(sep) = body.find(';') else {
+            return Osc52Scan::Unterminated;
+        };
+        let payload_and_more = &body[sep + 1..];
+        let Some(end) = payload_and_more.find(['\x07', '\x1b']) else {
+            return Osc52Scan::Unterminated;
+        };
+        let payload = payload_and_more[..end].trim();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(payload)
+            .or_else(|_| base64::engine::general_purpose::STANDARD_NO_PAD.decode(payload));
+        match decoded {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                if let Some(token) = extract_token(&text) {
+                    return Osc52Scan::Token(token);
+                }
+                best = Osc52Scan::NoTokenInPayload;
+            }
+            Err(_) => {
+                if best == Osc52Scan::Absent {
+                    best = Osc52Scan::Undecodable;
+                }
+            }
+        }
+        rest = &payload_and_more[end..];
+    }
+    best
+}
+
+/// The exact bytes a code submission writes to the PTY: the trimmed code
+/// followed by a single carriage return, as ONE chunk. CR (`0x0D`) is the
+/// Enter keycode the raw-mode TUI expects — LF lands in the input buffer and
+/// never submits. An empty-after-trim code is refused: pressing Enter on an
+/// empty field produces no detectable outcome, only a silent hang.
+fn prepare_code_bytes(code: &str) -> Result<Vec<u8>> {
+    let code = code.trim();
+    if code.is_empty() {
+        return Err(Error::Protocol(
+            "authorization code is empty after trimming; refusing to submit".to_string(),
+        ));
+    }
+    let mut buf = Vec::with_capacity(code.len() + 1);
+    buf.extend_from_slice(code.as_bytes());
+    buf.push(b'\r');
+    Ok(buf)
+}
+
+/// Detect a rejected submission and return the CLI's message text
 /// (single-line, truncated). The CLI does not exit on this — it waits for a
 /// retry — so callers must treat detection as the failure signal.
+///
+/// Primary anchor is `OAuth error`; fallback is the retry prompt
+/// (`Press Enter to retry`), the retry loop's one structural constant. The
+/// error wording that precedes it is unstable — the TUI positions words with
+/// cursor-column escapes, so observed stripped output runs words together
+/// and even drops characters (`Requstfailed withstatus code 400` was
+/// captured live) — but every rejection parks on that prompt.
 fn detect_oauth_error(stripped: &str) -> Option<String> {
-    if !collapsed_lower(stripped).contains("oautherror") {
+    let collapsed = collapsed_lower(stripped);
+    let anchor = if collapsed.contains("oautherror") {
+        "oauth"
+    } else if collapsed.contains("pressentertoretry") {
+        // Report the whole post-submission tail so the message includes the
+        // error text preceding the prompt, whatever its wording.
+        ""
+    } else {
         return None;
-    }
-    let lower = stripped.to_lowercase();
-    let start = lower.find("oauth").unwrap_or(0);
+    };
+    let start = if anchor.is_empty() {
+        0
+    } else {
+        stripped.to_lowercase().find(anchor).unwrap_or(0)
+    };
     let message: String = stripped[start..]
         .chars()
         .map(|c| if c == '\n' { ' ' } else { c })
@@ -621,5 +882,112 @@ mod tests {
             extract_token("token: sk-ant-oat01-abcdef done").as_deref(),
             Some("sk-ant-oat01-abcdef")
         );
+    }
+
+    /// Live-captured failure wording with characters dropped by the
+    /// renderer — no "OAuth error" literal survives, but the retry prompt
+    /// does. The fallback anchor must fire.
+    #[test]
+    fn rejection_detected_via_retry_prompt_when_wording_mangled() {
+        let stripped = "Requstfailed withstatus code 400PressEntertoretry.";
+        let msg = detect_oauth_error(stripped).expect("retry prompt anchors detection");
+        assert!(msg.contains("400"));
+        // Prompt text alone in a NON-error screen must not false-positive:
+        // the paste prompt says "if prompted", not "to retry".
+        assert!(detect_oauth_error("Pastecodehereifprompted>").is_none());
+    }
+
+    #[test]
+    fn osc52_token_decoded_from_raw_bel_and_st_terminated() {
+        use base64::Engine as _;
+        let b64 = base64::engine::general_purpose::STANDARD.encode("sk-ant-oat01-XyZ_9-ab");
+        // BEL-terminated (observed live on the CLI's OSC 8 links).
+        let bel = format!("noise\x1b]52;c;{b64}\x07more");
+        assert_eq!(
+            extract_osc52_token(bel.as_bytes()),
+            Osc52Scan::Token("sk-ant-oat01-XyZ_9-ab".into())
+        );
+        // ST-terminated.
+        let st = format!("\x1b]52;c;{b64}\x1b\\");
+        assert_eq!(
+            extract_osc52_token(st.as_bytes()),
+            Osc52Scan::Token("sk-ant-oat01-XyZ_9-ab".into())
+        );
+    }
+
+    #[test]
+    fn osc52_straddling_read_boundary_is_not_decoded_truncated() {
+        use base64::Engine as _;
+        let b64 =
+            base64::engine::general_purpose::STANDARD.encode("sk-ant-oat01-full-secret-value");
+        let full = format!("\x1b]52;c;{b64}\x07");
+        // Cut mid-payload: must report Unterminated, never a partial token.
+        let partial = &full.as_bytes()[..full.len() - 8];
+        assert_eq!(extract_osc52_token(partial), Osc52Scan::Unterminated);
+        // ANSI stripping discards the payload entirely — raw-bytes scanning
+        // is load-bearing, not an optimization.
+        assert!(!strip_ansi(full.as_bytes()).contains("sk-ant"));
+    }
+
+    #[test]
+    fn osc52_url_copy_is_no_token_and_garbage_is_undecodable() {
+        use base64::Engine as _;
+        let url_b64 = base64::engine::general_purpose::STANDARD
+            .encode("https://claude.com/cai/oauth/authorize?code=true");
+        let stream = format!("\x1b]52;c;{url_b64}\x07");
+        assert_eq!(
+            extract_osc52_token(stream.as_bytes()),
+            Osc52Scan::NoTokenInPayload
+        );
+        assert_eq!(
+            extract_osc52_token(b"\x1b]52;c;!!!not-base64!!!\x07"),
+            Osc52Scan::Undecodable
+        );
+        assert_eq!(extract_osc52_token(b"plain output"), Osc52Scan::Absent);
+    }
+
+    #[test]
+    fn credentials_watch_detects_create_and_update() {
+        let dir = std::env::temp_dir().join(format!("creds-watch-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join(".credentials.json");
+        let _ = std::fs::remove_file(&file);
+
+        // Baseline: absent → creation counts as update.
+        let watch = CredsWatch {
+            path: Some(file.clone()),
+            baseline: None,
+        };
+        assert!(!watch.updated());
+        std::fs::write(&file, "{}").unwrap();
+        assert!(watch.updated());
+
+        // Baseline: present → only a NEWER mtime counts.
+        let watch = CredsWatch {
+            path: Some(file.clone()),
+            baseline: mtime(&file),
+        };
+        assert!(!watch.updated());
+        let newer = std::time::SystemTime::now() + Duration::from_secs(5);
+        let f = std::fs::File::options().write(true).open(&file).unwrap();
+        f.set_modified(newer).unwrap();
+        drop(f);
+        assert!(watch.updated());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn code_bytes_are_trimmed_cr_terminated_single_chunk() {
+        // Browser pastes carry trailing newlines; exactly one CR must follow
+        // the code, with the caller's LF/CR stripped, in one write chunk.
+        assert_eq!(prepare_code_bytes("abc#def\n").unwrap(), b"abc#def\r");
+        assert_eq!(prepare_code_bytes(" abc \r\n").unwrap(), b"abc\r");
+        assert_eq!(prepare_code_bytes("abc").unwrap(), b"abc\r");
+        for empty in ["", "  ", "\n", "\r\n", "\t"] {
+            assert!(
+                prepare_code_bytes(empty).is_err(),
+                "empty guard must fire for {empty:?}"
+            );
+        }
     }
 }

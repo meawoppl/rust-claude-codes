@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Three-source success detection for login flows**, driven by the prod
+  finding that every *rejection* is detectable on screen but *success* may
+  not be (the TUI masks secret material). `submit_code_and_wait` and
+  `finish` now recover the minted token from: (1) visible screen text,
+  (2) **OSC 52 clipboard-copy escapes** decoded from raw PTY bytes — exact,
+  immune to wrapping/masking; confirmed emitted by CLI 2.1.220 — and
+  (3) **credentials-store watching**: `.credentials.json` (under
+  `CLAUDE_CONFIG_DIR` or `~/.claude`) created/updated after submission is
+  authoritative success even with nothing observable on the PTY.
+  `LoginOutcome` gains `token_source: Option<TokenSource>` and
+  `credentials_updated: bool`. (#259)
+- **Self-diagnosing login timeouts**: new `Error::LoginTimeout { transcript }`
+  replaces `Error::Timeout` in `submit_code_and_wait`, carrying a per-channel
+  status line (`screen` / `osc52` / `credentials`) plus the post-submission
+  screen content — a silent failure now names the blind channel. (#259)
+
+### Changed
+
+- **Login rejection detection widened**: the collapsed `Press Enter to retry`
+  prompt now anchors `CodeRejected` as a fallback when the error wording
+  doesn't contain `OAuth error` — live capture shows the renderer mangles
+  wording (`Requstfailed withstatus code 400`), while the retry prompt is the
+  rejection loop's structural constant. (#259)
+- **`submit_code` hardening**: the code and its terminating CR are written as
+  a single chunk, and an empty-after-trim code is refused with a clear error
+  instead of pressing Enter on an empty field (a silent hang). (#259)
+
 - **Login support tooling** behind a new `auth` feature. The CLI's login
   flows are interactive Ink TUIs (they hang forever on a pipe), so
   `auth::LoginFlow` drives them under a pseudo-terminal (`portable-pty`) and

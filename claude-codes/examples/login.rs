@@ -34,9 +34,16 @@ fn main() -> claude_codes::Result<()> {
     flow.submit_code(&code)?;
 
     let outcome = flow.finish(Duration::from_secs(120))?;
-    match outcome.token {
-        Some(token) => println!("Minted long-lived token: {token}"),
-        None => println!("Login completed; status now: {:?}", auth_status()?),
+    match &outcome.token {
+        Some(token) => println!(
+            "Minted long-lived token (via {:?}): {token}",
+            outcome.token_source
+        ),
+        None => println!(
+            "Login completed (credentials_updated: {}); status now: {:?}",
+            outcome.credentials_updated,
+            auth_status()?
+        ),
     }
     Ok(())
 }
