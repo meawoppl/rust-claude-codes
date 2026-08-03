@@ -275,6 +275,23 @@ impl LoginFlow {
         // and TERM-unset too — this is eliminating an environment axis, not
         // fixing a reproduced failure.
         cmd.env("TERM", "xterm-256color");
+        // Same move for nested-session and credential detection: the session
+        // spawn path (cli.rs) deliberately scrubs CLAUDECODE; a login flow
+        // additionally must not inherit the host's Anthropic credentials —
+        // its entire purpose is to mint fresh ones. Measured on 2.1.220 that
+        // none of these break submission when present, but a login child has
+        // no legitimate use for any of them, so remove the axis outright.
+        for var in [
+            "CLAUDECODE",
+            "CLAUDE_CODE_ENTRYPOINT",
+            "CLAUDE_CODE_CHILD_SESSION",
+            "CLAUDE_CODE_SESSION_ID",
+            "CLAUDE_CODE_OAUTH_TOKEN",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+        ] {
+            cmd.env_remove(var);
+        }
         if let Ok(cwd) = std::env::current_dir() {
             cmd.cwd(cwd);
         }
@@ -765,7 +782,7 @@ fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
 /// from a single log line instead of requiring binary forensics — release
 /// builds inline the frame bytes into immediates, so byte-grepping a binary
 /// for `ESC[200~` proves nothing in either direction.
-pub const SUBMIT_PATH: &str = "bracketed-paste+lone-cr-150ms+term-forced/v3";
+pub const SUBMIT_PATH: &str = "bracketed-paste+lone-cr-150ms+term-forced+env-scrubbed/v4";
 
 /// Pause between the paste frame and the Enter keypress in
 /// [`LoginFlow::submit_code`].
