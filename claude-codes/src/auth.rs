@@ -725,6 +725,15 @@ impl LoginFlow {
 impl Drop for LoginFlow {
     fn drop(&mut self) {
         if !self.finished {
+            // Make a self-inflicted kill visible: if a host application
+            // drops the flow mid-submission (moved-out state not put back,
+            // early return, TTL reaper), the child's death must be
+            // attributable to THIS line rather than presenting as a
+            // mysterious CLI crash. portable-pty's kill sends SIGTERM, so
+            // the child reports exit code 143 — same as an external
+            // SIGTERM; this log line is the disambiguator.
+            #[cfg(feature = "log")]
+            log::warn!("LoginFlow dropped while unfinished — killing login child (SIGTERM)");
             let _ = self.killer.kill();
         }
     }
