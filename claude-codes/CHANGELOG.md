@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Login flows scrub session/credential env vars from the spawned CLI**
+  (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_CHILD_SESSION`,
+  `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_AUTH_TOKEN`), aligning with the session spawn path's
+  `CLAUDECODE` scrubbing in `cli.rs` — a login child's purpose is minting
+  fresh credentials, so it must not inherit the host's. Measured on 2.1.220
+  that none of these break submission when present; this removes the axis,
+  not a reproduced failure. `SUBMIT_PATH` bumps to
+  `…+env-scrubbed/v4`. (#266)
 - **Login flows now force `TERM=xterm-256color` on the spawned CLI.** The
   crate is the terminal on the other side of the PTY (it parses OSC 8/52
   and speaks bracketed paste), so it advertises a deterministic capability
