@@ -481,6 +481,13 @@ impl LoginFlow {
                 ),
             });
         }
+        // Snapshot the TUI's advertised bracketed-paste state at the moment
+        // of submission — the discriminator for the late-write hypothesis.
+        let paste_mode = {
+            let (lock, _) = &*self.buf;
+            let g = lock.lock().unwrap();
+            paste_mode_at(&g.0, offset)
+        };
         self.submit_code(code)?;
 
         let deadline = Instant::now() + timeout;
@@ -622,7 +629,7 @@ impl LoginFlow {
                 return Err(Error::LoginChildExited {
                     code,
                     transcript: format!(
-                        "[channels: screen=no-token osc52={:?} credentials=unchanged copy-nudge={} submit-path={SUBMIT_PATH} child=exited({code:?})]\n{tail}",
+                        "[channels: screen=no-token osc52={:?} credentials=unchanged copy-nudge={} submit-path={SUBMIT_PATH} paste-mode@submit={paste_mode} child=exited({code:?})]\n{tail}",
                         Osc52Status::from(&osc52),
                         if nudged { "sent" } else { "not-sent" },
                     ),
@@ -642,7 +649,7 @@ impl LoginFlow {
                 }
                 return Err(Error::LoginTimeout {
                     transcript: format!(
-                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={} submit-path={SUBMIT_PATH} child=alive]\n{}",
+                        "[channels: screen=no-token osc52={:?} credentials={} copy-nudge={} submit-path={SUBMIT_PATH} paste-mode@submit={paste_mode} child=alive]\n{}",
                         Osc52Status::from(&osc52),
                         if creds_updated {
                             "updated"
@@ -853,11 +860,26 @@ fn extract_osc52_token(raw: &[u8]) -> Osc52Scan {
 /// builds inline the frame bytes into immediates, so byte-grepping a binary
 /// for `ESC[200~` proves nothing in either direction.
 pub const SUBMIT_PATH: &str =
-    "bracketed-paste+lone-cr-150ms+term-forced+env-scrubbed+exit-aware/v5";
+    "bracketed-paste+lone-cr-150ms+term-forced+env-scrubbed+exit-aware+paste-probe/v6";
 
 /// Pause between the paste frame and the Enter keypress in
 /// [`LoginFlow::submit_code`].
 const SUBMIT_ENTER_DELAY: Duration = Duration::from_millis(150);
+
+/// Bracketed-paste mode advertised by the TUI at a given point in the raw
+/// stream: the last `ESC[?2004h` (enable) or `ESC[?2004l` (disable) before
+/// `upto` wins. Telemetry for the late-write hypothesis — if the TUI drops
+/// paste mode while a user is off authorizing in a browser, a frame written
+/// on return would arrive as raw ESC keypresses.
+fn paste_mode_at(raw: &[u8], upto: usize) -> &'static str {
+    let hay = String::from_utf8_lossy(&raw[..upto.min(raw.len())]);
+    match (hay.rfind("\x1b[?2004h"), hay.rfind("\x1b[?2004l")) {
+        (Some(h), Some(l)) if l > h => "off",
+        (Some(_), _) => "on",
+        (None, Some(_)) => "off",
+        (None, None) => "never-advertised",
+    }
+}
 
 /// Best-effort exit-code reap after EOF: the child's death is imminent or
 /// already happened, but `wait()` could block forever if a grandchild holds

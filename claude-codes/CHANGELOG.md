@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bracketed-paste-mode telemetry**: channel lines now stamp
+  `paste-mode@submit=on|off|never-advertised` — the TUI's advertised
+  `?2004h/l` state at the moment the code was written, from the raw
+  stream. Directly tests the late-write hypothesis (a TUI that drops paste
+  mode while the user is off authorizing would receive a late frame as raw
+  ESC keypresses) in production, where the 19–22 s human submit latency
+  cannot be replicated by harnesses that write in milliseconds.
+  `SUBMIT_PATH` → `…+paste-probe/v6`. (#269)
+
 ### Fixed
 
 - **Login flows were structurally blind to child death.** `LoginFlow` held
