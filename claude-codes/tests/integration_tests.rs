@@ -2524,3 +2524,39 @@ fn test_production_length_code_submission_is_acknowledged_live() {
         );
     }
 }
+
+/// The CLI's retry state machine (binary-verified): the error screen has NO
+/// input component and re-entering the flow rotates the PKCE challenge. A
+/// rejected flow must refuse further submissions until retry_new_url walks
+/// error -> Enter -> waiting_for_login and yields a DIFFERENT URL.
+#[cfg(feature = "auth")]
+#[test]
+fn test_rejected_flow_retries_with_new_url_live() {
+    use claude_codes::auth::{LoginFlow, LoginMode};
+    use claude_codes::Error;
+    use std::time::Duration;
+
+    let code: String = "aB3".repeat(40)[..86].to_string() + "#state";
+    let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+    let url1 = flow.auth_url(Duration::from_secs(30)).expect("first url");
+
+    match flow.submit_code_and_wait(&code, Duration::from_secs(20)) {
+        Err(Error::CodeRejected { .. }) => {}
+        other => panic!("expected CodeRejected, got {other:?}"),
+    }
+    assert!(
+        matches!(flow.submit_code(&code), Err(Error::InvalidState(_))),
+        "post-rejection paste must be refused, not silently dropped"
+    );
+
+    let url2 = flow
+        .retry_new_url(Duration::from_secs(20))
+        .expect("retry yields new url");
+    assert!(url2.contains("oauth/authorize"));
+    assert_ne!(url1, url2, "PKCE challenge must rotate on retry");
+
+    match flow.submit_code_and_wait(&code, Duration::from_secs(20)) {
+        Err(Error::CodeRejected { .. }) => {}
+        other => panic!("round 2 should reach a live input field, got {other:?}"),
+    }
+}
