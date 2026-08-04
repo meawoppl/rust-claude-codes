@@ -200,6 +200,12 @@ pub struct LoginFlow {
     buf: OutBuf,
     mode: LoginMode,
     finished: bool,
+    /// Set when a submission was rejected: the TUI's error screen has NO
+    /// input component, so further writes land nowhere until
+    /// [`retry_new_url`](Self::retry_new_url) walks the CLI's actual retry
+    /// state machine (error → Enter → about_to_retry → waiting_for_login
+    /// with a NEW PKCE challenge).
+    rejected: bool,
     /// Credentials store path + its state when the flow started, so
     /// create-or-update after submission is detectable as a success signal.
     creds: CredsWatch,
@@ -352,6 +358,7 @@ impl LoginFlow {
             buf,
             mode,
             finished: false,
+            rejected: false,
             creds,
         })
     }
@@ -363,11 +370,47 @@ impl LoginFlow {
     /// wraps it. Show it to your user; they sign in there and receive a code
     /// to bring back to [`submit_code`](Self::submit_code).
     pub fn auth_url(&mut self, timeout: Duration) -> Result<String> {
+        self.auth_url_after(0, timeout)
+    }
+
+    /// Restart the OAuth flow after a [`Error::CodeRejected`] and return the
+    /// NEW authorize URL.
+    ///
+    /// The CLI's retry state machine (recovered from the 2.1.220 binary) is
+    /// `error → (Enter) → about_to_retry → waiting_for_login`, and the
+    /// error screen renders **no input component** — a corrected code
+    /// written there lands nowhere, silently. Re-entering
+    /// `waiting_for_login` starts a fresh OAuth flow with a **new PKCE
+    /// challenge**, so the previous URL's code is dead: show the returned
+    /// URL to the user and have them authorize again. There is no
+    /// same-challenge retry; the CLI does not support one.
+    pub fn retry_new_url(&mut self, timeout: Duration) -> Result<String> {
+        use std::io::Write;
+        if !self.rejected {
+            return Err(Error::InvalidState(
+                "retry_new_url is only valid after a CodeRejected outcome".to_string(),
+            ));
+        }
+        let offset = {
+            let (lock, _) = &*self.buf;
+            lock.lock().unwrap().0.len()
+        };
+        // Enter on the error screen → about_to_retry → waiting_for_login.
+        self.writer.write_all(b"\r")?;
+        self.writer.flush()?;
+        let url = self.auth_url_after(offset, timeout)?;
+        self.rejected = false;
+        Ok(url)
+    }
+
+    /// [`auth_url`](Self::auth_url), scanning only output produced after
+    /// `offset` — so a retry finds the NEW URL, not the first one.
+    fn auth_url_after(&mut self, offset: usize, timeout: Duration) -> Result<String> {
         let deadline = Instant::now() + timeout;
         let (lock, cv) = &*self.buf;
         let mut guard = lock.lock().unwrap();
         loop {
-            if let Some(url) = extract_auth_url(&guard.0) {
+            if let Some(url) = extract_auth_url(&guard.0[offset.min(guard.0.len())..]) {
                 return Ok(url);
             }
             if guard.1 {
@@ -412,6 +455,16 @@ impl LoginFlow {
     /// on an empty field produces no detectable outcome, only a silent hang.
     pub fn submit_code(&mut self, code: &str) -> Result<()> {
         use std::io::Write;
+        if self.rejected {
+            // Binary-verified: the error screen renders no input component,
+            // so this write would land on a screen with nothing to type
+            // into — the silent-doom mode of production attempts.
+            return Err(Error::InvalidState(
+                "previous code was rejected; call retry_new_url() to restart the CLI's \
+                 OAuth flow (the old URL's PKCE challenge is dead), then submit the NEW code"
+                    .to_string(),
+            ));
+        }
         self.writer.write_all(&prepare_code_paste(code)?)?;
         self.writer.flush()?;
         // REDUNDANT ON PURPOSE — do not "optimise away". The framing alone
@@ -451,9 +504,11 @@ impl LoginFlow {
     ///   `token: None`, `credentials_updated: true`.
     /// - Rejection printed after this submission (`OAuth error`, or the
     ///   stable `Press Enter to retry` prompt under any wording) →
-    ///   [`Error::CodeRejected`]. The flow stays **alive** — the same session
-    ///   (and its PKCE verifier) accepts a corrected code via another
-    ///   `submit_code_and_wait` call.
+    ///   [`Error::CodeRejected`]. The flow stays **alive**, but the error
+    ///   screen has no input field and the old URL's PKCE challenge is dead:
+    ///   call [`retry_new_url`](Self::retry_new_url) to restart the OAuth
+    ///   flow and get the NEW URL for the user (binary-verified state
+    ///   machine — there is no same-challenge retry).
     /// - Child exit → outcome from the transcript, as [`finish`](Self::finish).
     /// - Timeout → [`Error::LoginTimeout`] carrying a per-channel status line
     ///   and the post-submission screen content, so a silent failure names
@@ -554,6 +609,7 @@ impl LoginFlow {
             // a previous attempt's error text must not fail a retry.
             let tail = strip_ansi(&guard.0[offset.min(guard.0.len())..]);
             if let Some(message) = detect_oauth_error(&tail) {
+                self.rejected = true;
                 return Err(Error::CodeRejected { message });
             }
 

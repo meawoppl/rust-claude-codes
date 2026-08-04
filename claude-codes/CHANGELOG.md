@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Rejected-code retry now follows the CLI's real state machine** —
+  recovered from the 2.1.220 binary: the error screen renders **no input
+  component**, and its only affordance (Enter) restarts the OAuth flow with
+  a **new PKCE challenge**. There is no same-challenge retry; a corrected
+  code pasted after a rejection lands nowhere, silently. Accordingly:
+  `submit_code` after a `CodeRejected` now returns `InvalidState` instead
+  of writing into the void, and the new
+  **`LoginFlow::retry_new_url(timeout)`** presses Enter, waits for
+  `waiting_for_login` to re-render, and returns the **new** authorize URL
+  to show the user (the old URL's code is dead). Live-verified end to end:
+  reject → refused re-paste → new URL with rotated challenge in ~1 s →
+  fresh input field accepts the next submission. (#270)
+
 ### Added
 
 - **Bracketed-paste-mode telemetry**: channel lines now stamp
