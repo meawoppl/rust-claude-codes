@@ -113,6 +113,37 @@ jobs:
     - name: Clippy with ${{ matrix.features.name }}
       run: cargo clippy ${{ matrix.features.args }} -- -D warnings
 
+  test-hermes-codes-features:
+    name: "hermes-codes: ${{ matrix.features.name }}"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - name: "types-only"
+            args: "-p hermes-codes --no-default-features --features types"
+          - name: "async-client"
+            args: "-p hermes-codes --no-default-features --features async-client"
+          - name: "all-features"
+            args: "-p hermes-codes"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+
+    - name: Build with ${{ matrix.features.name }}
+      run: cargo build ${{ matrix.features.args }}
+
+    - name: Test with ${{ matrix.features.name }}
+      run: cargo test ${{ matrix.features.args }}
+
+    - name: Clippy with ${{ matrix.features.name }}
+      run: cargo clippy ${{ matrix.features.args }} -- -D warnings
+
   wasm-compatibility:
     name: "WASM: ${{ matrix.crate.name }}"
     runs-on: ubuntu-latest
@@ -125,6 +156,8 @@ jobs:
             args: "-p codex-codes --no-default-features --features types"
           - name: "opencode-codes"
             args: "-p opencode-codes --no-default-features --features types"
+          - name: "hermes-codes"
+            args: "-p hermes-codes --no-default-features --features types"
 
     steps:
     - uses: actions/checkout@v4
