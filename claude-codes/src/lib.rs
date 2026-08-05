@@ -169,11 +169,11 @@ pub use io::{
     MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey,
     MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
     NotificationMessage, OutputStyle, PermissionDeniedMessage, PersistedFile, PluginDiagnostic,
-    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, StatusMessage,
-    StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage, SystemSubtype,
-    TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage, TaskStatus,
-    TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta, ToolUseMeta,
-    VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
+    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, RefusalFallbackScope,
+    StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage,
+    SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage,
+    TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta,
+    ToolUseMeta, VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
 };
 
 // Additional top-level output message wrappers
