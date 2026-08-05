@@ -242,3 +242,23 @@ Override the schema with `CODEX_SCHEMA_PATH=/path/to/fresh/schemas.json` to vali
 ## License
 
 Apache-2.0. See [LICENSE](../LICENSE).
+
+## Account & auth helpers
+
+Codex login is drivable through the app-server protocol itself — no process
+scraping:
+
+- `account_read` — current account (plan, email, auth mode)
+- `account_login_start` — three modes: `apiKey` (completes inline),
+  `chatgpt` (returns a browser auth URL), `chatgptDeviceCode` (returns a
+  user code + verification URL); browser/device completion arrives as the
+  `account/login/completed` notification on the same connection
+- `account_login_cancel`, `account_logout`, `account_rate_limits_read`,
+  `account_usage_read`
+
+For cheap status probes without an app-server connection,
+`auth_local::auth_status_local()` reads `$CODEX_HOME/auth.json` and decodes
+display-only email/plan labels from the stored id_token — best-effort by
+design (the file is codex-internal; the crate owns that risk with fixture
+and live tests). `logged_in` there means *stored*, not *live* — use
+`account_read` or `codex login status` for liveness.

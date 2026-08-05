@@ -37,8 +37,10 @@ opencode release train by version but ships no runtime version-divergence check.
 | `types` | Core message types and protocol structs only | Yes |
 | `sync-client` | Synchronous client with blocking I/O | No |
 | `async-client` | Asynchronous client using tokio | No |
+| `auth` | PTY-driven login tooling (`LoginFlow`, `auth_status`) | No |
 
-All features are enabled by default. For WASM or type-sharing use cases:
+`types`, `sync-client`, and `async-client` are enabled by default (`auth` is
+opt-in). For WASM or type-sharing use cases:
 
 ```toml
 [dependencies]
@@ -94,6 +96,22 @@ opencode-codes = { version = "1.18", default-features = false, features = ["type
 [dependencies]
 muse-codes = { version = "0.1", default-features = false, features = ["types"] }
 ```
+
+## Login & Auth Tooling
+
+Each crate ships helpers for authenticating its CLI programmatically — the
+mechanisms differ with each vendor's surface:
+
+| | claude-codes (`auth` feature) | codex-codes | muse-codes |
+|---|---|---|---|
+| Status read | `auth_status()` (typed `claude auth status --json`: email, org, plan) | `account_read` (protocol) or `auth_local::auth_status_local()` (cheap file read: email + plan, best-effort) | `auth::credentials_present()` + typed `AuthFile` (presence + provider only) |
+| Login flow | `LoginFlow` drives the Ink TUI under a PTY: `auth_url()` → user pastes code → `submit_code_and_wait()`; rejected codes retry via `retry_new_url()` (new PKCE) | Protocol-native: `account_login_start` (api-key / browser URL / device code), completion via the `account/login/completed` notification | `DeviceLoginFlow` wraps the plain-stdout device-code flow; `auth_set()` saves an API key over stdin |
+| Cancellation | Drop kills the PTY child | `account_login_cancel` | `cancel()` / drop |
+
+All presentables and outcomes are serde-shaped for relay surfaces, flows are
+parkable handles across round-trips, and waits take caller-supplied
+timeouts. opencode needs no CLI auth for the server endpoints this workspace
+wraps.
 
 ## Session Forking
 
