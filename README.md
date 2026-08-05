@@ -150,6 +150,9 @@ rust-code-agent-sdks/
     tests/               # Corpus tests + stream fingerprint snapshot
 ```
 
+[Installing and updating the wrapped CLI tools](./docs/installing-the-clis.md)
+covers install/update/auth procedures for all four vendors.
+
 See each crate's README for detailed usage:
 - [claude-codes README](./claude-codes/README.md)
 - [codex-codes README](./codex-codes/README.md)
