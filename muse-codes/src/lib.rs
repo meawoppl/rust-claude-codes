@@ -49,9 +49,9 @@ pub mod client_async;
 
 pub use error::{Error, Result};
 pub use io::{
-    CommandAccepted, Durability, MusePayload, MuseRecord, RecordType, RunOutputDelta, RunStarted,
-    RunTerminal, SessionRunLinked, StreamKind, StreamRef, TaskLifecycle, TaskLifecycleEvent,
-    TaskStreamLinked, TurnInputUser,
+    CommandAccepted, Durability, ModelConfigured, MusePayload, MuseRecord, RecordType,
+    RunOutputDelta, RunStarted, RunTerminal, SessionRunLinked, StreamKind, StreamRef,
+    TaskLifecycle, TaskLifecycleEvent, TaskStreamLinked, ToolResult, TurnInputUser,
 };
 
 #[cfg(feature = "async-client")]

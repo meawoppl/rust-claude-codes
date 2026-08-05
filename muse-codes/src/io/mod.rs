@@ -98,8 +98,12 @@ pub enum MusePayload {
     TurnInputUser(TurnInputUser),
     /// `run.lifecycle.started`
     RunStarted(RunStarted),
+    /// `run.model.configured`
+    ModelConfigured(ModelConfigured),
     /// `run.output.delta`
     RunOutputDelta(RunOutputDelta),
+    /// `tool.result`
+    ToolResult(ToolResult),
     /// `run.terminal.completed` (and any future `run.terminal.*`)
     RunTerminal(RunTerminal),
     /// `task.stream.linked`
@@ -122,6 +126,10 @@ impl MusePayload {
             "session.run.linked" => MusePayload::SessionRunLinked(serde_json::from_value(payload)?),
             "turn.input.user" => MusePayload::TurnInputUser(serde_json::from_value(payload)?),
             "run.lifecycle.started" => MusePayload::RunStarted(serde_json::from_value(payload)?),
+            "run.model.configured" => {
+                MusePayload::ModelConfigured(serde_json::from_value(payload)?)
+            }
+            "tool.result" => MusePayload::ToolResult(serde_json::from_value(payload)?),
             "run.output.delta" => MusePayload::RunOutputDelta(serde_json::from_value(payload)?),
             t if t.starts_with("run.terminal.") => {
                 MusePayload::RunTerminal(serde_json::from_value(payload)?)
@@ -193,6 +201,42 @@ pub struct RunOutputDelta {
     pub extra: serde_json::Map<String, Value>,
 }
 
+/// `run.model.configured` — which model/profile/provider the run resolved
+/// to (live providers only; the echo provider never emits it).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ModelConfigured {
+    pub kind: String,
+    pub command_id: String,
+    pub run_stream: StreamRef,
+    pub model_id: String,
+    pub display_label: String,
+    pub profile_id: String,
+    pub provider_id: String,
+    /// How the model was chosen (`startup` observed).
+    pub source: String,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+/// `tool.result` — outcome of one tool invocation (live providers only).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolResult {
+    pub kind: String,
+    pub command_id: String,
+    pub run_stream: StreamRef,
+    /// Provider call id this result answers.
+    pub call_id: String,
+    /// Result text as shown to the model (including failure prose).
+    pub text: String,
+    /// Correlation summary — observed `{outcome, tool_name}`, open-shaped.
+    pub correlation_facts: Value,
+    /// Populated for file-editing tools; open-shaped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edit_facts: Option<Value>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
 /// `run.terminal.*` — the run reached a terminal state. `terminal` carries
 /// the state (`completed` observed); `text` the final output; `reason` is
 /// populated on abnormal endings.
@@ -252,6 +296,9 @@ pub enum TaskLifecycleEvent {
     },
     Started {
         task_id: String,
+        /// Tracing span id (live providers attach one; echo does not).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        span_id: Option<String>,
     },
     Scheduled {
         task_id: String,
@@ -265,8 +312,28 @@ pub enum TaskLifecycleEvent {
         parent_task_id: Option<String>,
         cancellation_handle: Option<Value>,
     },
+    /// Free-form progress (`message` + faceted `details`), e.g. model
+    /// stream attempts.
+    Status {
+        task_id: String,
+        message: String,
+        details: Value,
+    },
+    /// Streamed task output chunk (e.g. tool stdout summaries).
+    Output {
+        task_id: String,
+        chunk: String,
+    },
     Completed {
         task_id: String,
+    },
+    Cancelled {
+        task_id: String,
+        reason: String,
+    },
+    Rejected {
+        task_id: String,
+        reason: String,
     },
     Failed {
         task_id: String,
