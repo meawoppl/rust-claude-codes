@@ -54,6 +54,11 @@ use crate::protocol::{
     ThreadResumeParams, ThreadResumeResponse, ThreadStartParams, ThreadStartResponse,
     TurnInterruptParams, TurnInterruptResponse, TurnStartParams, TurnStartResponse,
 };
+use crate::protocol_generated::types::{
+    CancelLoginAccountParams, CancelLoginAccountResponse, GetAccountParams,
+    GetAccountRateLimitsResponse, GetAccountResponse, GetAccountTokenUsageResponse,
+    LoginAccountParams, LoginAccountResponse, LogoutAccountResponse,
+};
 use log::{debug, error, warn};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -426,6 +431,65 @@ impl AsyncClient {
     /// Get the process ID.
     pub fn pid(&self) -> Option<u32> {
         self.child.id()
+    }
+
+    // ── Account / auth methods ─────────────────────────────────────────
+
+    /// `account/read` — the active account (plan, email, auth mode), or
+    /// `account: null` when logged out.
+    pub async fn account_read(&mut self, params: &GetAccountParams) -> Result<GetAccountResponse> {
+        self.request(crate::protocol::methods::ACCOUNT_READ, params)
+            .await
+    }
+
+    /// `account/login/start` — begin a login. The params select the mode
+    /// (`apiKey` completes immediately; `chatgpt` returns an auth URL to
+    /// open; `chatgptDeviceCode` returns a user code + verification URL).
+    /// Browser/device modes complete asynchronously: watch for the
+    /// `account/login/completed` notification, or cancel with
+    /// [`account_login_cancel`](Self::account_login_cancel).
+    pub async fn account_login_start(
+        &mut self,
+        params: &LoginAccountParams,
+    ) -> Result<LoginAccountResponse> {
+        self.request(crate::protocol::methods::ACCOUNT_LOGIN_START, params)
+            .await
+    }
+
+    /// `account/login/cancel` — abort an in-flight browser/device login.
+    pub async fn account_login_cancel(
+        &mut self,
+        params: &CancelLoginAccountParams,
+    ) -> Result<CancelLoginAccountResponse> {
+        self.request(crate::protocol::methods::ACCOUNT_LOGIN_CANCEL, params)
+            .await
+    }
+
+    /// `account/logout` — remove the stored credential.
+    pub async fn account_logout(&mut self) -> Result<LogoutAccountResponse> {
+        self.request(
+            crate::protocol::methods::ACCOUNT_LOGOUT,
+            &serde_json::json!({}),
+        )
+        .await
+    }
+
+    /// `account/rateLimits/read` — current rate-limit windows.
+    pub async fn account_rate_limits_read(&mut self) -> Result<GetAccountRateLimitsResponse> {
+        self.request(
+            crate::protocol::methods::ACCOUNT_RATELIMITS_READ,
+            &serde_json::json!({}),
+        )
+        .await
+    }
+
+    /// `account/usage/read` — token-usage summary for the account.
+    pub async fn account_usage_read(&mut self) -> Result<GetAccountTokenUsageResponse> {
+        self.request(
+            crate::protocol::methods::ACCOUNT_USAGE_READ,
+            &serde_json::json!({}),
+        )
+        .await
     }
 
     /// Check if the child process is still running.
