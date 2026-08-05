@@ -17,8 +17,9 @@ Muse publishes no schema and no official SDK, so the wire is the contract:
 
 - All models derive from **committed captures of real CLI output**
   (`test_cases/*.jsonl`), taken via the credential-free `--provider echo`
-  mode, which exercises the full headless event vocabulary without model
-  calls or a Meta login.
+  mode plus live Muse Spark runs (basic, tool-use, multi-subagent) for
+  the provider-only vocabulary (`run.model.configured`, `tool.result`,
+  streamed/cancelled/rejected/status lifecycle events).
 - The envelope keeps its payload as raw JSON (byte-faithful round-trips);
   [`MuseRecord::typed_payload`] lifts it into a typed `MusePayload`, and
   payload types not yet observed (the journal also records approvals,

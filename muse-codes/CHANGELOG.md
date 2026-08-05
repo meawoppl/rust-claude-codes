@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-05
+
+Extends the corpus and models with the **live-provider vocabulary**,
+captured from real Muse Spark runs (basic, tool-use, and multi-subagent)
+now that credentials exist. Echo remains the CI capture path; the meta
+captures are committed corpus.
+
+### Added
+
+- **`run.model.configured`** (`ModelConfigured`): resolved model /
+  display label / profile / provider / source for the run.
+- **`tool.result`** (`ToolResult`): per-invocation outcome — `call_id`,
+  result `text`, open-shaped `correlation_facts` (`{outcome, tool_name}`
+  observed) and `edit_facts` for file-editing tools.
+- **Four new `task.lifecycle` event kinds**: `status` (message + faceted
+  `details`, e.g. model stream attempts), `output` (streamed chunk),
+  `cancelled` (`reason`), `rejected` (`reason`); `started` gains an
+  optional `span_id` (live providers attach one).
+- Three live-capture corpus files (`meta_basic`, `meta_tool_use`,
+  `meta_subagents`) — 20 payload types now round-trip in tests.
+
 ## [0.1.1] - 2026-08-05
 
 ### Added
