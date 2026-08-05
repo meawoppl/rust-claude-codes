@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.146.3] - 2026-08-05
+
+Re-snapshots the app-server schema from `openai/codex@main` (fixes #275)
+and ships typed account/auth client helpers.
+
+### Added
+
+- **Account/auth client helpers** on `AsyncClient`: `account_read`,
+  `account_login_start` (api-key / browser `chatgpt` / `chatgptDeviceCode`
+  modes — browser and device flows complete via the
+  `account/login/completed` notification), `account_login_cancel`,
+  `account_logout`, `account_rate_limits_read`, `account_usage_read`.
+  The protocol layer (method constants, params/response types,
+  notification samples) already existed; these make it reachable without
+  hand-rolling `request()` calls. Live-tested: `account/read` returns the
+  active account; rate-limit/usage reads verified wire-correct (this
+  environment's token is rejected by the usage backend — the typed
+  JSON-RPC error path is exercised instead).
+
+### Changed
+
+- **`InitializeCapabilities`** gains `extensions` (v2) per the upstream
+  schema refresh; v1 snapshot picks up `modelSpecialty` on its
+  counterpart. (#275)
+
 ## [0.146.2] - 2026-08-03
 
 Re-snapshots the app-server schema from `openai/codex@main`, fixing the

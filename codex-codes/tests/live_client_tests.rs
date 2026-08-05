@@ -204,6 +204,7 @@ async fn test_async_client_custom_initialize() {
             },
             capabilities: Some(InitializeCapabilities {
                 experimental_api: Some(false),
+                extensions: None,
                 mcp_server_openai_form_elicitation: None,
                 opt_out_notification_methods: None,
                 request_attestation: None,
@@ -842,4 +843,45 @@ async fn test_async_client_writes_compilable_quicksort() {
     );
 
     let _ = std::fs::remove_dir_all(&scratch);
+}
+
+/// Account read-side helpers against the live app-server: `account/read`,
+/// `account/rateLimits/read`, `account/usage/read`. Read-only — never
+/// mutates the stored credential.
+#[tokio::test]
+async fn test_account_read_family() {
+    let mut client = AsyncClient::start()
+        .await
+        .expect("Failed to start app-server");
+
+    let account = client
+        .account_read(&codex_codes::protocol_generated::types::GetAccountParams::default())
+        .await
+        .expect("account/read");
+    // This environment is logged in via ChatGPT; a logged-out env would
+    // carry account: None and that's a legitimate wire answer too.
+    let _ = account;
+
+    // Rate-limit/usage reads proxy to the ChatGPT usage backend, which can
+    // reject a locally-valid session token (observed: 401 "Could not parse
+    // your authentication token" while model turns work fine). The wiring
+    // assertion is "typed request goes out, typed response OR a well-formed
+    // JSON-RPC error comes back" — not that this box's token can fetch
+    // usage.
+    match client.account_rate_limits_read().await {
+        Ok(_) => {}
+        Err(codex_codes::Error::JsonRpc { code, .. }) => {
+            assert_eq!(code, -32603, "unexpected rpc error class");
+        }
+        Err(other) => panic!("account/rateLimits/read transport failure: {other}"),
+    }
+    match client.account_usage_read().await {
+        Ok(_) => {}
+        Err(codex_codes::Error::JsonRpc { code, .. }) => {
+            assert_eq!(code, -32603, "unexpected rpc error class");
+        }
+        Err(other) => panic!("account/usage/read transport failure: {other}"),
+    }
+
+    client.shutdown().await.expect("shutdown");
 }

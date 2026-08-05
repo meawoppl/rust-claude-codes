@@ -2991,6 +2991,8 @@ pub struct InitializeCapabilities {
         skip_serializing_if = "Option::is_none"
     )]
     pub experimental_api: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<Value>,
     #[serde(
         rename = "mcpServerOpenaiFormElicitation",
         default,
@@ -4038,6 +4040,12 @@ pub struct Model {
     pub is_default: bool,
     #[serde(default)]
     pub model: String,
+    #[serde(
+        rename = "modelSpecialty",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub model_specialty: Option<String>,
     #[serde(
         rename = "serviceTiers",
         default,
