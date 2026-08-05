@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-08-05
+
+### Added
+
+- **Login support tooling** (`auth` module, feature `async-client`). Muse's
+  auth surface needs no PTY: `auth_set` wraps
+  `muse auth set --api-key-stdin` (secret over stdin, never argv);
+  `DeviceLoginFlow` wraps the plain-stdout `muse login` OAuth device-code
+  flow (`device_code()` extracts the verification URL + code from captured
+  wire shapes, `wait_approved()`/`cancel()` manage the poll);
+  `logout()`; `credentials_present()` (checks `META_API_KEY` then the
+  saved file's providers map — `muse logout` empties the map but keeps
+  the file); typed `AuthFile`/`ProviderCredential` models of
+  `~/.config/muse/auth.json` (schema_version 1, observed). Live-tested:
+  real device flow yields URL+code then cancels; auth_set/logout
+  round-trip in a sandboxed HOME.
+
 ## [0.1.0] - 2026-08-05
 
 Initial release, tracking Muse Code 0.1.0 (`0.1.0-R708.1`) — released by

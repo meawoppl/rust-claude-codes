@@ -224,8 +224,10 @@ jobs:
           else
             echo "✅ README.md has Muse Code $MUSE_TESTED"
           fi
-          if [ "$MUSE_VERSION" != "$MUSE_TESTED" ]; then
-            echo "❌ muse-codes version ($MUSE_VERSION) != tested Muse Code ($MUSE_TESTED)"
+          # Crate may carry a patch offset above the CLI release; require
+          # only that major.minor track the tested Muse Code version.
+          if [ "${MUSE_VERSION%.*}" != "${MUSE_TESTED%.*}" ]; then
+            echo "❌ muse-codes major.minor ($MUSE_VERSION) != tested Muse Code ($MUSE_TESTED)"
             FAILED=1
           fi
 
