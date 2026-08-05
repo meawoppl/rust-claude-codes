@@ -152,7 +152,8 @@ pub async fn logout_with_binary(binary: &str) -> Result<()> {
 }
 
 /// The verification details a [`DeviceLoginFlow`] presents to the user.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Serde-serializable for relay to remote UIs.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct DeviceCode {
     /// URL the user opens to approve the login.
     pub verification_url: String,
