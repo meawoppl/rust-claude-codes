@@ -1,8 +1,0 @@
-{
-  "type": "resource",
-  "resource": {
-    "uri": "file:///home/user/document.pdf",
-    "mimeType": "application/pdf",
-    "blob": "<b64>"
-  }
-}
