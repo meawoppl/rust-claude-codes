@@ -1209,6 +1209,13 @@ pub struct ControlRequestProgressMessage {
 pub struct ModelRefusalFallbackMessage {
     pub trigger: String,
     pub direction: String,
+    /// `"session"`: the main thread fell back and the session model is
+    /// swapped. `"local"`: a subagent / side-question (`/btw`) / background
+    /// fork fell back — only that response came from the fallback model and
+    /// the session model is unchanged. Absent from CLIs before 2.1.222
+    /// (treat as `"session"`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<RefusalFallbackScope>,
     pub original_model: String,
     pub fallback_model: String,
     pub request_id: Option<String>,
@@ -1225,6 +1232,59 @@ pub struct ModelRefusalFallbackMessage {
     pub uuid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+}
+
+/// Scope of a refusal-fallback model swap, carried by
+/// [`ModelRefusalFallbackMessage::scope`]. Open — new scopes may ship on the
+/// wire ahead of schema updates.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RefusalFallbackScope {
+    /// The main thread fell back; the session model is swapped.
+    Session,
+    /// A subagent / side-question / background fork fell back; only that
+    /// response used the fallback model, the session model is unchanged.
+    Local,
+    /// A scope not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl RefusalFallbackScope {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Session => "session",
+            Self::Local => "local",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for RefusalFallbackScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for RefusalFallbackScope {
+    fn from(s: &str) -> Self {
+        match s {
+            "session" => Self::Session,
+            "local" => Self::Local,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for RefusalFallbackScope {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for RefusalFallbackScope {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3156,5 +3216,41 @@ mod tests {
         let reserialized = serde_json::to_string(&output).unwrap();
         assert!(reserialized.contains("\"non_execution_kind\":\"user-rejected\""));
         assert!(!reserialized.contains("\"user_feedback\":null"));
+    }
+
+    /// CLI 2.1.222 added `scope` to `system/model_refusal_fallback`:
+    /// "session" (main-thread swap, also the meaning when absent on older
+    /// CLIs) vs "local" (subagent/side-question fallback only).
+    #[test]
+    fn model_refusal_fallback_scope_roundtrips_and_defaults() {
+        use super::{ModelRefusalFallbackMessage, RefusalFallbackScope};
+        let with_scope = serde_json::json!({
+            "trigger": "refusal",
+            "direction": "retry",
+            "scope": "local",
+            "original_model": "claude-fable-5",
+            "fallback_model": "claude-opus-5",
+            "request_id": null,
+            "content": "Refused; retried on fallback model.",
+            "uuid": "u1",
+            "session_id": "s1"
+        });
+        let msg: ModelRefusalFallbackMessage = serde_json::from_value(with_scope.clone()).unwrap();
+        assert_eq!(msg.scope, Some(RefusalFallbackScope::Local));
+        assert_eq!(serde_json::to_value(&msg).unwrap(), with_scope);
+
+        // Older CLIs omit scope — absent, not null, and treated as session
+        // by consumers per the wire docs.
+        let mut without = with_scope.clone();
+        without.as_object_mut().unwrap().remove("scope");
+        let msg: ModelRefusalFallbackMessage = serde_json::from_value(without.clone()).unwrap();
+        assert_eq!(msg.scope, None);
+        assert_eq!(serde_json::to_value(&msg).unwrap(), without);
+
+        // Open enum: unknown scopes pass through verbatim.
+        assert_eq!(
+            RefusalFallbackScope::from("workspace").as_str(),
+            "workspace"
+        );
     }
 }

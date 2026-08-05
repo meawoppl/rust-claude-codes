@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.222] - 2026-08-04
+
+Catches up to Claude CLI 2.1.222; snapshot baseline and `TESTED_VERSION`
+move to 2.1.222, and the full live suite passes against the installed
+binary. Also ships the complete login-tooling saga and session forking
+(below) that accumulated unreleased.
+
+### Added (2.1.222 drift)
+
+- **`ModelRefusalFallbackMessage.scope`** — new open enum
+  `RefusalFallbackScope` (`session` | `local` + `Unknown(String)`):
+  `session` means the main thread fell back and the session model is
+  swapped (also the meaning when the field is absent, i.e. every CLI
+  before 2.1.222); `local` means a subagent / side-question / background
+  fork fell back and only that response used the fallback model. (#272)
 
 ### Changed
 

@@ -17,7 +17,7 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 
 Each crate's version tracks the CLI it wraps:
 
-- **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.220`, tested against Claude CLI `2.1.220`.
+- **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.222`, tested against Claude CLI `2.1.222`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.146.2`, tested against Codex CLI `0.146.0`.
 - **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.5`, tested against opencode `1.18.5`.
 - **`hermes-codes`** version tracks the hermes-agent release its schema snapshots were taken from. Currently `hermes-codes 0.20.0`, tested against hermes-agent `0.20.0` (ACP protocol version 1 via `agent-client-protocol==0.9.0` → zed schema `v0.11.2`).

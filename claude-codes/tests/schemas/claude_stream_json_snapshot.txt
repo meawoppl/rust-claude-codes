@@ -30,7 +30,7 @@ system/init: agents, analytics_disabled, apiKeySource, betas, capabilities, clau
 system/local_command_output: content, session_id, subtype, type, uuid
 system/memory_recall: memories, mode, session_id, subtype, type, uuid
 system/mirror_error: error, key, session_id, subtype, type, uuid
-system/model_refusal_fallback: api_refusal_category, api_refusal_explanation, content, direction, fallback_model, original_model, refused_user_message_uuid, request_id, retracted_message_uuids, session_id, subtype, trigger, type, uuid
+system/model_refusal_fallback: api_refusal_category, api_refusal_explanation, content, direction, fallback_model, original_model, refused_user_message_uuid, request_id, retracted_message_uuids, scope, session_id, subtype, trigger, type, uuid
 system/model_refusal_no_fallback: api_refusal_category, api_refusal_explanation, content, original_model, refused_user_message_uuid, request_id, session_id, subtype, type, uuid
 system/notification: color, key, priority, session_id, subtype, text, timeout_ms, type, uuid
 system/permission_denied: agent_id, decision_reason, decision_reason_type, message, session_id, subtype, tool_name, tool_use_id, type, uuid
