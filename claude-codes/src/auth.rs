@@ -116,7 +116,7 @@ impl LoginMode {
 }
 
 /// Which PTY channel a minted token was recovered from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TokenSource {
     /// Rendered in the terminal's visible text.
     Screen,
@@ -129,7 +129,7 @@ pub enum TokenSource {
 /// success-path telemetry so a `token: None` outcome names the reason
 /// instead of leaving "no affordance" and "affordance fired with a non-token
 /// payload" indistinguishable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Osc52Status {
     /// No OSC 52 sequence ever appeared (the screen may offer no copy
     /// affordance, or the nudge didn't trigger it).
@@ -146,7 +146,10 @@ pub enum Osc52Status {
 }
 
 /// Result of a completed [`LoginFlow`].
-#[derive(Debug, Clone)]
+///
+/// Serde-serializable so relay surfaces (web UIs, launchers) can ship the
+/// outcome over the wire as-is.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoginOutcome {
     /// The minted long-lived token (`SetupToken` mode only). Sourced from the
     /// CLI's screen output or its OSC 52 clipboard copy; `None` when the CLI

@@ -17,10 +17,10 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 
 Each crate's version tracks the CLI it wraps:
 
-- **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.222`, tested against Claude CLI `2.1.222`.
+- **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.223`, tested against Claude CLI `2.1.222`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.146.3`, tested against Codex CLI `0.146.0`.
 - **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.5`, tested against opencode `1.18.5`.
-- **`muse-codes`** version tracks the Muse Code release its stream captures were taken from, with patch offsets for crate-side additions. Currently `muse-codes 0.1.2`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`).
+- **`muse-codes`** version tracks the Muse Code release its stream captures were taken from, with patch offsets for crate-side additions. Currently `muse-codes 0.1.3`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
 CLI version diverges from the tested version. `opencode-codes` tracks the
