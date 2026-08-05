@@ -1,0 +1,39 @@
+[package]
+name = "muse-codes"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
+description = "Typed Rust SDK for Meta's Muse Code terminal agent: serde models of the `muse exec --json` JSONL event stream, plus an async (Tokio) client for headless Muse Code runs."
+documentation = "https://docs.rs/muse-codes"
+homepage = "https://github.com/meawoppl/rust-code-agent-sdks"
+repository = "https://github.com/meawoppl/rust-code-agent-sdks"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["muse", "meta", "agent", "llm", "cli"]
+categories = ["api-bindings", "asynchronous", "encoding", "parsing"]
+exclude = [
+    ".claude/",
+    "*.sh",
+]
+
+[lints]
+workspace = true
+
+[dependencies]
+log = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, optional = true }
+which = { workspace = true, optional = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+tokio = { workspace = true }
+
+[features]
+default = ["types", "async-client"]
+types = []
+async-client = ["types", "dep:tokio", "dep:log", "dep:which"]
+integration-tests = ["async-client"]

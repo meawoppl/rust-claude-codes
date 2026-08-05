@@ -1,0 +1,94 @@
+name: Muse Code Schema Drift
+
+# Nightly check: does the installed Muse Code CLI's `exec --json` stream
+# still match our fingerprint snapshot? Muse publishes no schema, so the
+# fingerprint is captured from credential-free echo-provider runs.
+
+on:
+  schedule:
+    # 07:17 UTC — offset from the other drift checks.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: diff installed CLI stream vs fingerprint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Muse Code
+        run: |
+          curl -fsSL https://dev.meta.ai/install.sh -o /tmp/muse-install.sh
+          bash /tmp/muse-install.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/muse" --version
+
+      - name: Run drift check
+        id: check
+        run: |
+          set +e
+          python3 scripts/check_muse_schema_drift.py | tee /tmp/drift_report.md
+          STATUS=${PIPESTATUS[0]}
+          echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
+          case "$STATUS" in
+            0) echo "result=no-drift"        >> "$GITHUB_OUTPUT" ;;
+            1) echo "result=drift"           >> "$GITHUB_OUTPUT" ;;
+            *) echo "result=capture-failure" >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit 0  # drift files an issue instead of failing the job
+
+      - name: Open or update drift issue
+        if: steps.check.outputs.result == 'drift'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABEL="muse-schema-drift"
+          TITLE="muse-codes: Muse Code stream fingerprint has drifted from our snapshot"
+          BODY_FILE=/tmp/drift_report.md
+          gh label create "$LABEL" \
+            --color "B60205" \
+            --description "Nightly check found drift between the installed Muse Code stream and our fingerprint" \
+            --force \
+            || true
+          EXISTING=$(gh issue list --state open --label "$LABEL" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            {
+              echo "_Nightly drift re-check (run #${{ github.run_number }}, $(date -u +%Y-%m-%dT%H:%MZ)):_"
+              echo
+              cat "$BODY_FILE"
+            } | gh issue comment "$EXISTING" --body-file -
+          else
+            gh issue create \
+              --title "$TITLE" \
+              --label "$LABEL" \
+              --body-file "$BODY_FILE"
+          fi
+
+      - name: Report capture failure (job summary only)
+        if: steps.check.outputs.result == 'capture-failure'
+        run: |
+          {
+            echo "## Muse drift check skipped"
+            echo
+            echo "Could not install or run the Muse Code CLI (installer change,"
+            echo "network blip). Will retry on the next nightly run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: All clear (job summary only)
+        if: steps.check.outputs.result == 'no-drift'
+        run: |
+          {
+            echo "## ✅ No stream drift"
+            echo
+            echo "The installed Muse Code CLI's exec stream matches our fingerprint."
+          } >> "$GITHUB_STEP_SUMMARY"
