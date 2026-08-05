@@ -2,7 +2,7 @@
 
 Typed Rust interfaces for AI code agent CLI protocols.
 
-This workspace provides independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), and the [NousResearch Hermes agent](https://github.com/NousResearch/hermes-agent) via their streaming protocols (JSON/JSONL over stdio, HTTP + SSE, or the Agent Client Protocol).
+This workspace provides independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), and [opencode](https://opencode.ai) via their streaming protocols (JSON/JSONL over stdio, or HTTP + SSE).
 
 ## Crates
 
@@ -11,7 +11,6 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 | [`claude-codes`](./claude-codes/) | [![Crates.io](https://img.shields.io/crates/v/claude-codes.svg)](https://crates.io/crates/claude-codes) | [![docs.rs](https://docs.rs/claude-codes/badge.svg)](https://docs.rs/claude-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 | [`codex-codes`](./codex-codes/) | [![Crates.io](https://img.shields.io/crates/v/codex-codes.svg)](https://crates.io/crates/codex-codes) | [![docs.rs](https://docs.rs/codex-codes/badge.svg)](https://docs.rs/codex-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 | [`opencode-codes`](./opencode-codes/) | [![Crates.io](https://img.shields.io/crates/v/opencode-codes.svg)](https://crates.io/crates/opencode-codes) | [![docs.rs](https://docs.rs/opencode-codes/badge.svg)](https://docs.rs/opencode-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
-| [`hermes-codes`](./hermes-codes/) | [![Crates.io](https://img.shields.io/crates/v/hermes-codes.svg)](https://crates.io/crates/hermes-codes) | [![docs.rs](https://docs.rs/hermes-codes/badge.svg)](https://docs.rs/hermes-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 
 ## Versioning
 
@@ -20,7 +19,6 @@ Each crate's version tracks the CLI it wraps:
 - **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.222`, tested against Claude CLI `2.1.222`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.146.2`, tested against Codex CLI `0.146.0`.
 - **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.5`, tested against opencode `1.18.5`.
-- **`hermes-codes`** version tracks the hermes-agent release its schema snapshots were taken from. Currently `hermes-codes 0.20.0`, tested against hermes-agent `0.20.0` (ACP protocol version 1 via `agent-client-protocol==0.9.0` → zed schema `v0.11.2`).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
 CLI version diverges from the tested version. `opencode-codes` tracks the
@@ -79,22 +77,6 @@ codex-codes = { version = "0.142", default-features = false, features = ["types"
 opencode-codes = { version = "1.18", default-features = false, features = ["types"] }
 ```
 
-### hermes-codes
-
-`hermes-codes` wraps the Hermes agent's ACP adapter (`hermes acp`, JSON-RPC 2.0 over stdio):
-
-| Feature | Description | WASM-compatible |
-|---------|-------------|-----------------|
-| `types` | Generated ACP types + hermes `_meta` extensions (serde) | Yes |
-| `async-client` | Async stdio client using tokio; spawns `hermes acp` | No |
-
-`default = ["types", "async-client"]`. For WASM or type-sharing use cases:
-
-```toml
-[dependencies]
-hermes-codes = { version = "0.20", default-features = false, features = ["types"] }
-```
-
 ## Session Forking
 
 All three runtimes can fork a session/thread — branch an existing history
@@ -144,16 +126,12 @@ rust-code-agent-sdks/
   opencode-codes/        # opencode HTTP + SSE server bindings
     src/                 # Types, async client, HTTP/SSE transport, server launcher
     tests/               # Drift checks and schema snapshot
-  hermes-codes/          # Hermes agent ACP bindings (generated from schema)
-    src/                 # Generated ACP types, JSON-RPC layer, async client
-    tests/               # Golden-corpus round-trips + schema snapshots
 ```
 
 See each crate's README for detailed usage:
 - [claude-codes README](./claude-codes/README.md)
 - [codex-codes README](./codex-codes/README.md)
 - [opencode-codes README](./opencode-codes/README.md)
-- [hermes-codes README](./hermes-codes/README.md)
 
 ## License
 

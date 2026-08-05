@@ -208,28 +208,6 @@ jobs:
             echo "✅ opencode-codes/README.md has opencode $OPENCODE_TESTED"
           fi
 
-          # hermes-codes: crate version == tested hermes-agent version, in
-          # both the crate README and the root README.
-          HERMES_VERSION=$(grep '^version' hermes-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-          HERMES_TESTED=$(grep 'Tested against hermes-agent' hermes-codes/README.md | grep -oP '\d+\.\d+\.\d+')
-          echo "hermes-codes version: $HERMES_VERSION (tested: $HERMES_TESTED)"
-          if ! grep -q "hermes-codes $HERMES_VERSION" README.md; then
-            echo "❌ README.md missing 'hermes-codes $HERMES_VERSION'"
-            FAILED=1
-          else
-            echo "✅ README.md has hermes-codes $HERMES_VERSION"
-          fi
-          if ! grep -q "tested against hermes-agent.*$HERMES_TESTED" README.md; then
-            echo "❌ README.md missing hermes-agent tested version $HERMES_TESTED"
-            FAILED=1
-          else
-            echo "✅ README.md has hermes-agent $HERMES_TESTED"
-          fi
-          if [ "$HERMES_VERSION" != "$HERMES_TESTED" ]; then
-            echo "❌ hermes-codes version ($HERMES_VERSION) != tested hermes-agent ($HERMES_TESTED)"
-            FAILED=1
-          fi
-
           if [ "$FAILED" -eq 1 ]; then
             echo ""
             echo "Version strings are out of sync. Update the READMEs to match."
