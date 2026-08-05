@@ -208,6 +208,27 @@ jobs:
             echo "✅ opencode-codes/README.md has opencode $OPENCODE_TESTED"
           fi
 
+          # muse-codes: crate version == tested Muse Code version, in both READMEs.
+          MUSE_VERSION=$(grep '^version' muse-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          MUSE_TESTED=$(grep 'Tested against Muse Code' muse-codes/README.md | grep -oP '\d+\.\d+\.\d+' | head -1)
+          echo "muse-codes version: $MUSE_VERSION (tested: $MUSE_TESTED)"
+          if ! grep -q "muse-codes $MUSE_VERSION" README.md; then
+            echo "❌ README.md missing 'muse-codes $MUSE_VERSION'"
+            FAILED=1
+          else
+            echo "✅ README.md has muse-codes $MUSE_VERSION"
+          fi
+          if ! grep -q "tested against Muse Code.*$MUSE_TESTED" README.md; then
+            echo "❌ README.md missing Muse Code tested version $MUSE_TESTED"
+            FAILED=1
+          else
+            echo "✅ README.md has Muse Code $MUSE_TESTED"
+          fi
+          if [ "$MUSE_VERSION" != "$MUSE_TESTED" ]; then
+            echo "❌ muse-codes version ($MUSE_VERSION) != tested Muse Code ($MUSE_TESTED)"
+            FAILED=1
+          fi
+
           if [ "$FAILED" -eq 1 ]; then
             echo ""
             echo "Version strings are out of sync. Update the READMEs to match."
