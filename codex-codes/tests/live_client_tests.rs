@@ -885,3 +885,26 @@ async fn test_account_read_family() {
 
     client.shutdown().await.expect("shutdown");
 }
+
+/// Local auth snapshot parses the REAL ~/.codex/auth.json on this box —
+/// the private-contract shape watchdog. If codex changes the file layout,
+/// this fails here (a crate patch) instead of silently downstream.
+#[test]
+fn test_auth_status_local_parses_real_file() {
+    let path = codex_codes::auth_local::auth_json_path().expect("home resolves");
+    if !path.exists() {
+        eprintln!("skipping: no auth.json on this host");
+        return;
+    }
+    let s = codex_codes::auth_local::auth_status_local().expect("real auth.json parses");
+    assert!(s.logged_in, "file exists but parsed as logged out");
+    // This box is chatgpt-mode; a fresh api-key box would legitimately
+    // carry no identity claims.
+    if s.auth_mode.as_deref() == Some("chatgpt") {
+        assert!(
+            s.email.is_some(),
+            "chatgpt mode should yield an email label"
+        );
+        assert!(s.account_id.is_some());
+    }
+}
