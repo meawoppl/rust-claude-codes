@@ -8,7 +8,8 @@ journal on stdout: envelope records covering command intake, run lifecycle,
 task lifecycle, and streamed output. This crate types that stream and ships
 an async Tokio client for driving headless runs.
 
-Tested against Muse Code 0.1.0 (`0.1.0-R708.1`).
+Tested against Muse Code 0.1.0 (`0.1.0-R708.1`). The crate version may
+carry a patch offset above the CLI release for crate-side additions.
 
 ## Captured, not guessed
 
@@ -56,6 +57,24 @@ println!("\nterminal: {}", terminal.terminal);
 
 The Meta provider needs credentials (`muse login`, `META_API_KEY`, or
 `~/.config/muse/auth.json`); `Provider::Echo` runs without any.
+
+## Auth helpers
+
+No PTY needed — Muse's auth surface is automation-friendly:
+
+```rust,ignore
+use muse_codes::auth::{auth_set, credentials_present, DeviceLoginFlow};
+
+// API key path (CI):
+auth_set(&std::env::var("MY_META_KEY")?, None).await?;
+
+// Or the browser device-code path:
+let mut flow = DeviceLoginFlow::start().await?;
+let dc = flow.device_code(std::time::Duration::from_secs(20)).await?;
+println!("Open {} and confirm code {}", dc.verification_url, dc.code);
+flow.wait_approved(std::time::Duration::from_secs(300)).await?;
+assert!(credentials_present());
+```
 
 ## Testing
 

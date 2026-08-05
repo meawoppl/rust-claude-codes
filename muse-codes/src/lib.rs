@@ -41,6 +41,8 @@ pub mod version;
 
 // Client modules
 #[cfg(feature = "async-client")]
+pub mod auth;
+#[cfg(feature = "async-client")]
 pub mod cli;
 #[cfg(feature = "async-client")]
 pub mod client_async;
