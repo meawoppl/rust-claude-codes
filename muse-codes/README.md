@@ -77,6 +77,23 @@ flow.wait_approved(std::time::Duration::from_secs(300)).await?;
 assert!(credentials_present());
 ```
 
+## Record identity — read this before persisting or rendering
+
+Journal record `id`s are **UUID-shaped counters, not UUIDs**. They restart
+at the same value for every session, so two sessions emit byte-identical id
+lists; and `sequence` restarts on every turn. Neither is a safe handle
+alone.
+
+- Unique key: the composite **`(stream.id, id)`**
+- Turn grouping: `causation_id`
+- Ordering **within** a turn: `sequence`
+
+Treat `id` as stream-local *everywhere* — dedup, correlation maps, and
+frontend list keys included (a render key of `id` alone would alias rows
+across sessions). `stream.id` is the only cross-session-unique handle;
+supply your own via [`MuseExecBuilder::session_id`] and it is adopted
+verbatim.
+
 ## Testing
 
 - **Corpus tests**: every committed capture line must parse, lift into a

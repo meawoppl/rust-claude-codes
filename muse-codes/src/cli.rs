@@ -32,6 +32,7 @@ pub struct MuseExecBuilder {
     provider: Option<Provider>,
     preset: Option<String>,
     model: Option<String>,
+    session_id: Option<String>,
     reasoning_effort: Option<String>,
     base_url: Option<String>,
     working_directory: Option<PathBuf>,
@@ -46,6 +47,7 @@ impl MuseExecBuilder {
             provider: None,
             preset: None,
             model: None,
+            session_id: None,
             reasoning_effort: None,
             base_url: None,
             working_directory: None,
@@ -72,6 +74,23 @@ impl MuseExecBuilder {
 
     pub fn model(mut self, model: impl Into<String>) -> Self {
         self.model = Some(model.into());
+        self
+    }
+
+    /// Run under a caller-supplied session id (`--session-id`), the basis of
+    /// multi-turn continuity: each turn is its own process, and passing the
+    /// same id makes the CLI continue that session rather than start a new
+    /// one. The id is adopted verbatim as the `stream.id` on every emitted
+    /// record.
+    ///
+    /// Supplying your own id is also what makes
+    /// [`MuseRecord`](crate::MuseRecord) identity safe to key on: record
+    /// `id`s are UUID-shaped counters that repeat across sessions, so the
+    /// only unique handle is the composite `(stream.id, id)` — and that is
+    /// trustworthy precisely because `stream.id` is yours. (When omitted,
+    /// the CLI mints a random v4 of its own.)
+    pub fn session_id(mut self, session_id: impl Into<String>) -> Self {
+        self.session_id = Some(session_id.into());
         self
     }
 
@@ -112,6 +131,9 @@ impl MuseExecBuilder {
         }
         if let Some(m) = &self.model {
             cmd.args(["--model", m]);
+        }
+        if let Some(s) = &self.session_id {
+            cmd.args(["--session-id", s]);
         }
         if let Some(e) = &self.reasoning_effort {
             cmd.args(["--reasoning-effort", e]);

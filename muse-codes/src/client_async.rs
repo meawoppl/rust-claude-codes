@@ -38,6 +38,14 @@ impl ExecRun {
         })
     }
 
+    /// OS process id of the running child, when the platform exposes one.
+    ///
+    /// Useful for supervisors that signal the process group directly rather
+    /// than relying on `kill_on_drop`.
+    pub fn pid(&self) -> Option<u32> {
+        self.child.id()
+    }
+
     /// Next journal record, or `None` at end of stream.
     pub async fn next_record(&mut self) -> Result<Option<MuseRecord>> {
         loop {
