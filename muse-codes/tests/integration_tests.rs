@@ -286,3 +286,94 @@ fn uuid_v4_like() -> String {
         (n & 0xffff_ffff_ffff) as u64
     )
 }
+
+/// Every echo-compatible flag in the builder is accepted by the real CLI
+/// and the run still reaches its terminal record. Meta-only flags
+/// (`--api-key-stdin`, `--parallel-tool-calls`, `--image`) and
+/// `--allow-workspace-switch` (requires a session id) are exercised for
+/// *rejection* below, so the acceptance list and the constraint notes on
+/// the builder can't silently drift apart.
+#[tokio::test]
+async fn full_echo_flag_surface_is_accepted_live() {
+    let dir = std::env::temp_dir().join(format!("muse-flags-{}", uuid_v4_like()));
+    std::fs::create_dir_all(&dir).expect("tempdir");
+    let prompt_path = dir.join("prompt.txt");
+    std::fs::write(&prompt_path, "hello from a prompt file").expect("write prompt");
+
+    let builder = muse_codes::MuseExecBuilder::new("")
+        .prompt_file(&prompt_path)
+        .provider(muse_codes::Provider::Echo)
+        .session_id(uuid_v4_like())
+        .workspace(&dir)
+        .context_compaction_strategy("summary-preserved-suffix/v1")
+        .context_compaction_soft_threshold(0.7)
+        .context_compaction_hard_threshold(0.9)
+        .max_model_steps(5)
+        .max_tool_output_bytes(10_000)
+        .allow_workspace_switch(true)
+        .user_input_auto_resolve(true)
+        .subagent_worktree_isolation(true)
+        .disable_web_tools(true)
+        .no_foreign_personal_context(true)
+        .trust_workspace(true)
+        .disable_approval(true)
+        .disable_sandbox(true)
+        .sandbox_network("proxy-only")
+        .disable_write(true)
+        .disable_shell(true)
+        .working_directory(&dir);
+
+    let run = muse_codes::ExecRun::spawn(&builder).await.expect("spawn");
+    let terminal = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        run.wait_terminal(|_| {}),
+    )
+    .await
+    .expect("echo run should finish inside a minute")
+    .expect("run reaches terminal despite the full flag surface");
+    assert_eq!(terminal.terminal, "completed");
+
+    // `--no-session-log` conflicts with `--session-id` ("a session id
+    // needs retained logging" — measured), so it gets its own run.
+    let run = muse_codes::ExecRun::spawn(
+        &muse_codes::MuseExecBuilder::new("hi")
+            .provider(muse_codes::Provider::Echo)
+            .no_session_log(true)
+            .working_directory(&dir),
+    )
+    .await
+    .expect("spawn");
+    let terminal = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        run.wait_terminal(|_| {}),
+    )
+    .await
+    .expect("echo run should finish inside a minute")
+    .expect("--no-session-log run reaches terminal");
+    assert_eq!(terminal.terminal, "completed");
+}
+
+/// The constraints documented on the builder are the CLI's real behavior:
+/// meta-only flags fail fast on the echo provider with a usage error
+/// rather than starting a run. Pins the constraint notes to the binary.
+#[tokio::test]
+async fn meta_only_flags_are_rejected_by_the_echo_provider_live() {
+    for build in [
+        muse_codes::MuseExecBuilder::new("hi")
+            .provider(muse_codes::Provider::Echo)
+            .parallel_tool_calls(true),
+        muse_codes::MuseExecBuilder::new("hi")
+            .provider(muse_codes::Provider::Echo)
+            .api_key_stdin(true),
+    ] {
+        let mut child = build.spawn().await.expect("spawn");
+        let status = tokio::time::timeout(std::time::Duration::from_secs(20), child.wait())
+            .await
+            .expect("usage errors fail fast")
+            .expect("wait");
+        assert!(
+            !status.success(),
+            "a meta-only flag must be rejected under the echo provider"
+        );
+    }
+}

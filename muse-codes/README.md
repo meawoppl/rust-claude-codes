@@ -59,6 +59,12 @@ println!("\nterminal: {}", terminal.terminal);
 The Meta provider needs credentials (`muse login`, `META_API_KEY`, or
 `~/.config/muse/auth.json`); `Provider::Echo` runs without any.
 
+`MuseExecBuilder` covers the full `muse exec` flag surface (worktrees,
+sandbox/safety toggles, context compaction, image attachments, prompt
+files, step/output caps — see the builder docs), with each flag verified
+against the real binary and the CLI's cross-flag constraints noted on the
+corresponding method.
+
 ## Auth helpers
 
 No PTY needed — Muse's auth surface is automation-friendly:

@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "muse-codes"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "env_logger",
  "log",

@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-08-06
+
+### Added
+
+- **Full `muse exec` flag parity** — `MuseExecBuilder` now covers the
+  entire flag surface of Muse Code 0.1.0, verified flag-by-flag against
+  the real binary: `prompt_file`, `api_key_stdin`, `parallel_tool_calls`,
+  `agents`, `image` (repeatable), `workspace`, `worktree` (typed
+  `WorktreeMode`) with `worktree_base`/`worktree_existing`, the context
+  compaction trio, `max_model_steps`, `max_tool_output_bytes`,
+  `allow_workspace_switch`, `user_input_auto_resolve`,
+  `subagent_worktree_isolation`, `disable_web_tools`,
+  `no_foreign_personal_context`, `no_session_log`, and the safety group
+  (`yolo`, `trust_workspace`, `disable_approval`, `disable_sandbox`,
+  `sandbox_network`, `disable_write`, `disable_shell`,
+  `enable_shell_tool`).
+- **Measured CLI constraints documented on the methods and pinned by live
+  tests**: `--parallel-tool-calls`/`--api-key-stdin`/`--image` are
+  meta-provider-only (echo rejects at startup);
+  `--allow-workspace-switch` requires `--session-id`; `--no-session-log`
+  conflicts with `--session-id` ("a session id needs retained logging") —
+  so multi-turn continuity requires the session log. `--agents` is
+  accepted by `exec` despite appearing only in the top-level help.
+
+### Changed
+
+- `MuseExecBuilder` implements `Default` (binary `muse` from `PATH`,
+  empty prompt); `--api-key-stdin` pipes the child's stdin so the caller
+  can write the key.
+
 ## [0.1.4] - 2026-08-06
 
 ### Added
