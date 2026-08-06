@@ -208,7 +208,7 @@ async fn record_ids_repeat_across_sessions() {
         let run = ExecRun::spawn(
             &MuseExecBuilder::new("same prompt, different session")
                 .provider(Provider::Echo)
-                .session_id(&uuid_v4_like())
+                .session_id(uuid_v4_like())
                 .working_directory(std::env::temp_dir()),
         )
         .await
