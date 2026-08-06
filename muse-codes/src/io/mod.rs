@@ -219,6 +219,12 @@ pub struct ModelConfigured {
 }
 
 /// `tool.result` — outcome of one tool invocation (live providers only).
+///
+/// **No `task_id`**: the record cannot be attributed to the task that
+/// issued it. `call_id` is the provider's call id, not a task handle. A
+/// consumer correlating tools to tasks has to guess (e.g. the most
+/// recently started non-terminal task), which is wrong under genuinely
+/// concurrent tasks — see the README's known-wire-gaps section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResult {
     pub kind: String,

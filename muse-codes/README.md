@@ -94,6 +94,22 @@ across sessions). `stream.id` is the only cross-session-unique handle;
 supply your own via [`MuseExecBuilder::session_id`] and it is adopted
 verbatim.
 
+## Known wire gaps (Muse Code 0.1.0)
+
+Things the stream does *not* carry, which consumers must work around:
+
+- **`tool.result` has no `task_id`.** Tool outcomes cannot be attributed to
+  the task that issued them from the record alone. A consumer building a
+  task tree must guess — attaching the result to the most recently started
+  non-terminal task works for every capture in `test_cases/`, but would
+  mis-attribute under genuinely concurrent tasks. The `call_id` it does
+  carry is a provider call id, not a task handle. Fixing this properly
+  requires the field upstream; don't grow a smarter heuristic to compensate.
+- **No usage/token accounting** appears anywhere in the observed stream.
+- **No approval round-trip**: policy decisions are journaled after the fact
+  (`side_effect_intent.policy_decision`), never asked, so headless runs
+  cannot be gated interactively.
+
 ## Testing
 
 - **Corpus tests**: every committed capture line must parse, lift into a
