@@ -98,13 +98,17 @@ verbatim.
 
 Things the stream does *not* carry, which consumers must work around:
 
-- **`tool.result` has no `task_id`.** Tool outcomes cannot be attributed to
-  the task that issued them from the record alone. A consumer building a
-  task tree must guess — attaching the result to the most recently started
-  non-terminal task works for every capture in `test_cases/`, but would
-  mis-attribute under genuinely concurrent tasks. The `call_id` it does
-  carry is a provider call id, not a task handle. Fixing this properly
-  requires the field upstream; don't grow a smarter heuristic to compensate.
+- **`tool.result` has no `task_id`** — but a correlation exists. The wire
+  models each tool call as its own task (`task_kind: tool.<tool_name>`),
+  and the result's `correlation_facts.tool_name` names it: in every
+  committed capture, each `tool.result` matches exactly one such task.
+  Match on that, latest-first. Do **not** use a recency-of-running-tasks
+  heuristic — measured against the captures it always mis-attributes,
+  because the issuing tool task has already completed by the time its
+  result record lands (only `reminder.*` scaffolding is still running).
+  The `call_id` is a provider call id, not a task handle; the residual
+  ambiguity (two same-name tool tasks genuinely concurrent) still needs
+  the field upstream.
 - **No usage/token accounting** appears anywhere in the observed stream.
 - **No approval round-trip**: policy decisions are journaled after the fact
   (`side_effect_intent.policy_decision`), never asked, so headless runs

@@ -220,11 +220,12 @@ pub struct ModelConfigured {
 
 /// `tool.result` — outcome of one tool invocation (live providers only).
 ///
-/// **No `task_id`**: the record cannot be attributed to the task that
-/// issued it. `call_id` is the provider's call id, not a task handle. A
-/// consumer correlating tools to tasks has to guess (e.g. the most
-/// recently started non-terminal task), which is wrong under genuinely
-/// concurrent tasks — see the README's known-wire-gaps section.
+/// **No `task_id`**, but the wire models each tool call as its own task
+/// (`task_kind: tool.<tool_name>`) and `correlation_facts.tool_name`
+/// names it — match on that, latest-first. Recency-of-running-tasks
+/// heuristics mis-attribute: the issuing tool task has already completed
+/// when this record lands. `call_id` is the provider's call id, not a
+/// task handle — see the README's known-wire-gaps section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResult {
     pub kind: String,
