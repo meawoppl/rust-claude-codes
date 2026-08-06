@@ -55,6 +55,6 @@ pub use io::{
 };
 
 #[cfg(feature = "async-client")]
-pub use cli::{MuseExecBuilder, Provider};
+pub use cli::{MuseExecBuilder, Provider, WorktreeMode};
 #[cfg(feature = "async-client")]
 pub use client_async::ExecRun;
