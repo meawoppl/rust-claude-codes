@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-08-06
+
+### Added
+
+- **`MuseExecBuilder::session_id`** — run under a caller-supplied
+  `--session-id`, the basis of multi-turn continuity: each turn is its own
+  process, and reusing the id continues the session. The id is adopted
+  verbatim as `stream.id` on every record, which is also what makes the
+  `(stream.id, id)` identity composite trustworthy.
+- **`ExecRun::pid`** — the child's OS process id, for supervisors that
+  signal the process group directly.
+- **Live tests pinning two measured behaviors** that consumers must not get
+  wrong: `sequence` restarts per turn (never key across turns on it), record
+  ids do **not** repeat within a session but **do** repeat across sessions
+  (UUID-shaped counters — only `(stream.id, id)` is unique), and a run
+  SIGKILLed mid-flight leaves the session store usable for the next turn.
+
 ## [0.1.3] - 2026-08-05
 
 ### Changed
