@@ -240,13 +240,13 @@ pub async fn refresh_agent_auth(state: &Shared, agent: &'static str) {
         "codex" => match codex_codes::auth_local::auth_status_local() {
             Ok(s) => (
                 format!(
-                    "{} ({:?})",
+                    "{} ({})",
                     if s.logged_in {
                         "logged in"
                     } else {
                         "no credentials"
                     },
-                    s.auth_mode,
+                    s.auth_mode.as_deref().unwrap_or("unknown method"),
                 ),
                 s.logged_in,
             ),

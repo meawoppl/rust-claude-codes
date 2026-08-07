@@ -35,7 +35,11 @@ pub async fn run_suite(reporter: Reporter) {
         .await;
     let logged_in = match codex_codes::auth_local::auth_status_local() {
         Ok(s) => {
-            let detail = format!("logged_in={} method={:?}", s.logged_in, s.auth_mode);
+            let detail = format!(
+                "logged_in={} method={}",
+                s.logged_in,
+                s.auth_mode.as_deref().unwrap_or("-")
+            );
             let st = if s.logged_in {
                 CheckStatus::Pass
             } else {
