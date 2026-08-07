@@ -378,7 +378,13 @@ mod tests {
     mod live {
         use super::*;
 
-        const BASE_URL: &str = "http://127.0.0.1:41999";
+        /// Same contract as `tests/integration_tests.rs`: default to the
+        /// local capture instance, honor `OPENCODE_BASE_URL` so a harness
+        /// (wirecheck's managed server, CI) can point the test anywhere.
+        fn base_url() -> String {
+            std::env::var("OPENCODE_BASE_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:41999".to_string())
+        }
 
         async fn next_item(stream: &mut EventStream) -> Option<Result<StreamEvent>> {
             stream.next().await
@@ -388,7 +394,7 @@ mod tests {
         async fn connects_and_receives_real_frames() {
             let client = Client::new();
             let mut stream =
-                EventStream::connect_with(&client, BASE_URL, RetryConfig::default()).unwrap();
+                EventStream::connect_with(&client, &base_url(), RetryConfig::default()).unwrap();
 
             // First item off a healthy server is the connection-open marker.
             let first = tokio::time::timeout(Duration::from_secs(5), next_item(&mut stream))
@@ -400,7 +406,7 @@ mod tests {
 
             // Trigger activity so at least one event flows.
             let created = client
-                .post(format!("{BASE_URL}/session"))
+                .post(format!("{}/session", base_url()))
                 .json(&serde_json::json!({}))
                 .send()
                 .await
@@ -430,7 +436,7 @@ mod tests {
         #[tokio::test]
         async fn event_stream_is_a_futures_stream() {
             fn assert_stream<S: Stream>(_: &S) {}
-            let stream = EventStream::connect(BASE_URL).unwrap();
+            let stream = EventStream::connect(&base_url()).unwrap();
             assert_stream(&stream);
         }
     }

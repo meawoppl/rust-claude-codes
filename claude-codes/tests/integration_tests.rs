@@ -201,7 +201,7 @@ async fn test_fork_session_carries_history_under_new_id() {
             break;
         }
     }
-    drop(stream);
+    let _ = stream; // release the &mut client borrow (ResponseStream has no Drop)
     client.shutdown().await.expect("Failed to shutdown source");
 
     // Fork it and ask the fork to recall the fact.
@@ -239,7 +239,7 @@ async fn test_fork_session_carries_history_under_new_id() {
             _ => {}
         }
     }
-    drop(stream);
+    let _ = stream; // release the &mut fork borrow (ResponseStream has no Drop)
     fork.shutdown().await.expect("Failed to shutdown fork");
 
     assert!(

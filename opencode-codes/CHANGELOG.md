@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.14] - 2026-08-07
+
+### Changed
+
+- Track opencode CLI 1.18.14 (nightly OpenAPI drift check green across
+  the span — no wire changes; version pin moved forward).
+- The version-drift assertion now compares against `CARGO_PKG_VERSION`
+  instead of a second hardcoded copy of the version, so the pin cannot
+  fall out of sync with `Cargo.toml`.
+- The in-crate live SSE test honors `OPENCODE_BASE_URL` (matching the
+  integration tests), so harnesses running it against a managed server
+  on a random port work.
+
 ### Added
 
 - **`OpencodeClient::fork_session`** — wraps `POST /session/{sessionID}/fork`
