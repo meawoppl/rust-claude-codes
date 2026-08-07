@@ -24,6 +24,28 @@ impl Provider {
     }
 }
 
+/// String-collecting stand-in for `Command::arg`/`args` so argv assembly
+/// is pure and testable without resolving the binary.
+#[derive(Default)]
+struct ArgSink(Vec<String>);
+
+impl ArgSink {
+    fn arg(&mut self, a: impl AsRef<std::ffi::OsStr>) -> &mut Self {
+        self.0.push(a.as_ref().to_string_lossy().into_owned());
+        self
+    }
+    fn args<I, S>(&mut self, items: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<std::ffi::OsStr>,
+    {
+        for a in items {
+            self.arg(a);
+        }
+        self
+    }
+}
+
 /// Session git-worktree mode (`--worktree`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorktreeMode {
@@ -424,12 +446,11 @@ impl MuseExecBuilder {
         self
     }
 
-    /// Resolve the binary and assemble the command with piped stdio.
-    pub fn build_command(&self) -> Result<tokio::process::Command> {
-        let program = which::which(&self.binary).map_err(|_| Error::BinaryNotFound {
-            name: self.binary.clone(),
-        })?;
-        let mut cmd = tokio::process::Command::new(program);
+    /// The full argv after the binary name — assembly is separated from
+    /// binary resolution so it can be exercised (and unit-tested) on hosts
+    /// without a `muse` install.
+    fn assembled_args(&self) -> Vec<String> {
+        let mut cmd = ArgSink::default();
         cmd.arg("exec").arg("--json");
         if let Some(p) = self.provider {
             cmd.args(["--provider", p.as_str()]);
@@ -543,6 +564,16 @@ impl MuseExecBuilder {
         } else {
             cmd.arg(&self.prompt);
         }
+        cmd.0
+    }
+
+    /// Resolve the binary and assemble the command with piped stdio.
+    pub fn build_command(&self) -> Result<tokio::process::Command> {
+        let program = which::which(&self.binary).map_err(|_| Error::BinaryNotFound {
+            name: self.binary.clone(),
+        })?;
+        let mut cmd = tokio::process::Command::new(program);
+        cmd.args(self.assembled_args());
         // `--api-key-stdin` needs a writable stdin; the caller writes the
         // key and closes it. Otherwise stdin stays null.
         cmd.stdin(if self.api_key_stdin {
@@ -573,11 +604,9 @@ mod tests {
     use super::*;
 
     fn args(builder: &MuseExecBuilder) -> Vec<String> {
-        let cmd = builder.build_command().expect("muse on PATH");
-        cmd.as_std()
-            .get_args()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect()
+        // Pure assembly — no `muse` install needed, so these run on any CI
+        // host.
+        builder.assembled_args()
     }
 
     /// Every flag lands on the command line exactly as the CLI spells it —
