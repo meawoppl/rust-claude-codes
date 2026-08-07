@@ -28,6 +28,11 @@ struct Ctx {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+    // Children must not think they're nested inside a Claude Code session
+    // (the checks spawn real CLIs); clearing here covers every spawn path
+    // without needing claude-codes' integration-tests feature — which, as
+    // a workspace dep, would feature-unify live tests into every CI job.
+    std::env::remove_var("CLAUDECODE");
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("run") {
         headless_run(&args[1..]).await;

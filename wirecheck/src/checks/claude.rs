@@ -150,9 +150,7 @@ async fn fork_carries_history(reporter: &Reporter) {
         .await;
     let fut = async {
         let source = uuid::Uuid::new_v4();
-        let builder = claude_codes::ClaudeCliBuilder::new()
-            .allow_recursion()
-            .session_id(source);
+        let builder = claude_codes::ClaudeCliBuilder::new().session_id(source);
         let mut client = claude_codes::AsyncClient::from_builder(builder)
             .await
             .map_err(|e| e.to_string())?;
@@ -164,7 +162,6 @@ async fn fork_carries_history(reporter: &Reporter) {
 
         let fork_id = uuid::Uuid::new_v4();
         let builder = claude_codes::ClaudeCliBuilder::new()
-            .allow_recursion()
             .fork_from(source.to_string())
             .session_id(fork_id);
         let mut fork = claude_codes::AsyncClient::from_builder(builder)
@@ -249,7 +246,6 @@ async fn approval_handshake(reporter: &Reporter) {
         .await;
     let fut = async {
         let child = claude_codes::ClaudeCliBuilder::new()
-            .allow_recursion()
             .permission_prompt_tool("stdio")
             .spawn()
             .await

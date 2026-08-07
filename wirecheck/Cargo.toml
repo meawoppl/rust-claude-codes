@@ -6,7 +6,7 @@ publish = false
 description = "Local web portal: log in to each wrapped agent CLI and run live wire-format checks"
 
 [dependencies]
-claude-codes = { path = "../claude-codes", features = ["async-client", "auth", "integration-tests"] }
+claude-codes = { path = "../claude-codes", features = ["async-client", "auth"] }
 codex-codes = { path = "../codex-codes", features = ["async-client"] }
 muse-codes = { path = "../muse-codes", features = ["async-client"] }
 opencode-codes = { path = "../opencode-codes", features = ["async-client", "server"] }
