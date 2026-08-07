@@ -45,6 +45,7 @@ async fn main() {
         .route("/api/state", get(api_state))
         .route("/api/refresh", post(api_refresh))
         .route("/api/checks/{agent}", post(api_run_checks))
+        .route("/api/suite/{agent}", post(api_run_cargo_suite))
         .route("/api/login/muse/device", post(api_muse_device))
         .route("/api/login/muse/apikey", post(api_muse_apikey))
         .route("/api/login/claude/start", post(api_claude_start))
@@ -65,12 +66,14 @@ async fn main() {
 /// entry point; the server is the same checks with a UI.
 async fn headless_run(wanted: &[String]) {
     let all = ["claude", "codex", "muse", "opencode"];
+    let cargo_tier = wanted.iter().any(|w| w == "--cargo");
+    let wanted: Vec<&String> = wanted.iter().filter(|w| *w != "--cargo").collect();
     let agents: Vec<&'static str> = if wanted.is_empty() {
         all.to_vec()
     } else {
         all.iter()
             .copied()
-            .filter(|a| wanted.iter().any(|w| w == a))
+            .filter(|a| wanted.iter().any(|w| *w == a))
             .collect()
     };
     if agents.is_empty() {
@@ -97,6 +100,26 @@ async fn headless_run(wanted: &[String]) {
                 eprintln!("  [{:?}] {} — {}", c.status, c.name, c.detail);
             }
         }
+        drop(portal);
+        if cargo_tier {
+            eprintln!("── {agent} cargo integration tests ──");
+            {
+                let mut portal = state.write().await;
+                if let Some(panel) = portal.agents.get_mut(agent) {
+                    panel.cargo_running = true;
+                }
+            }
+            checks::cargo_suite::run(state.clone(), agent).await;
+            let portal = state.read().await;
+            if let Some(panel) = portal.agents.get(agent) {
+                for c in &panel.cargo_tests {
+                    eprintln!("  [{:?}] {} — {}", c.status, c.name, c.detail);
+                }
+                if let Some(s) = &panel.cargo_status {
+                    eprintln!("  {s}");
+                }
+            }
+        }
     }
     let portal = state.read().await;
     println!(
@@ -107,7 +130,7 @@ async fn headless_run(wanted: &[String]) {
         .agents
         .iter()
         .filter(|(name, _)| agents.contains(name))
-        .flat_map(|(_, p)| &p.checks)
+        .flat_map(|(_, p)| p.checks.iter().chain(&p.cargo_tests))
         .filter(|c| c.status == state::CheckStatus::Fail)
         .count();
     if failed > 0 {
@@ -162,6 +185,34 @@ async fn api_run_checks(State(ctx): State<Ctx>, Path(agent): Path<String>) -> im
             panel.checks_running = false;
         }
     });
+    StatusCode::ACCEPTED.into_response()
+}
+
+/// Launch the crate's real cargo integration tests for one agent.
+async fn api_run_cargo_suite(
+    State(ctx): State<Ctx>,
+    Path(agent): Path<String>,
+) -> impl IntoResponse {
+    let name: &'static str = match agent.as_str() {
+        "muse" => "muse",
+        "claude" => "claude",
+        "codex" => "codex",
+        "opencode" => "opencode",
+        _ => return (StatusCode::NOT_FOUND, "unknown agent").into_response(),
+    };
+    {
+        let mut portal = ctx.state.write().await;
+        let Some(panel) = portal.agents.get_mut(name) else {
+            return (StatusCode::NOT_FOUND, "unknown agent").into_response();
+        };
+        if panel.cargo_running {
+            return (StatusCode::CONFLICT, "cargo suite already running").into_response();
+        }
+        panel.cargo_running = true;
+        panel.cargo_tests.clear();
+        panel.cargo_status = Some("starting…".into());
+    }
+    tokio::spawn(checks::cargo_suite::run(ctx.state.clone(), name));
     StatusCode::ACCEPTED.into_response()
 }
 

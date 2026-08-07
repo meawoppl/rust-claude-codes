@@ -97,7 +97,11 @@ async fn create_list_abort_loop() {
         "session id should be a ses… handle, got {}",
         session.id
     );
-    assert_eq!(session.version, "1.18.5", "server version drifted");
+    assert_eq!(
+        session.version,
+        env!("CARGO_PKG_VERSION"),
+        "server version drifted from the crate pin"
+    );
 
     // A brand-new session has no messages yet.
     let messages = client

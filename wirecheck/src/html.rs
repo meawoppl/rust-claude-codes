@@ -89,7 +89,14 @@ function card(name, p){
     ${loginBlock(name,p)}
     <button onclick="post('/api/checks/${name}')" ${p.checks_running?"disabled":""}>
       ${p.checks_running?"running…":"run checks"}</button>
+    <button onclick="post('/api/suite/${name}')" ${p.cargo_running?"disabled":""}>
+      ${p.cargo_running?"cargo tests running…":"run cargo integration tests"}</button>
     <ul class="checks">${checks}</ul>
+    ${(p.cargo_tests&&p.cargo_tests.length)||p.cargo_status?`
+      <div class="what" style="margin-top:.6rem">cargo integration tests${p.cargo_status?` — ${esc(p.cargo_status)}`:""}</div>
+      <ul class="checks">${(p.cargo_tests||[]).map(c=>`
+        <li><span class="st ${c.status}">${icon(c.status)}</span>${esc(c.name)}
+            ${c.detail?`<div class="detail">${esc(c.detail)}</div>`:""}</li>`).join("")}</ul>`:""}
   </div>`;
 }
 

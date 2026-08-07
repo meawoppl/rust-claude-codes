@@ -29,6 +29,13 @@ pub struct AgentPanel {
     pub checks: Vec<CheckResult>,
     /// True while a suite is executing (page shows a spinner).
     pub checks_running: bool,
+    /// The crate's REAL `cargo test --features integration-tests` results,
+    /// one row per test — run in-place, parsed from libtest output, so this
+    /// section can never drift from the tests as written.
+    pub cargo_tests: Vec<CheckResult>,
+    pub cargo_running: bool,
+    /// Rolling status line for the cargo tier (compiling, running test N…).
+    pub cargo_status: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -58,8 +65,9 @@ pub enum LoginState {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CheckResult {
-    pub name: &'static str,
-    /// What property this check pins, in one sentence.
+    pub name: String,
+    /// What property this check pins, in one sentence. Empty for cargo
+    /// tests — the test name is the description.
     pub what: &'static str,
     pub status: CheckStatus,
     /// Pass detail or failure explanation. Never contains secrets.
@@ -105,7 +113,7 @@ impl Reporter {
         if let Some(panel) = portal.agents.get_mut(self.agent) {
             panel.checks.retain(|c| c.name != name);
             panel.checks.push(CheckResult {
-                name,
+                name: name.to_string(),
                 what,
                 status: CheckStatus::Running,
                 detail: String::new(),
