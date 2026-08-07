@@ -71,6 +71,158 @@ pub async fn run_suite(reporter: Reporter) {
     }
 
     live_turn(&reporter).await;
+    thread_fork(&reporter).await;
+    account_read_family(&reporter).await;
+}
+
+/// A fork gets a NEW thread id after a seeded turn — the history-carrying
+/// wire behavior downstream session forks rest on.
+async fn thread_fork(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "thread_fork",
+            "thread/fork returns a distinct thread after a seed turn",
+        )
+        .await;
+    let fut = async {
+        let mut client = codex_codes::AsyncClient::start()
+            .await
+            .map_err(|e| e.to_string())?;
+        let source = client
+            .thread_start(&ThreadStartParams::default())
+            .await
+            .map_err(|e| e.to_string())?;
+        client
+            .turn_start(&TurnStartParams {
+                thread_id: source.thread.id.clone(),
+                input: vec![UserInput::Text {
+                    text: "Reply with just OK.".to_string(),
+                    text_elements: None,
+                }],
+                approval_policy: None,
+                approvals_reviewer: None,
+                client_user_message_id: None,
+                cwd: None,
+                effort: None,
+                model: None,
+                output_schema: None,
+                personality: None,
+                sandbox_policy: None,
+                service_tier: None,
+                summary: None,
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        let mut n = 0usize;
+        while let Some(msg) = client.next_message().await.map_err(|e| e.to_string())? {
+            n += 1;
+            match msg {
+                ServerMessage::Notification(Notification::TurnCompleted(_)) => break,
+                ServerMessage::Notification(_) => {}
+                ServerMessage::Request { id, .. } => {
+                    client
+                        .respond(id, &serde_json::json!({"decision": "accept"}))
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            if n > 200 {
+                return Err("seed turn did not complete".to_string());
+            }
+        }
+        let fork = client
+            .thread_fork(
+                &serde_json::from_value(serde_json::json!({ "threadId": source.thread.id }))
+                    .map_err(|e| e.to_string())?,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        client.shutdown().await.map_err(|e| e.to_string())?;
+        if fork.thread.id.is_empty() || fork.thread.id == source.thread.id {
+            return Err(format!("bad fork id {:?}", fork.thread.id));
+        }
+        Ok(format!("{} → {}", source.thread.id, fork.thread.id))
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(120), fut).await {
+        Ok(Ok(detail)) => {
+            reporter
+                .finish("thread_fork", started, CheckStatus::Pass, detail)
+                .await
+        }
+        Ok(Err(e)) => {
+            reporter
+                .finish("thread_fork", started, CheckStatus::Fail, e)
+                .await
+        }
+        Err(_) => {
+            reporter
+                .finish(
+                    "thread_fork",
+                    started,
+                    CheckStatus::Fail,
+                    "timed out after 120s".into(),
+                )
+                .await
+        }
+    }
+}
+
+/// account/read family: typed requests go out and typed responses (or
+/// well-formed JSON-RPC errors — the usage backend can reject a locally
+/// valid token) come back.
+async fn account_read_family(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "account_reads",
+            "account/read + rateLimits + usage answer typed or as JSON-RPC errors",
+        )
+        .await;
+    let fut = async {
+        let mut client = codex_codes::AsyncClient::start()
+            .await
+            .map_err(|e| e.to_string())?;
+        client
+            .account_read(&codex_codes::protocol_generated::types::GetAccountParams::default())
+            .await
+            .map_err(|e| format!("account/read: {e}"))?;
+        for (name, result) in [
+            (
+                "rateLimits",
+                client.account_rate_limits_read().await.map(|_| ()),
+            ),
+            ("usage", client.account_usage_read().await.map(|_| ())),
+        ] {
+            match result {
+                Ok(()) => {}
+                Err(codex_codes::Error::JsonRpc { code: -32603, .. }) => {}
+                Err(other) => return Err(format!("account/{name}: transport failure: {other}")),
+            }
+        }
+        client.shutdown().await.map_err(|e| e.to_string())?;
+        Ok("all three account reads answered in protocol".to_string())
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(60), fut).await {
+        Ok(Ok(detail)) => {
+            reporter
+                .finish("account_reads", started, CheckStatus::Pass, detail)
+                .await
+        }
+        Ok(Err(e)) => {
+            reporter
+                .finish("account_reads", started, CheckStatus::Fail, e)
+                .await
+        }
+        Err(_) => {
+            reporter
+                .finish(
+                    "account_reads",
+                    started,
+                    CheckStatus::Fail,
+                    "timed out after 60s".into(),
+                )
+                .await
+        }
+    }
 }
 
 async fn live_turn(reporter: &Reporter) {

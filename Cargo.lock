@@ -2802,11 +2802,13 @@ dependencies = [
  "claude-codes",
  "codex-codes",
  "muse-codes",
+ "opencode-codes",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

@@ -39,7 +39,7 @@ pub const PAGE: &str = r#"<!doctype html>
   <button style="float:right" onclick="post('/api/refresh')">refresh auth</button></h1>
 <div class="cards" id="cards"></div>
 <script>
-const AGENTS = ["claude","codex","muse"];
+const AGENTS = ["claude","codex","muse","opencode"];
 async function post(url, body){ await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:body?JSON.stringify(body):null}); tick(); }
 function esc(s){ const d=document.createElement("div"); d.innerText=s??""; return d.innerHTML; }
 function icon(st){ return {pass:"✔",fail:"✘",running:"◌",skipped:"–"}[st]||"?"; }
@@ -67,8 +67,10 @@ function loginBlock(name, p){
   } else if(name==="claude"){
     controls = `<button onclick="post('/api/login/claude/start',{mode:'claudeai'})">claude.ai login</button>
       <button onclick="post('/api/login/claude/start',{mode:'console'})">console login</button>`;
-  } else {
+  } else if(name==="codex"){
     controls = `<span class="what">login: run <b>codex login</b> on the host (browser callback flow)</span>`;
+  } else {
+    controls = `<span class="what">no credentials needed — the suite spawns its own <b>opencode serve</b></span>`;
   }
   return `<div class="login">${controls}${inner?"<div style='margin-top:.4rem'>"+inner+"</div>":""}</div>`;
 }

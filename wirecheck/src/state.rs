@@ -86,6 +86,7 @@ impl Portal {
         agents.insert("claude", AgentPanel::default());
         agents.insert("codex", AgentPanel::default());
         agents.insert("muse", AgentPanel::default());
+        agents.insert("opencode", AgentPanel::default());
         Self { agents }
     }
 }

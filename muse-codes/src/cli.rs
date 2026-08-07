@@ -90,6 +90,7 @@ pub struct MuseExecBuilder {
     disable_write: bool,
     disable_shell: bool,
     enable_shell_tool: bool,
+    extra_args: Vec<String>,
     working_directory: Option<PathBuf>,
     envs: Vec<(String, String)>,
 }
@@ -136,6 +137,7 @@ impl Default for MuseExecBuilder {
             disable_write: false,
             disable_shell: false,
             enable_shell_tool: false,
+            extra_args: Vec::new(),
             working_directory: None,
             envs: Vec::new(),
         }
@@ -398,6 +400,20 @@ impl MuseExecBuilder {
         self
     }
 
+    /// Raw argument passthrough for flags this builder does not model
+    /// (mirrors codex-codes). Appended AFTER every typed flag and BEFORE
+    /// the positional prompt, so callers relaying user-supplied tokens
+    /// (e.g. a launch dialog's extra-args box) need no flag parser of
+    /// their own. Prefer the typed setters when one exists.
+    pub fn extra_args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.extra_args.extend(args.into_iter().map(Into::into));
+        self
+    }
+
     pub fn working_directory(mut self, dir: impl Into<PathBuf>) -> Self {
         self.working_directory = Some(dir.into());
         self
@@ -517,6 +533,9 @@ impl MuseExecBuilder {
         }
         if self.enable_shell_tool {
             cmd.arg("--enable-shell-tool");
+        }
+        for arg in &self.extra_args {
+            cmd.arg(arg);
         }
         // `--prompt-file` replaces the positional prompt.
         if let Some(file) = &self.prompt_file {
@@ -679,6 +698,29 @@ mod tests {
         assert_eq!(got.last().map(String::as_str), Some("/tmp/p.txt"));
         assert!(got.contains(&"--prompt-file".to_string()));
         assert!(!got.contains(&"ignored".to_string()));
+    }
+
+    /// Raw passthrough lands after typed flags, before the prompt — the
+    /// position a launch dialog's freeform tokens must occupy.
+    #[test]
+    fn extra_args_sit_between_typed_flags_and_the_prompt() {
+        let got = args(
+            &MuseExecBuilder::new("go")
+                .model("m-1")
+                .extra_args(["--reasoning-effort", "low"]),
+        );
+        assert_eq!(
+            got,
+            [
+                "exec",
+                "--json",
+                "--model",
+                "m-1",
+                "--reasoning-effort",
+                "low",
+                "go"
+            ]
+        );
     }
 
     /// Nothing optional leaks into a minimal invocation.

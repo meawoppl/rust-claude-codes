@@ -28,6 +28,12 @@ struct Ctx {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("run") {
+        headless_run(&args[1..]).await;
+        return;
+    }
+
     let ctx = Ctx {
         state: Arc::new(tokio::sync::RwLock::new(Portal::new())),
         claude_flow: Arc::new(login::ClaudeFlowSlot::default()),
@@ -53,6 +59,63 @@ async fn main() {
     axum::serve(listener, app).await.expect("serve");
 }
 
+/// One-shot CI/scripting mode: `wirecheck run [agent ...]` runs the named
+/// suites (default: all four) sequentially, prints the full state as JSON
+/// on stdout, and exits 1 if any check failed — the integration-suite
+/// entry point; the server is the same checks with a UI.
+async fn headless_run(wanted: &[String]) {
+    let all = ["claude", "codex", "muse", "opencode"];
+    let agents: Vec<&'static str> = if wanted.is_empty() {
+        all.to_vec()
+    } else {
+        all.iter()
+            .copied()
+            .filter(|a| wanted.iter().any(|w| w == a))
+            .collect()
+    };
+    if agents.is_empty() {
+        eprintln!("no known agents in {wanted:?}; known: {all:?}");
+        std::process::exit(2);
+    }
+    let state: Shared = Arc::new(tokio::sync::RwLock::new(Portal::new()));
+    refresh_all_auth(&state).await;
+    for agent in &agents {
+        eprintln!("── {agent} suite ──");
+        let reporter = state::Reporter {
+            state: state.clone(),
+            agent,
+        };
+        match *agent {
+            "muse" => checks::muse::run_suite(reporter).await,
+            "claude" => checks::claude::run_suite(reporter).await,
+            "opencode" => checks::opencode::run_suite(reporter).await,
+            _ => checks::codex::run_suite(reporter).await,
+        }
+        let portal = state.read().await;
+        if let Some(panel) = portal.agents.get(agent) {
+            for c in &panel.checks {
+                eprintln!("  [{:?}] {} — {}", c.status, c.name, c.detail);
+            }
+        }
+    }
+    let portal = state.read().await;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&*portal).unwrap_or_else(|_| "{}".into())
+    );
+    let failed = portal
+        .agents
+        .iter()
+        .filter(|(name, _)| agents.contains(name))
+        .flat_map(|(_, p)| &p.checks)
+        .filter(|c| c.status == state::CheckStatus::Fail)
+        .count();
+    if failed > 0 {
+        eprintln!("{failed} check(s) FAILED");
+        std::process::exit(1);
+    }
+}
+
 async fn api_state(State(ctx): State<Ctx>) -> Json<serde_json::Value> {
     let portal = ctx.state.read().await;
     Json(serde_json::to_value(&*portal).unwrap_or(serde_json::Value::Null))
@@ -68,6 +131,7 @@ async fn api_run_checks(State(ctx): State<Ctx>, Path(agent): Path<String>) -> im
         "muse" => "muse",
         "claude" => "claude",
         "codex" => "codex",
+        "opencode" => "opencode",
         _ => return (StatusCode::NOT_FOUND, "unknown agent").into_response(),
     };
     {
@@ -90,6 +154,7 @@ async fn api_run_checks(State(ctx): State<Ctx>, Path(agent): Path<String>) -> im
         match name {
             "muse" => checks::muse::run_suite(reporter).await,
             "claude" => checks::claude::run_suite(reporter).await,
+            "opencode" => checks::opencode::run_suite(reporter).await,
             _ => checks::codex::run_suite(reporter).await,
         }
         let mut portal = state_for_done.write().await;
@@ -147,7 +212,7 @@ async fn api_claude_code(State(ctx): State<Ctx>, Json(body): Json<CodeBody>) -> 
 // ── auth refresh ─────────────────────────────────────────────────────
 
 async fn refresh_all_auth(state: &Shared) {
-    for agent in ["claude", "codex", "muse"] {
+    for agent in ["claude", "codex", "muse", "opencode"] {
         refresh_agent_auth(state, agent).await;
     }
 }

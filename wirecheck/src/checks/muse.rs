@@ -22,6 +22,10 @@ pub async fn run_suite(reporter: Reporter) {
         session_id_adoption(&reporter, records).await;
     }
     record_id_counter_trap(&reporter).await;
+    continuity_across_turns(&reporter).await;
+    interrupt_is_a_safe_kill(&reporter).await;
+    flag_surface_accepted(&reporter).await;
+    meta_only_flags_rejected(&reporter).await;
 
     if muse_codes::auth::credentials_present() {
         live_meta_checks(&reporter).await;
@@ -406,6 +410,239 @@ async fn live_meta_checks(reporter: &Reporter) {
     }
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Multi-turn continuity: same `--session-id` across two processes means
+/// same `stream.id`, per-turn sequence restart, and NO record-id repeats
+/// within the session — the exact identity rules consumers key on.
+async fn continuity_across_turns(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "continuity",
+            "two turns, one session: stream stable, sequence restarts, ids unique within session",
+        )
+        .await;
+    let session = uuid_v4();
+    let one = capture(
+        MuseExecBuilder::new("turn one")
+            .provider(Provider::Echo)
+            .session_id(&session),
+        60,
+    )
+    .await;
+    let two = capture(
+        MuseExecBuilder::new("turn two")
+            .provider(Provider::Echo)
+            .session_id(&session),
+        60,
+    )
+    .await;
+    let (one, two) = match (one, two) {
+        (Ok(a), Ok(b)) => (a, b),
+        (a, b) => {
+            reporter
+                .finish(
+                    "continuity",
+                    started,
+                    CheckStatus::Fail,
+                    format!("capture failed: turn1={} turn2={}", a.is_ok(), b.is_ok()),
+                )
+                .await;
+            return;
+        }
+    };
+    let mut problems = Vec::new();
+    for r in one.iter().chain(&two) {
+        if r.stream.kind == muse_codes::StreamKind::Session && r.stream.id != session {
+            problems.push(format!("session stream drifted to {}", r.stream.id));
+        }
+    }
+    let min1 = one.iter().map(|r| r.sequence).min().unwrap_or(0);
+    let min2 = two.iter().map(|r| r.sequence).min().unwrap_or(0);
+    if min2 > min1 + 5 {
+        problems.push(format!(
+            "sequence did not restart on turn 2 (turn1 min {min1}, turn2 min {min2}) — \
+             if muse made sequences session-continuous, ordering rules changed"
+        ));
+    }
+    let ids1: BTreeSet<&str> = one.iter().map(|r| r.id.as_str()).collect();
+    let repeats = two.iter().filter(|r| ids1.contains(r.id.as_str())).count();
+    if repeats > 0 {
+        problems.push(format!(
+            "{repeats} record ids repeated ACROSS TURNS within one session — \
+             (stream_id, id) would collide; persistence keying is broken"
+        ));
+    }
+    finish_list(reporter, "continuity", started, problems, || {
+        format!(
+            "stream stable, sequences restart ({min1}→{min2}), {} + {} unique ids",
+            one.len(),
+            two.len()
+        )
+    })
+    .await;
+}
+
+/// There is no interrupt protocol: SIGKILL mid-run must leave the session
+/// store usable, so the next turn on the same id runs clean.
+async fn interrupt_is_a_safe_kill(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "interrupt_kill",
+            "SIGKILL mid-run leaves the session resumable",
+        )
+        .await;
+    let session = uuid_v4();
+    let spawn = MuseExecBuilder::new("about to be killed")
+        .provider(Provider::Echo)
+        .session_id(&session)
+        .spawn()
+        .await;
+    let mut child = match spawn {
+        Ok(c) => c,
+        Err(e) => {
+            reporter
+                .finish("interrupt_kill", started, CheckStatus::Fail, e.to_string())
+                .await;
+            return;
+        }
+    };
+    // 60ms: early enough that the echo run (~250ms) is genuinely mid-flight.
+    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+    let _ = child.kill().await;
+    match capture(
+        MuseExecBuilder::new("resumed after kill")
+            .provider(Provider::Echo)
+            .session_id(&session),
+        60,
+    )
+    .await
+    {
+        Ok(records) => {
+            reporter
+                .finish(
+                    "interrupt_kill",
+                    started,
+                    CheckStatus::Pass,
+                    format!(
+                        "resume turn reached terminal with {} records",
+                        records.len()
+                    ),
+                )
+                .await;
+        }
+        Err(e) => {
+            reporter
+                .finish(
+                    "interrupt_kill",
+                    started,
+                    CheckStatus::Fail,
+                    format!("session did not survive a mid-run kill: {e}"),
+                )
+                .await;
+        }
+    }
+}
+
+/// The full echo-safe `muse exec` flag surface is still accepted — a CLI
+/// release that drops or renames a flag fails here, not in production.
+async fn flag_surface_accepted(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "flag_surface",
+            "echo-safe builder flag surface accepted by the CLI",
+        )
+        .await;
+    let dir = std::env::temp_dir().join(format!("wirecheck-flags-{}", uuid_v4()));
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        reporter
+            .finish("flag_surface", started, CheckStatus::Fail, e.to_string())
+            .await;
+        return;
+    }
+    let prompt_file = dir.join("prompt.txt");
+    let _ = std::fs::write(&prompt_file, "flag surface probe");
+    let builder = MuseExecBuilder::new("")
+        .prompt_file(&prompt_file)
+        .provider(Provider::Echo)
+        .session_id(uuid_v4())
+        .workspace(&dir)
+        .context_compaction_strategy("summary-preserved-suffix/v1")
+        .context_compaction_soft_threshold(0.7)
+        .context_compaction_hard_threshold(0.9)
+        .max_model_steps(5)
+        .max_tool_output_bytes(10_000)
+        .allow_workspace_switch(true)
+        .user_input_auto_resolve(true)
+        .subagent_worktree_isolation(true)
+        .disable_web_tools(true)
+        .no_foreign_personal_context(true)
+        .trust_workspace(true)
+        .disable_approval(true)
+        .disable_sandbox(true)
+        .sandbox_network("proxy-only")
+        .disable_write(true)
+        .disable_shell(true)
+        .working_directory(&dir);
+    match capture(builder, 60).await {
+        Ok(records) => {
+            reporter
+                .finish(
+                    "flag_surface",
+                    started,
+                    CheckStatus::Pass,
+                    format!("all flags accepted; {} records to terminal", records.len()),
+                )
+                .await;
+        }
+        Err(e) => {
+            reporter
+                .finish("flag_surface", started, CheckStatus::Fail, e)
+                .await;
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The documented cross-flag constraints are real CLI behavior: meta-only
+/// flags must fail FAST under the echo provider, not start a run.
+async fn meta_only_flags_rejected(reporter: &Reporter) {
+    let started = reporter
+        .start(
+            "flag_constraints",
+            "meta-only flags rejected at startup under echo",
+        )
+        .await;
+    let mut problems = Vec::new();
+    for (label, builder) in [
+        (
+            "--parallel-tool-calls",
+            MuseExecBuilder::new("hi")
+                .provider(Provider::Echo)
+                .parallel_tool_calls(true),
+        ),
+        (
+            "--api-key-stdin",
+            MuseExecBuilder::new("hi")
+                .provider(Provider::Echo)
+                .api_key_stdin(true),
+        ),
+    ] {
+        match builder.spawn().await {
+            Ok(mut child) => {
+                match tokio::time::timeout(std::time::Duration::from_secs(20), child.wait()).await {
+                    Ok(Ok(status)) if !status.success() => {}
+                    Ok(Ok(_)) => problems.push(format!("{label} was ACCEPTED under echo")),
+                    other => problems.push(format!("{label}: {other:?}")),
+                }
+            }
+            Err(e) => problems.push(format!("{label}: spawn failed: {e}")),
+        }
+    }
+    finish_list(reporter, "flag_constraints", started, problems, || {
+        "both meta-only flags fail fast under echo, as documented".to_string()
+    })
+    .await;
 }
 
 // ── plumbing ─────────────────────────────────────────────────────────
