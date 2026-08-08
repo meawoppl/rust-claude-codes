@@ -38,10 +38,17 @@ fn workspace() -> std::path::PathBuf {
     dir
 }
 
+/// Free-tier quota is per model, and the `pro` models have none at all — a
+/// request against one comes back `429 limit: 0` rather than an answer. Flash
+/// is what a keyless-or-free account can actually reach.
+fn model() -> String {
+    std::env::var("ANTIGRAVITY_MODEL").unwrap_or_else(|_| "gemini-flash-latest".into())
+}
+
 fn options(api_key: &str) -> HarnessOptions {
     HarnessOptions::new()
         .workspace(workspace())
-        .model(ModelBuilder::gemini("gemini-3-pro-preview", api_key))
+        .model(ModelBuilder::gemini(model(), api_key))
 }
 
 #[tokio::test]

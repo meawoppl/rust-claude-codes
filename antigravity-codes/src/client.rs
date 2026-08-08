@@ -26,7 +26,7 @@ use crate::RawClient;
 /// let mut client = Client::launch(
 ///     HarnessOptions::new()
 ///         .workspace("/tmp/project")
-///         .model(ModelBuilder::gemini("gemini-3-pro-preview", std::env::var("GEMINI_API_KEY").unwrap())),
+///         .model(ModelBuilder::gemini("gemini-flash-latest", std::env::var("GEMINI_API_KEY").unwrap())),
 /// )
 /// .await?;
 ///

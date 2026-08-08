@@ -1,0 +1,25 @@
+{
+  "usageUpdate": {
+    "agents": [
+      {
+        "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+        "usage": {
+          "promptTokenCount": "6488",
+          "cachedContentTokenCount": "0",
+          "candidatesTokenCount": "40",
+          "thoughtsTokenCount": "94",
+          "totalTokenCount": "6622"
+        }
+      }
+    ],
+    "total": {
+      "promptTokenCount": "6488",
+      "cachedContentTokenCount": "0",
+      "candidatesTokenCount": "40",
+      "thoughtsTokenCount": "94",
+      "totalTokenCount": "6622"
+    }
+  },
+  "seqNum": "5",
+  "timestampMicros": "1786224258416457"
+}

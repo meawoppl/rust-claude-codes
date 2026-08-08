@@ -1,0 +1,33 @@
+{
+  "stepUpdate": {
+    "cascadeId": "34496d539a0d82c89acaa1a6020e2158",
+    "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+    "stepIndex": 1,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "thinking": "",
+    "textDelta": "",
+    "thinkingDelta": "",
+    "text": "List workspace files",
+    "listDirectory": {
+      "directoryPath": "file:///tmp/agcapture",
+      "results": [
+        {
+          "fileSize": "59",
+          "name": "README.md"
+        },
+        {
+          "fileSize": "17",
+          "name": "data.txt"
+        },
+        {
+          "fileSize": "37",
+          "name": "main.rs"
+        }
+      ]
+    }
+  },
+  "seqNum": "8",
+  "timestampMicros": "1786224258421006"
+}

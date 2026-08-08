@@ -58,6 +58,18 @@ initialised with none exits immediately and drops the socket without an error
 frame — the crate surfaces the process's stderr in that case, because that is
 the only diagnosis available.
 
+Two things that bite on a first run:
+
+- **Built-in tools are off unless enabled.** A harness with none will answer
+  "I do not have file reading or command execution tools enabled" rather than
+  read your workspace. `HarnessOptions` defaults to
+  `HarnessSideTools::read_only()` — list, search, find, view, fetch — matching
+  the reference Python SDK. Widen with `HarnessSideTools::all()` (shell and file
+  writes) or narrow with `::none()`.
+- **Free-tier quota is per model, and the `pro` models have none.** A request
+  against one returns `429 … limit: 0` rather than an answer. `gemini-flash-latest`
+  works on a free key.
+
 ## Usage
 
 ```toml
@@ -74,7 +86,7 @@ async fn main() -> antigravity_codes::Result<()> {
         HarnessOptions::new()
             .workspace("/tmp/project")
             .model(ModelBuilder::gemini(
-                "gemini-3-pro-preview",
+                "gemini-flash-latest",
                 std::env::var("GEMINI_API_KEY").unwrap(),
             )),
     )
@@ -133,10 +145,16 @@ antigravity-codes = { version = "0.1", default-features = false, features = ["ty
 ## Examples
 
 ```sh
+export GEMINI_API_KEY=...            # https://aistudio.google.com/apikey
+export ANTIGRAVITY_HARNESS_PATH=~/.local/bin/localharness
+
 cargo run -p antigravity-codes --example stream_chat -- "what files are here?"
 cargo run -p antigravity-codes --example custom_tool
 cargo run -p antigravity-codes --example capture_frames -- ./captures "hello"
 ```
+
+All three take `ANTIGRAVITY_MODEL` to override the model, defaulting to
+`gemini-flash-latest`.
 
 ## Regenerating the protocol
 

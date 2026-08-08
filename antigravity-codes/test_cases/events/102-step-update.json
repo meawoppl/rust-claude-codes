@@ -1,0 +1,16 @@
+{
+  "stepUpdate": {
+    "cascadeId": "153d687b2c550014ed486ebfb2e8312a",
+    "trajectoryId": "153d687b2c550014ed486ebfb2e8312a",
+    "stepIndex": 0,
+    "state": "STATE_DONE",
+    "source": "SOURCE_USER",
+    "target": "TARGET_MODEL",
+    "thinking": "",
+    "textDelta": "List the files in this directory, read data.txt, and tell me what the third line says.",
+    "thinkingDelta": "",
+    "text": "List the files in this directory, read data.txt, and tell me what the third line says."
+  },
+  "seqNum": "3",
+  "timestampMicros": "1786224089503685"
+}

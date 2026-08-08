@@ -26,7 +26,7 @@ use crate::ws;
 /// let mut client = RawClient::launch(
 ///     HarnessOptions::new()
 ///         .workspace("/tmp/project")
-///         .model(ModelBuilder::gemini("gemini-3-pro-preview", "…")),
+///         .model(ModelBuilder::gemini("gemini-flash-latest", "…")),
 /// )
 /// .await?;
 ///

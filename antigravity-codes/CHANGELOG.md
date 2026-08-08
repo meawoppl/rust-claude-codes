@@ -35,6 +35,26 @@ Initial release. Tested against `google-antigravity` 0.1.10.
 - `scripts/check_antigravity_schema_drift.py`, which diffs the committed
   descriptor snapshot against the latest wheel on PyPI.
 
+### Verified against a live model
+
+The corpus and the client-obligation paths were exercised against a real Gemini
+endpoint, not just the descriptor:
+
+- Two captured sessions of a successful turn — one plain, one agentic
+  (`listDirectory` → `viewFile` → answer) — decode with no field loss.
+- `examples/custom_tool.rs` completes the full round trip: a
+  `LIFECYCLE_HOOK_PRE_TOOL` hook request, a client-side `ToolCall`, the
+  `ToolResponse` this crate sends back, and the model's answer built from it.
+
+Two defaults were corrected as a result:
+
+- `HarnessOptions` now defaults to `HarnessSideTools::read_only()`. Previously
+  it enabled nothing, and the agent would explain that it had no tools rather
+  than read the workspace. This matches the reference Python SDK's default.
+- Examples and tests use `gemini-flash-latest`, taking `ANTIGRAVITY_MODEL` as an
+  override. The `pro` models have zero free-tier quota and return
+  `429 … limit: 0`.
+
 ### Notes
 
 - Unknown enum values and unknown `oneof` arms decode rather than fail. The

@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
         HarnessOptions::new()
             .workspace(std::env::current_dir()?)
             .model(ModelBuilder::gemini(
-                "gemini-3-pro-preview",
+                std::env::var("ANTIGRAVITY_MODEL").unwrap_or_else(|_| "gemini-flash-latest".into()),
                 std::env::var("GEMINI_API_KEY").unwrap_or_default(),
             )),
     )

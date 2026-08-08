@@ -101,6 +101,77 @@ impl ToolResponse {
     }
 }
 
+impl HarnessSideTools {
+    /// Nothing enabled — the agent can only talk.
+    ///
+    /// This is what the harness does when the field is absent altogether, and
+    /// it is rarely what you want: an agent with no tools answers questions
+    /// about a workspace by explaining that it cannot read it.
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    /// Tools that only read state: list, search, find, view, and URL fetch.
+    ///
+    /// This mirrors the default in the reference Python SDK, and is the default
+    /// for [`HarnessOptions`](crate::HarnessOptions). Nothing here writes to the
+    /// workspace or runs a command.
+    pub fn read_only() -> Self {
+        Self {
+            list_dir: Some(ListDirToolConfig {
+                enabled: Some(true),
+            }),
+            grep_search: Some(GrepSearchToolConfig {
+                enabled: Some(true),
+            }),
+            find: Some(FindToolConfig {
+                enabled: Some(true),
+            }),
+            view_file: Some(ViewFileToolConfig {
+                enabled: Some(true),
+            }),
+            read_url_content: Some(ReadUrlContentToolConfig {
+                enabled: Some(true),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// Everything the harness offers, including shell execution and file writes.
+    ///
+    /// Only reach for this against a workspace you are willing to have modified.
+    /// Enabling `user_questions` also means the harness may block a turn waiting
+    /// on an answer — register a
+    /// [`Handlers::on_questions`](crate::handlers::Handlers::on_questions) or the
+    /// default will cancel it.
+    pub fn all() -> Self {
+        Self {
+            file_edit: Some(FileEditToolConfig {
+                enabled: Some(true),
+            }),
+            write_to_file: Some(WriteToFileToolConfig {
+                enabled: Some(true),
+            }),
+            run_command: Some(RunCommandToolConfig {
+                enabled: Some(true),
+            }),
+            subagents: Some(SubagentsConfig {
+                enabled: Some(true),
+            }),
+            user_questions: Some(UserQuestionsConfig {
+                enabled: Some(true),
+            }),
+            generate_image: Some(GenerateImageToolConfig {
+                enabled: Some(true),
+            }),
+            search_web: Some(SearchWebToolConfig {
+                enabled: Some(true),
+            }),
+            ..Self::read_only()
+        }
+    }
+}
+
 impl StepUpdate {
     /// True once this step will not be updated again.
     pub fn is_terminal(&self) -> bool {

@@ -121,7 +121,7 @@ impl ModelBuilder {
 /// This carries both halves of startup: the [`InputConfig`] written over stdio
 /// during the handshake, and the [`HarnessConfig`] sent as the first WebSocket
 /// frame. Most callers only touch the latter.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct HarnessOptions {
     binary: Option<PathBuf>,
     storage_directory: Option<PathBuf>,
@@ -130,8 +130,31 @@ pub struct HarnessOptions {
     config: HarnessConfig,
 }
 
+impl Default for HarnessOptions {
+    fn default() -> Self {
+        Self {
+            binary: None,
+            storage_directory: None,
+            env: HashMap::new(),
+            client_info: None,
+            config: HarnessConfig {
+                // The harness runs *no* built-in tools unless told to, and an
+                // agent with none answers questions about a workspace by
+                // explaining that it cannot read it. The reference Python SDK
+                // defaults to the read-only set; so do we. Widen with
+                // `harness_side_tools(HarnessSideTools::all())`.
+                harness_side_tools: Some(HarnessSideTools::read_only()),
+                ..Default::default()
+            },
+        }
+    }
+}
+
 impl HarnessOptions {
-    /// Default options. A workspace and at least one model still need setting.
+    /// Default options: read-only built-in tools, no models, no workspace.
+    ///
+    /// A workspace and at least one model still need setting — a harness with
+    /// no model exits during initialize.
     pub fn new() -> Self {
         Self::default()
     }
@@ -194,8 +217,11 @@ impl HarnessOptions {
         self
     }
 
-    /// Enables or disables the tools that run inside the harness itself
-    /// (file edits, shell, search, and friends).
+    /// Replaces the set of tools that run inside the harness itself.
+    ///
+    /// Defaults to [`HarnessSideTools::read_only`]. Use
+    /// [`HarnessSideTools::all`] to add shell execution and file writes, or
+    /// [`HarnessSideTools::none`] for an agent that only talks.
     pub fn harness_side_tools(mut self, tools: HarnessSideTools) -> Self {
         self.config.harness_side_tools = Some(tools);
         self
@@ -247,7 +273,11 @@ impl HarnessOptions {
     }
 
     /// Replaces the whole [`HarnessConfig`], for settings this builder does not
-    /// surface. Anything set by earlier builder calls is discarded.
+    /// surface.
+    ///
+    /// Anything set by earlier builder calls is discarded — including the
+    /// default read-only tool set, so set
+    /// [`HarnessConfig::harness_side_tools`] yourself if you want any.
     pub fn harness_config(mut self, config: HarnessConfig) -> Self {
         self.config = config;
         self
@@ -463,7 +493,7 @@ mod tests {
         let options = HarnessOptions::new()
             .workspace("/tmp/a")
             .workspace("/tmp/b")
-            .model(ModelBuilder::gemini("gemini-3-pro-preview", "k"));
+            .model(ModelBuilder::gemini("gemini-flash-latest", "k"));
         assert_eq!(options.config().workspaces.len(), 2);
         assert_eq!(options.config().models.len(), 1);
         assert_eq!(

@@ -10,35 +10,53 @@ not a re-serialisation of it, which is what makes the "decoding loses nothing"
 assertion meaningful: it compares every leaf of the original against the same
 document round-tripped through the crate's types.
 
+Three sessions, distinguished by the leading digit:
+
+| Prefix | Session | What it covers |
+|---|---|---|
+| `0xx` | Rejected API key | Handshake, initialize, prompt echo, in-band error step, `STATE_FULLY_IDLE` carrying a failure |
+| `1xx` | Live model, no tools | A full successful turn: twelve `stepUpdate` frames of incremental `textDelta`, then the settled `text`, plus a `usageUpdate` |
+| `2xx` | Live model, read-only tools | An agentic turn — `listDirectory` → `viewFile` → answer, across four step indices, with per-step `usageUpdate` frames |
+
+The `2xx` session is the one that exercises the interesting shapes: multiple
+concurrent step indices on one trajectory, action payloads nested inside a
+`stepUpdate`, and `STATE_ACTIVE` → `STATE_DONE` transitions per step.
+
 Capture more with:
 
 ```sh
-ANTIGRAVITY_HARNESS_PATH=/path/to/localharness \
-  cargo run -p antigravity-codes --example capture_frames -- ./antigravity-codes/test_cases/events "your prompt"
+ANTIGRAVITY_HARNESS_PATH=/path/to/localharness GEMINI_API_KEY=... \
+  cargo run -p antigravity-codes --example capture_frames -- ./captures "your prompt"
 ```
 
-Note that the example writes *re-serialised* frames. For fixtures that carry
-their evidentiary weight, capture the raw text instead — `RUST_LOG=trace` logs
-every frame verbatim at the `antigravity_codes::client_raw` target.
+Note that the example writes *re-serialised* frames, which would make the
+no-field-loss test tautological. For fixtures that carry their evidentiary
+weight, capture the raw text instead — `RUST_LOG=antigravity_codes=trace` logs
+every frame verbatim as it arrives.
 
-### What this directory is missing
+### Still not represented
 
-These captures come from a session with a deliberately rejected API key, so they
-cover the handshake, initialize, prompt echo, the model-failure path, and the
-trajectory lifecycle — but **not** a successful model turn. Anything downstream
-of a real model response (streaming text deltas across many frames, harness-side
-tool actions, subagent trajectories) is not represented here yet. Captures from
-a session with a working key are welcome.
+- **Subagent trajectories.** Needs a session with `subagents` enabled and a
+  prompt that provokes delegation.
+- **Harness-side write tools** — `editFile`, `createFile`, `runCommand`. The
+  captures use the read-only default; these are covered synthetically.
+- **`policyDecisionRequest`.** Needs a dynamic policy rule configured.
 
 ## `synthetic/` — hand-written
 
-Frames for paths the rejected-key session never reaches: tool calls, lifecycle
-hooks, policy decisions, usage updates, questions, tool confirmations, and the
-richer step actions. These are written against the protobuf descriptor rather
-than observed, so they prove the types decode a *correct* frame — not that the
+Frames for paths the captured sessions do not reach: client-side tool calls,
+lifecycle hooks, policy decisions, questions, tool confirmations, and the write
+actions above. These are written against the protobuf descriptor rather than
+observed, so they prove the types decode a *correct* frame — not that the
 harness emits exactly this shape.
 
-Two are deliberately wrong:
+Two of those paths *are* known to work end to end even though the committed
+fixture is synthetic: `examples/custom_tool.rs` runs a live session that
+provokes a real `callHookRequest` (`LIFECYCLE_HOOK_PRE_TOOL`) and a real
+`toolCall`, answers both, and the model consumes the tool's result. That
+exercise is what the synthetic fixtures are modelled on.
+
+Two files are deliberately wrong:
 
 - `unknown-future-frame.json` — an `OutputEvent` whose `oneof` arm this crate
   has never heard of. Must decode, with no arm set.

@@ -1,0 +1,16 @@
+{
+  "stepUpdate": {
+    "cascadeId": "34496d539a0d82c89acaa1a6020e2158",
+    "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+    "stepIndex": 3,
+    "state": "STATE_ACTIVE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "thinking": "",
+    "textDelta": "rs)\n\nThe third line of [`data.txt`](file:///tmp/agcapture/data.txt#L",
+    "thinkingDelta": "",
+    "text": "The files in `/tmp/agcapture` are:\n- [`README.md`](file:///tmp/agcapture/README.md)\n- [`data.txt`](file:///tmp/agcapture/data.txt)\n- [`main.rs`](file:///tmp/agcapture/main.rs)\n\nThe third line of [`data.txt`](file:///tmp/agcapture/data.txt#L"
+  },
+  "seqNum": "17",
+  "timestampMicros": "1786224261434043"
+}

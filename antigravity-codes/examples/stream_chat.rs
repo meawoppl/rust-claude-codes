@@ -22,11 +22,14 @@ async fn main() -> Result<()> {
         String::new()
     });
     let workspace = std::env::current_dir()?;
+    // Free-tier quota is per-model, and the pro models have none — flash is the
+    // one that answers without a billing account attached.
+    let model = std::env::var("ANTIGRAVITY_MODEL").unwrap_or_else(|_| "gemini-3.6-flash".into());
 
     let mut client = Client::launch(
         HarnessOptions::new()
             .workspace(&workspace)
-            .model(ModelBuilder::gemini("gemini-3-pro-preview", api_key)),
+            .model(ModelBuilder::gemini(&model, api_key)),
     )
     .await?;
 
