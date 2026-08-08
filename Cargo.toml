@@ -1,5 +1,5 @@
 [workspace]
-members = ["claude-codes", "codex-codes", "opencode-codes"]
+members = ["antigravity-codes", "claude-codes", "codex-codes", "opencode-codes"]
 resolver = "2"
 
 # Dependencies shared by two or more workspace crates. Members reference these

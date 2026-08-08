@@ -1,0 +1,17 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 7,
+    "state": "STATE_WAITING_FOR_USER",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "toolConfirmationRequest": {},
+    "runCommand": {
+      "commandLine": "git push --force",
+      "workingDir": "/tmp/project"
+    }
+  },
+  "seqNum": "19",
+  "timestampMicros": "1786220348300000"
+}

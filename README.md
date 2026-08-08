@@ -2,7 +2,7 @@
 
 Typed Rust interfaces for AI code agent CLI protocols.
 
-This workspace provides independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), and [opencode](https://opencode.ai) via their streaming protocols (JSON/JSONL over stdio, or HTTP + SSE).
+This workspace provides independent crates for interacting with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), and [Google Antigravity](https://antigravity.google) via their streaming protocols (JSON/JSONL over stdio, HTTP + SSE, or protobuf-JSON over a WebSocket).
 
 ## Crates
 
@@ -11,6 +11,7 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 | [`claude-codes`](./claude-codes/) | [![Crates.io](https://img.shields.io/crates/v/claude-codes.svg)](https://crates.io/crates/claude-codes) | [![docs.rs](https://docs.rs/claude-codes/badge.svg)](https://docs.rs/claude-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 | [`codex-codes`](./codex-codes/) | [![Crates.io](https://img.shields.io/crates/v/codex-codes.svg)](https://crates.io/crates/codex-codes) | [![docs.rs](https://docs.rs/codex-codes/badge.svg)](https://docs.rs/codex-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 | [`opencode-codes`](./opencode-codes/) | [![Crates.io](https://img.shields.io/crates/v/opencode-codes.svg)](https://crates.io/crates/opencode-codes) | [![docs.rs](https://docs.rs/opencode-codes/badge.svg)](https://docs.rs/opencode-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
+| [`antigravity-codes`](./antigravity-codes/) | [![Crates.io](https://img.shields.io/crates/v/antigravity-codes.svg)](https://crates.io/crates/antigravity-codes) | [![docs.rs](https://docs.rs/antigravity-codes/badge.svg)](https://docs.rs/antigravity-codes) | [![CI](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/ci.yml) | [![Feature Matrix](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml/badge.svg)](https://github.com/meawoppl/rust-code-agent-sdks/actions/workflows/feature-matrix.yml) |
 
 ## Versioning
 
@@ -19,10 +20,14 @@ Each crate's version tracks the CLI it wraps:
 - **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.166`, tested against Claude CLI `2.1.220`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.146.0`, tested against Codex CLI `0.146.0`.
 - **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.5`, tested against opencode `1.18.5`.
+- **`antigravity-codes`** version tracks the `google-antigravity` wheel whose bundled harness it was generated from. Currently `antigravity-codes 0.1.10`, tested against google-antigravity `0.1.10`.
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
 CLI version diverges from the tested version. `opencode-codes` tracks the
 opencode release train by version but ships no runtime version-divergence check.
+`antigravity-codes` *cannot* check: the harness takes no arguments and reports
+no version of its own, so it absorbs skew at the type level instead — unknown
+enum values and unknown `oneof` arms decode rather than fail.
 
 ## Feature Flags
 
@@ -77,6 +82,29 @@ codex-codes = { version = "0.142", default-features = false, features = ["types"
 opencode-codes = { version = "1.18", default-features = false, features = ["types"] }
 ```
 
+### antigravity-codes
+
+`antigravity-codes` wraps a Go binary that bootstraps over stdio and then serves a loopback WebSocket, so its flags differ again:
+
+| Feature | Description | WASM-compatible |
+|---------|-------------|-----------------|
+| `types` | Wire types and the stdio handshake codec only (serde) | Yes |
+| `async-client` | Async WebSocket client using tokio | No |
+| `integration-tests` | Enables tests that require a real harness binary | No |
+
+`default = ["types", "async-client"]` (there is no sync client — the protocol is
+bidirectional, with the harness making requests of the client mid-turn). For
+WASM or type-sharing use cases:
+
+```toml
+[dependencies]
+antigravity-codes = { version = "0.1", default-features = false, features = ["types"] }
+```
+
+Note that the `localharness` binary is distributed only inside the
+`google-antigravity` wheels on PyPI; see the
+[crate README](./antigravity-codes/README.md) for how to obtain it.
+
 ## Testing Approach
 
 The crates share the same testing philosophy:
@@ -108,12 +136,18 @@ rust-code-agent-sdks/
   opencode-codes/        # opencode HTTP + SSE server bindings
     src/                 # Types, async client, HTTP/SSE transport, server launcher
     tests/               # Drift checks and schema snapshot
+  antigravity-codes/     # Antigravity localharness protobuf-JSON bindings
+    src/                 # Types, handshake codec, process launcher, WebSocket client
+    tests/               # Corpus, integration tests, descriptor snapshots
+    test_cases/          # Captured and synthetic wire frames
+    examples/            # stream_chat, custom_tool, capture_frames
 ```
 
 See each crate's README for detailed usage:
 - [claude-codes README](./claude-codes/README.md)
 - [codex-codes README](./codex-codes/README.md)
 - [opencode-codes README](./opencode-codes/README.md)
+- [antigravity-codes README](./antigravity-codes/README.md)
 
 ## License
 

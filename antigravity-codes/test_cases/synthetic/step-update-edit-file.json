@@ -1,0 +1,31 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 6,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "editFile": {
+      "filePath": "/tmp/project/main.rs",
+      "diffBlock": [
+        {
+          "startLine": 1,
+          "endLine": 2,
+          "lines": [
+            {
+              "text": "fn main() {}",
+              "action": "LINE_ACTION_INSERT"
+            },
+            {
+              "text": "// old",
+              "action": "LINE_ACTION_DELETE"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "seqNum": "18",
+  "timestampMicros": "1786220348200000"
+}

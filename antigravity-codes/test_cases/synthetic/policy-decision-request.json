@@ -1,0 +1,13 @@
+{
+  "policyDecisionRequest": {
+    "requestId": "policy-1",
+    "ruleId": "rule-7",
+    "toolArgs": {
+      "toolName": "run_command",
+      "argumentsJson": "{\"command\":\"git push\"}",
+      "callId": "c-2"
+    }
+  },
+  "seqNum": "14",
+  "timestampMicros": "1786220347800000"
+}
