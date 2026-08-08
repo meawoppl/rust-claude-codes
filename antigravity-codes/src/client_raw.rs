@@ -77,7 +77,7 @@ impl RawClient {
                     return Err(Error::HandshakeFailed {
                         stderr: format!(
                             "expected an initialize response, got {other:?}; harness stderr: {}",
-                            client.harness.stderr_tail()
+                            client.harness.stderr_after_exit().await
                         ),
                     })
                 }
@@ -86,7 +86,7 @@ impl RawClient {
                 return Err(Error::HandshakeFailed {
                     stderr: format!(
                         "harness closed the socket during initialize; stderr: {}",
-                        client.harness.stderr_tail()
+                        client.harness.stderr_after_exit().await
                     ),
                 })
             }
@@ -139,7 +139,7 @@ impl RawClient {
                     // A harness that dies mid-turn drops the TCP connection
                     // without a close frame, which tungstenite reports as a
                     // protocol violation. The useful diagnosis is on stderr.
-                    let stderr = self.harness.stderr_tail();
+                    let stderr = self.harness.stderr_after_exit().await;
                     if stderr.is_empty() {
                         return Err(Error::from(e));
                     }

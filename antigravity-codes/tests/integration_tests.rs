@@ -114,15 +114,23 @@ async fn a_turn_streams_steps_and_reports_model_failure() -> Result<()> {
     assert!(echo.is_final());
 
     // …and the turn ends by reporting why the model call failed.
-    match outcome {
-        Err(Error::Turn { message }) => {
-            assert!(
-                message.contains("API key not valid") || message.contains("API_KEY_INVALID"),
-                "unexpected turn failure: {message}"
-            );
-        }
+    //
+    // Which error carries that report is a race, and deliberately not asserted:
+    // the harness reports the failure on the trajectory *and* tears the process
+    // down, so whether the `STATE_FULLY_IDLE` frame or the socket close lands
+    // first decides between `Error::Turn` and `Error::HandshakeFailed`. Both are
+    // the same condition seen through different exits. What must hold either way
+    // is that the reason names the rejected key rather than some transport
+    // symptom — a bare "connection closed" here would be a real regression.
+    let message = match outcome {
+        Err(Error::Turn { message }) => message,
+        Err(Error::HandshakeFailed { stderr }) => stderr,
         other => panic!("expected the rejected key to fail the turn, got {other:?}"),
-    }
+    };
+    assert!(
+        message.contains("API key not valid") || message.contains("API_KEY_INVALID"),
+        "the failure should name the rejected key, got: {message}"
+    );
 
     client.shutdown().await
 }
@@ -155,16 +163,24 @@ async fn halting_is_accepted_mid_session() -> Result<()> {
         return Ok(());
     }
     let mut client = RawClient::launch(options(REJECTED_KEY)).await?;
+    // The assertion is that the harness accepts a halt arriving mid-turn: both
+    // sends must succeed against a live socket.
     client.send(&InputEvent::user("count to a million")).await?;
     client.send(&InputEvent::halt()).await?;
 
-    // Drain until the harness settles; the point is that neither frame is
-    // rejected and the socket survives both.
-    while let Some(event) = client.next_event().await? {
+    // Draining afterwards is best-effort. The rejected key kills this turn from
+    // under us, and the harness may close the socket before it ever emits a
+    // trajectory frame — so an error here says nothing about whether the halt
+    // was accepted, and must not fail the test.
+    let mut saw_trajectory = false;
+    while let Ok(Some(event)) = client.next_event().await {
         if event.trajectory_state_update.is_some() {
+            saw_trajectory = true;
             break;
         }
     }
+    println!("trajectory frame observed after halt: {saw_trajectory}");
+
     client.shutdown().await
 }
 

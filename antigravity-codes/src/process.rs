@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
@@ -22,6 +23,12 @@ pub const HARNESS_PATH_ENV: &str = "ANTIGRAVITY_HARNESS_PATH";
 
 /// How many lines of harness stderr to retain for error reporting.
 const STDERR_TAIL_LINES: usize = 200;
+
+/// How long to let the harness finish explaining itself before giving up on it.
+///
+/// The harness reports fatal problems on stderr and *then* exits, so at the
+/// moment the socket breaks its explanation is typically still in the pipe.
+const STDERR_FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Locates the `localharness` binary.
 ///
@@ -284,6 +291,9 @@ pub struct Harness {
     port: u16,
     api_key: String,
     stderr: Arc<Mutex<Vec<String>>>,
+    /// Flips to `true` when the stderr pipe reaches EOF, which for this process
+    /// means it has exited and said everything it is going to say.
+    stderr_done: tokio::sync::watch::Receiver<bool>,
     /// Both pipes are held open for the life of the session. The harness
     /// treats EOF on stdin as "the client is gone" and exits — closing it after
     /// the handshake makes the WebSocket it just advertised unreachable.
@@ -316,8 +326,13 @@ impl Harness {
             })?;
 
         let stderr = Arc::new(Mutex::new(Vec::new()));
-        if let Some(pipe) = child.stderr.take() {
-            spawn_stderr_drain(pipe, Arc::clone(&stderr));
+        let (done_tx, stderr_done) = tokio::sync::watch::channel(false);
+        match child.stderr.take() {
+            Some(pipe) => spawn_stderr_drain(pipe, Arc::clone(&stderr), done_tx),
+            // Nothing will ever arrive, so callers must not wait for it.
+            None => {
+                let _ = done_tx.send(true);
+            }
         }
 
         let mut stdin = child.stdin.take().expect("stdin was piped");
@@ -354,6 +369,7 @@ impl Harness {
             port: port as u16,
             api_key,
             stderr,
+            stderr_done,
             _stdin: stdin,
             _stdout: stdout,
         })
@@ -371,7 +387,26 @@ impl Harness {
 
     /// The most recent harness stderr, which is where it reports model and
     /// configuration failures that never reach the wire.
+    ///
+    /// This is a snapshot: output still in flight is not waited for. Use
+    /// [`Self::stderr_after_exit`] when diagnosing a failure.
     pub fn stderr_tail(&self) -> String {
+        drain_tail(&self.stderr)
+    }
+
+    /// The harness's stderr, waited for.
+    ///
+    /// A harness that hits a fatal error writes the reason to stderr and then
+    /// exits, which breaks the socket. The client notices the broken socket
+    /// first — so reading stderr at that instant is a race, and losing it turns
+    /// a precise "API key not valid" into a bare "connection closed". This waits
+    /// (briefly, and only on failure paths) for the pipe to reach EOF, which
+    /// happens exactly when the process is gone and its output is all in.
+    pub async fn stderr_after_exit(&self) -> String {
+        let mut done = self.stderr_done.clone();
+        if !*done.borrow() {
+            let _ = tokio::time::timeout(STDERR_FLUSH_TIMEOUT, done.changed()).await;
+        }
         drain_tail(&self.stderr)
     }
 
@@ -383,7 +418,11 @@ impl Harness {
     }
 }
 
-fn spawn_stderr_drain(pipe: tokio::process::ChildStderr, sink: Arc<Mutex<Vec<String>>>) {
+fn spawn_stderr_drain(
+    pipe: tokio::process::ChildStderr,
+    sink: Arc<Mutex<Vec<String>>>,
+    done: tokio::sync::watch::Sender<bool>,
+) {
     tokio::spawn(async move {
         use tokio::io::AsyncBufReadExt;
         let mut lines = BufReader::new(pipe).lines();
@@ -396,6 +435,7 @@ fn spawn_stderr_drain(pipe: tokio::process::ChildStderr, sink: Arc<Mutex<Vec<Str
                 buf.push(line);
             }
         }
+        let _ = done.send(true);
     });
 }
 
