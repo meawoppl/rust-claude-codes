@@ -1,0 +1,21 @@
+{
+  "stepUpdate": {
+    "cascadeId": "34496d539a0d82c89acaa1a6020e2158",
+    "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+    "stepIndex": 2,
+    "state": "STATE_ACTIVE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "thinking": "",
+    "textDelta": "",
+    "thinkingDelta": "",
+    "text": "Read data.txt file",
+    "viewFile": {
+      "filePath": "file:///tmp/agcapture/data.txt",
+      "startLine": 0,
+      "endLine": 799
+    }
+  },
+  "seqNum": "11",
+  "timestampMicros": "1786224259357133"
+}

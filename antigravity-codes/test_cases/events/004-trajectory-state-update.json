@@ -1,0 +1,9 @@
+{
+  "trajectoryStateUpdate": {
+    "trajectoryId": "249a20d17003c7fbc1ddde3efa9e773e",
+    "state": "STATE_FULLY_IDLE",
+    "error": "Error 400, Message: API key not valid. Please pass a valid API key., Status: INVALID_ARGUMENT, Details: [map[@type:type.googleapis.com/google.rpc.ErrorInfo domain:googleapis.com metadata:map[service:generativelanguage.googleapis.com] reason:API_KEY_INVALID] map[@type:type.googleapis.com/google.rpc.LocalizedMessage locale:en-US message:API key not valid. Please pass a valid API key.]]\nrequest failed (code 400): API key not valid. Please pass a valid API key.: Error 400, Message: API key not valid. Please pass a valid API key., Status: INVALID_ARGUMENT, Details: [map[@type:type.googleapis.com/google.rpc.ErrorInfo domain:googleapis.com metadata:map[service:generativelanguage.googleapis.com] reason:API_KEY_INVALID] map[@type:type.googleapis.com/google.rpc.LocalizedMessage locale:en-US message:API key not valid. Please pass a valid API key.]]\nrequest failed (code 400): API key not valid. Please pass a valid API key."
+  },
+  "seqNum": "5",
+  "timestampMicros": "1786220347798426"
+}

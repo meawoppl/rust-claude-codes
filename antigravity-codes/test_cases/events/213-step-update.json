@@ -1,0 +1,16 @@
+{
+  "stepUpdate": {
+    "cascadeId": "34496d539a0d82c89acaa1a6020e2158",
+    "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+    "stepIndex": 3,
+    "state": "STATE_ACTIVE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "thinking": "",
+    "textDelta": "The files in `/tmp/agcapture` are:\n-",
+    "thinkingDelta": "",
+    "text": "The files in `/tmp/agcapture` are:\n-"
+  },
+  "seqNum": "14",
+  "timestampMicros": "1786224261152353"
+}

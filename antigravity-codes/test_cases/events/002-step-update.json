@@ -1,0 +1,16 @@
+{
+  "stepUpdate": {
+    "cascadeId": "249a20d17003c7fbc1ddde3efa9e773e",
+    "trajectoryId": "249a20d17003c7fbc1ddde3efa9e773e",
+    "stepIndex": 0,
+    "state": "STATE_DONE",
+    "source": "SOURCE_USER",
+    "target": "TARGET_MODEL",
+    "thinking": "",
+    "textDelta": "hi",
+    "thinkingDelta": "",
+    "text": "hi"
+  },
+  "seqNum": "3",
+  "timestampMicros": "1786220347646352"
+}

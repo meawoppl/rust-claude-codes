@@ -1,0 +1,9 @@
+{
+  "toolCall": {
+    "id": "call-1",
+    "name": "lookup_ticket",
+    "argumentsJson": "{\"id\":\"T-42\"}"
+  },
+  "seqNum": "12",
+  "timestampMicros": "1786220347646352"
+}

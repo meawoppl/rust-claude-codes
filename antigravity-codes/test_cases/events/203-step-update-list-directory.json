@@ -1,0 +1,19 @@
+{
+  "stepUpdate": {
+    "cascadeId": "34496d539a0d82c89acaa1a6020e2158",
+    "trajectoryId": "34496d539a0d82c89acaa1a6020e2158",
+    "stepIndex": 1,
+    "state": "STATE_ACTIVE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "thinking": "",
+    "textDelta": "List workspace files",
+    "thinkingDelta": "",
+    "text": "List workspace files",
+    "listDirectory": {
+      "directoryPath": "file:///tmp/agcapture"
+    }
+  },
+  "seqNum": "4",
+  "timestampMicros": "1786224258415336"
+}

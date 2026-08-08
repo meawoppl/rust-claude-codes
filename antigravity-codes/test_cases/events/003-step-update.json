@@ -1,0 +1,21 @@
+{
+  "stepUpdate": {
+    "cascadeId": "249a20d17003c7fbc1ddde3efa9e773e",
+    "trajectoryId": "249a20d17003c7fbc1ddde3efa9e773e",
+    "stepIndex": 1,
+    "state": "STATE_ERROR",
+    "source": "SOURCE_SYSTEM",
+    "target": "TARGET_USER",
+    "errorMessage": "Agent execution terminated due to error.",
+    "thinking": "",
+    "textDelta": "Agent execution terminated due to error. (\"request failed (code 400): API key not valid. Please pass a valid API key.\")",
+    "thinkingDelta": "",
+    "text": "Agent execution terminated due to error. (\"request failed (code 400): API key not valid. Please pass a valid API key.\")",
+    "error": {
+      "errorMessage": "Agent execution terminated due to error. (\"request failed (code 400): API key not valid. Please pass a valid API key.\")",
+      "httpCode": 400
+    }
+  },
+  "seqNum": "4",
+  "timestampMicros": "1786220347796516"
+}

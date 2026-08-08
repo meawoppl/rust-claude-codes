@@ -1,0 +1,26 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 4,
+    "state": "STATE_WAITING_FOR_USER",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "questionsRequest": {
+      "questions": [
+        {
+          "multipleChoice": {
+            "question": "Which environment?",
+            "choices": [
+              "staging",
+              "production"
+            ],
+            "isMultiSelect": false
+          }
+        }
+      ]
+    }
+  },
+  "seqNum": "16",
+  "timestampMicros": "1786220348000000"
+}

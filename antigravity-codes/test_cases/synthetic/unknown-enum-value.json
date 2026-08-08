@@ -1,0 +1,13 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 9,
+    "state": "STATE_SOMETHING_NEW",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "text": "from the future"
+  },
+  "seqNum": "23",
+  "timestampMicros": "1786220348700000"
+}

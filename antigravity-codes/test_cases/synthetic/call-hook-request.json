@@ -1,0 +1,14 @@
+{
+  "callHookRequest": {
+    "requestId": "hook-1",
+    "name": "guard",
+    "type": "LIFECYCLE_HOOK_PRE_TOOL",
+    "preToolArgs": {
+      "toolName": "run_command",
+      "argumentsJson": "{\"command\":\"rm -rf /\"}",
+      "callId": "c-1"
+    }
+  },
+  "seqNum": "13",
+  "timestampMicros": "1786220347700000"
+}

@@ -1,0 +1,20 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 8,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "generateImage": {
+      "prompt": "a cat",
+      "imagePaths": [
+        "/tmp/out/cat.png"
+      ],
+      "imageName": "cat",
+      "aspectRatio": "1:1"
+    }
+  },
+  "seqNum": "21",
+  "timestampMicros": "1786220348500000"
+}

@@ -1,0 +1,18 @@
+{
+  "stepUpdate": {
+    "cascadeId": "abc",
+    "trajectoryId": "abc",
+    "stepIndex": 5,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "runCommand": {
+      "commandLine": "ls -la",
+      "workingDir": "/tmp/project",
+      "exitCode": 0,
+      "combinedOutput": "total 0\n"
+    }
+  },
+  "seqNum": "17",
+  "timestampMicros": "1786220348100000"
+}

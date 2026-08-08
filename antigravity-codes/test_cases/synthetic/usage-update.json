@@ -1,0 +1,23 @@
+{
+  "usageUpdate": {
+    "total": {
+      "promptTokenCount": "1420",
+      "candidatesTokenCount": "88",
+      "thoughtsTokenCount": "31",
+      "cachedContentTokenCount": "1024",
+      "totalTokenCount": "1539",
+      "serviceTier": "standard"
+    },
+    "agents": [
+      {
+        "trajectoryId": "sub-1",
+        "usage": {
+          "promptTokenCount": "120",
+          "totalTokenCount": "150"
+        }
+      }
+    ]
+  },
+  "seqNum": "15",
+  "timestampMicros": "1786220347900000"
+}
