@@ -5,7 +5,229 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.223] - 2026-08-05
+
+### Changed
+
+- **`LoginOutcome`, `TokenSource`, and `Osc52Status` now derive
+  Serialize/Deserialize** — login outcomes are relay-shaped for web/launcher
+  surfaces that ship them over the wire (requested by agent-portal's
+  login-automation assessment). No wire or behavior change.
+
+## [2.1.222] - 2026-08-04
+
+Catches up to Claude CLI 2.1.222; snapshot baseline and `TESTED_VERSION`
+move to 2.1.222, and the full live suite passes against the installed
+binary. Also ships the complete login-tooling saga and session forking
+(below) that accumulated unreleased.
+
+### Added (2.1.222 drift)
+
+- **`ModelRefusalFallbackMessage.scope`** — new open enum
+  `RefusalFallbackScope` (`session` | `local` + `Unknown(String)`):
+  `session` means the main thread fell back and the session model is
+  swapped (also the meaning when the field is absent, i.e. every CLI
+  before 2.1.222); `local` means a subagent / side-question / background
+  fork fell back and only that response used the fallback model. (#272)
+
+### Changed
+
+- **Rejected-code retry now follows the CLI's real state machine** —
+  recovered from the 2.1.220 binary: the error screen renders **no input
+  component**, and its only affordance (Enter) restarts the OAuth flow with
+  a **new PKCE challenge**. There is no same-challenge retry; a corrected
+  code pasted after a rejection lands nowhere, silently. Accordingly:
+  `submit_code` after a `CodeRejected` now returns `InvalidState` instead
+  of writing into the void, and the new
+  **`LoginFlow::retry_new_url(timeout)`** presses Enter, waits for
+  `waiting_for_login` to re-render, and returns the **new** authorize URL
+  to show the user (the old URL's code is dead). Live-verified end to end:
+  reject → refused re-paste → new URL with rotated challenge in ~1 s →
+  fresh input field accepts the next submission. (#270)
+
+### Added
+
+- **Bracketed-paste-mode telemetry**: channel lines now stamp
+  `paste-mode@submit=on|off|never-advertised` — the TUI's advertised
+  `?2004h/l` state at the moment the code was written, from the raw
+  stream. Directly tests the late-write hypothesis (a TUI that drops paste
+  mode while the user is off authorizing would receive a late frame as raw
+  ESC keypresses) in production, where the 19–22 s human submit latency
+  cannot be replicated by harnesses that write in milliseconds.
+  `SUBMIT_PATH` → `…+paste-probe/v6`. (#269)
+
+### Fixed
+
+- **Login flows were structurally blind to child death.** `LoginFlow` held
+  the PTY *slave* open for its whole life, so when the CLI exited, the
+  master never saw EOF and the reader blocked forever — production attempt
+  four's child died ~5 s after code submission and the flow spent the
+  remaining 85 s polling a corpse, reporting benign absence on every
+  channel. The slave is now dropped at spawn (the child owns its own fds),
+  making master-side EOF fire on exit. (#267)
+
+### Added
+
+- **Child death is a first-class outcome** (#267):
+  - New `Error::LoginChildExited { code, transcript }`, returned within
+    ~1 s of death from `auth_url` and `submit_code_and_wait` (EOF-driven,
+    with a `try_wait` backstop for a dead parent whose PTY is held open by
+    an orphaned grandchild). Replaces the generic `Unknown`/`Protocol`
+    errors on the exited-without-outcome paths — downstream match arms
+    with a catch-all are unaffected.
+  - **Pre-submit liveness check**: a death *before* the paste is reported
+    as such ("BEFORE code submission — nothing was written"), timestamping
+    death against the write — the discriminator between "the frame killed
+    it" and "it was already gone".
+  - Channel lines now carry `child=alive|exited(code)`; `SUBMIT_PATH`
+    bumps to `…+exit-aware/v5`.
+  - An exit that races a credentials write still resolves to success.
+  Live-verified: kill-after-submit surfaces `LoginChildExited(code=143)`
+  in ~570 ms with the masked input echo intact in the tail; kill-before
+  is caught in microseconds; the rejection path is unchanged (~375 ms).
+
+- **Write-path provenance**: `auth::SUBMIT_PATH` identifies the compiled
+  code-submission mechanism and is stamped into the `LoginTimeout` channel
+  line (`submit-path=bracketed-paste+lone-cr-150ms+term-forced/v3`) — which
+  deployed binary is running becomes readable from one log line. Necessary
+  because release builds inline the paste-frame bytes into immediates, so
+  byte-grepping a binary for `ESC[200~` proves nothing in either
+  direction. (#265)
+
+### Changed
+
+- **Login flows scrub session/credential env vars from the spawned CLI**
+  (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_CHILD_SESSION`,
+  `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_AUTH_TOKEN`), aligning with the session spawn path's
+  `CLAUDECODE` scrubbing in `cli.rs` — a login child's purpose is minting
+  fresh credentials, so it must not inherit the host's. Measured on 2.1.220
+  that none of these break submission when present; this removes the axis,
+  not a reproduced failure. `SUBMIT_PATH` bumps to
+  `…+env-scrubbed/v4`. (#266)
+- **Login flows now force `TERM=xterm-256color` on the spawned CLI.** The
+  crate is the terminal on the other side of the PTY (it parses OSC 8/52
+  and speaks bracketed paste), so it advertises a deterministic capability
+  surface instead of inheriting the host process's TERM (server processes
+  often have none). Measured on CLI 2.1.220, submission works under
+  `TERM=dumb` and TERM-unset too — this eliminates an environment axis
+  rather than fixing a reproduced failure. (#265)
+
+### Fixed
+
+- **Login code submission failed silently for every production-length
+  code.** The TUI classifies any single PTY write of **≥ 64 bytes** as a
+  paste and swallows a trailing CR into the paste payload instead of
+  treating it as Enter (measured on CLI 2.1.220: 62-char code + CR submits;
+  63-char + CR sits at the prompt forever). Real authorization codes are
+  ~90+ chars, so no unframed single-chunk write could ever submit — this is
+  what produced the silent 30s/90s timeouts in production, undetected
+  because every test fixture happened to be under 64 bytes. `submit_code`
+  now writes the code wrapped in **bracketed-paste framing**
+  (`ESC[200~…ESC[201~` — the paste path the CLI explicitly enables via
+  `ESC[?2004h`), then sends CR as its own write 150 ms later. Live-verified
+  across a 36–120 byte matrix including both previously-silent boundary
+  lengths; unit fixtures moved to production lengths (64/92/108/120) and a
+  live integration test now submits 92- and 108-char codes, both of which
+  any sub-64-byte fixture is structurally incapable of covering. (#263)
+
+### Added
+
+- **Three-source success detection for login flows**, driven by the prod
+  finding that every *rejection* is detectable on screen but *success* may
+  not be (the TUI masks secret material). `submit_code_and_wait` and
+  `finish` now recover the minted token from: (1) visible screen text,
+  (2) **OSC 52 clipboard-copy escapes** decoded from raw PTY bytes — exact,
+  immune to wrapping/masking; confirmed emitted by CLI 2.1.220 — and
+  (3) **credentials-store watching**: `.credentials.json` (under
+  `CLAUDE_CONFIG_DIR` or `~/.claude`) created/updated after submission is
+  authoritative success even with nothing observable on the PTY.
+  `LoginOutcome` gains `token_source: Option<TokenSource>` and
+  `credentials_updated: bool`. (#259)
+- **Self-diagnosing login timeouts**: new `Error::LoginTimeout { transcript }`
+  replaces `Error::Timeout` in `submit_code_and_wait`, carrying a per-channel
+  status line (`screen` / `osc52` / `credentials`) plus the post-submission
+  screen content — a silent failure now names the blind channel. (#259)
+
+### Changed
+
+- **Success-path OSC 52 telemetry**: `LoginOutcome` gains
+  `osc52: Osc52Status` (`Absent` / `Unterminated` / `Undecodable` /
+  `PresentNoToken` / `TokenRecovered`) and `copy_nudge_sent: bool`, and the
+  `LoginTimeout` channel line gains `copy-nudge=sent|not-sent` — so a
+  `token: None` success distinguishes "screen offers no copy affordance"
+  from "affordance fired with a non-token payload", crate-side, where the
+  PTY bytes are actually observable. The copy nudge is also recorded so any
+  unexpected TUI consequence is attributable. (#261)
+- **Copy-affordance nudge on confirmed success**: when the credentials store
+  updates but no token is yet observable, `submit_code_and_wait` presses `c`
+  (the TUI's "c to copy" affordance) once, giving the OSC 52 channel a chance
+  to deliver the exact token bytes before the grace window closes — reducing
+  the frequency of `token: None` successes that downstream must treat as
+  re-login-after-redeploy mode. Best-effort: a stray keypress on screens
+  without the affordance, in a flow that has already succeeded. (#260)
+- **Login rejection detection widened**: the collapsed `Press Enter to retry`
+  prompt now anchors `CodeRejected` as a fallback when the error wording
+  doesn't contain `OAuth error` — live capture shows the renderer mangles
+  wording (`Requstfailed withstatus code 400`), while the retry prompt is the
+  rejection loop's structural constant. (#259)
+- **`submit_code` hardening**: the code and its terminating CR are written as
+  a single chunk, and an empty-after-trim code is refused with a clear error
+  instead of pressing Enter on an empty field (a silent hang). (#259)
+
+- **Login support tooling** behind a new `auth` feature. The CLI's login
+  flows are interactive Ink TUIs (they hang forever on a pipe), so
+  `auth::LoginFlow` drives them under a pseudo-terminal (`portable-pty`) and
+  exposes the flow's human shape as an API: `start(LoginMode)` →
+  `auth_url()` (lifted intact from the CLI's OSC 8 hyperlink) → user visits
+  the URL and brings back a code → `submit_code()` → `finish()`, which
+  returns the minted `sk-ant-oat01-…` token for `LoginMode::SetupToken`.
+  Dropping the flow cancels it. `auth::auth_status()` types
+  `claude auth status --json`. Live-tested: a real `setup-token` flow yields
+  the PKCE authorize URL; `examples/login.rs` walks the full interactive
+  loop. (#257)
+
+- **`LoginFlow::submit_code_and_wait`**: outcome-driven completion that
+  watches the CLI's *output* instead of its exit. Production use showed two
+  hangs `finish()` cannot see: the CLI never exits on a rejected code (it
+  prints `OAuth error … Press Enter to retry` and waits), and its Ink TUI
+  positions words with cursor-column escapes instead of spaces, so
+  ANSI-stripped text runs together (`Pastecodehereifprompted>`) and
+  phrase-matching never fires. The new method returns as soon as a minted
+  token appears, fails fast with the new `Error::CodeRejected { message }`
+  when an OAuth error is printed (scanning only output after the current
+  submission, so a retry can't trip on a prior attempt's error), and leaves
+  the flow alive on rejection so a corrected code reaches the same PKCE
+  session. Presence checks collapse whitespace; token extraction stays
+  newline-bounded (collapsing would glue trailing prose onto the token) with
+  a loud display-wrap detector instead of silent truncation. PTY width is
+  raised to 1000 columns so wrapping is impossible at the source.
+
+- **Session forking**: `ClaudeCliBuilder::fork_from(source_session_id)`
+  assembles the full `--resume <src> --fork-session --session-id <new>`
+  combination (generating a fresh UUID unless one is chained via
+  `session_id`), and `fork_session(bool)` exposes the raw flag — which the
+  builder previously could not emit at all. Covered by a live integration
+  test proving the fork carries the source's history under the new session
+  id. (#227)
+
+### Changed
+
+- **Breaking**: `UsageInfo.iterations` is now `Vec<UsageIteration>` (was
+  `Vec<serde_json::Value>`), with typed `input_tokens`, `output_tokens`,
+  optional per-iteration cache fields (`cache_read_input_tokens`,
+  `cache_creation_input_tokens`, `cache_creation`), and the wire `type`
+  exposed as `kind` (`"turn"` and `"message"` observed). (#250)
+- **`UsageInfo` docs now state the counters are accumulated roll-ups** across
+  the turn's API iterations — correct for cost, wrong for context occupancy
+  (`cache_read_input_tokens` can exceed the context window several times over
+  on tool-heavy turns). Use the last `iterations` entry for context
+  estimates, as the CLI does. (#250)
+
+## [2.1.220] - 2026-07-31
+
+Version jumps 2.1.166 → 2.1.220 to re-align with the tested Claude CLI
+version, per the crate's versioning convention.
 
 ### Added
 
@@ -20,6 +242,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On Windows, Claude CLI launches and version checks now use
   `CREATE_NO_WINDOW` to avoid opening console windows.
+
+### Contributors
+
+- Thanks to @ozitrance — a first-time contributor to this crate — for the
+  entire feature set in this release: `RawAsyncClient`,
+  `user_message_without_session`, `working_directory`, and the Windows
+  `CREATE_NO_WINDOW` support (#243, #244, #245).
 
 ## [2.1.166] - 2026-07-27
 

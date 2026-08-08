@@ -1,6 +1,6 @@
 [package]
 name = "claude-codes"
-version = "2.1.166"
+version = "2.1.223"
 edition = "2021"
 rust-version = "1.85"
 authors = ["Matthew Goodman <d3a6d0cec0c16f3e@inboxnegative.com>"]
@@ -33,6 +33,8 @@ anyhow = { version = "1.0.99", optional = true }
 tokio = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
+portable-pty = { version = "0.9.0", optional = true }
+base64 = { version = "0.22.1", optional = true }
 
 [features]
 default = ["types", "sync-client", "async-client"]
@@ -42,6 +44,7 @@ async-client = ["types", "anyhow", "tokio", "log", "uuid/v4", "dep:which"]
 integration-tests = []
 corpus-test = []
 log = ["dep:log"]
+auth = ["types", "dep:portable-pty", "dep:base64"]
 
 [dev-dependencies]
 env_logger = { workspace = true }
@@ -61,3 +64,7 @@ required-features = ["async-client"]
 [[example]]
 name = "sync_client"
 required-features = ["sync-client"]
+
+[[example]]
+name = "login"
+required-features = ["auth"]

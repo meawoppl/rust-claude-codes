@@ -178,6 +178,81 @@ async fn test_async_client_conversation() {
     );
 }
 
+/// Fork a session with `fork_from`: the fork must carry the source's
+/// history under a NEW session id, leaving the source session untouched.
+#[tokio::test]
+async fn test_fork_session_carries_history_under_new_id() {
+    let source_id = Uuid::new_v4();
+
+    // Seed the source session with a memorable fact, then close it.
+    let builder = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .session_id(source_id);
+    let mut client = AsyncClient::from_builder(builder)
+        .await
+        .expect("Failed to create source client");
+    let mut stream = client
+        .query_stream("Remember the word 'pineapple'. Reply with just OK.")
+        .await
+        .expect("Failed to seed source session");
+    while let Some(result) = stream.next().await {
+        if let Ok(ClaudeOutput::Result(_)) = result {
+            break;
+        }
+    }
+    let _ = stream; // release the &mut client borrow (ResponseStream has no Drop)
+    client.shutdown().await.expect("Failed to shutdown source");
+
+    // Fork it and ask the fork to recall the fact.
+    let fork_id = Uuid::new_v4();
+    let builder = ClaudeCliBuilder::new()
+        .model("sonnet")
+        .allow_recursion()
+        .fork_from(source_id.to_string())
+        .session_id(fork_id);
+    let mut fork = AsyncClient::from_builder(builder)
+        .await
+        .expect("Failed to create forked client");
+    let mut stream = fork
+        .query_stream("What word did I ask you to remember? Reply with just that word.")
+        .await
+        .expect("Failed to query fork");
+
+    let mut recalled = false;
+    let mut fork_session_seen = None;
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(ClaudeOutput::Assistant(msg)) => {
+                for content in &msg.message.content {
+                    if let claude_codes::io::ContentBlock::Text(text) = content {
+                        if text.text.to_lowercase().contains("pineapple") {
+                            recalled = true;
+                        }
+                    }
+                }
+            }
+            Ok(ClaudeOutput::Result(res)) => {
+                fork_session_seen = Some(res.session_id.clone());
+                break;
+            }
+            _ => {}
+        }
+    }
+    let _ = stream; // release the &mut fork borrow (ResponseStream has no Drop)
+    fork.shutdown().await.expect("Failed to shutdown fork");
+
+    assert!(
+        recalled,
+        "Fork should recall 'pineapple' from source history"
+    );
+    assert_eq!(
+        fork_session_seen.as_deref(),
+        Some(fork_id.to_string().as_str()),
+        "Fork must run under the NEW session id, not the source's"
+    );
+}
+
 /// Test handling various message types
 #[tokio::test]
 async fn test_message_types() {
@@ -2384,5 +2459,104 @@ async fn test_ask_user_question_answered_and_converges() {
     );
     if let Some(diff) = user_msg_roundtrip_diff {
         panic!("{}", diff);
+    }
+}
+
+/// Live auth tooling: `auth_status` parses the real CLI's JSON, and a real
+/// `setup-token` flow started under a PTY yields the OAuth authorize URL.
+/// The flow is then dropped (= cancelled) — no human completes the login.
+#[cfg(feature = "auth")]
+#[test]
+fn test_login_flow_yields_auth_url_live() {
+    use claude_codes::auth::{auth_status, LoginFlow, LoginMode};
+    use std::time::Duration;
+
+    let status = auth_status().expect("auth status parses");
+    // This test runs in environments with working credentials.
+    assert!(status.logged_in, "expected a logged-in environment");
+
+    let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+    let url = flow
+        .auth_url(Duration::from_secs(30))
+        .expect("authorize URL appears");
+    assert!(
+        url.starts_with("https://") && url.contains("oauth/authorize"),
+        "unexpected authorize URL: {url}"
+    );
+    assert!(
+        url.contains("code_challenge="),
+        "authorize URL should carry a PKCE challenge: {url}"
+    );
+    // Dropping the flow cancels the login and kills the CLI.
+}
+
+/// Regression net for the 64-byte paste-classification bug: submission of a
+/// PRODUCTION-LENGTH code must produce a definitive rejection, not silence.
+/// Single-chunk writes of >= 64 bytes are classified as pastes by the TUI
+/// and a trailing CR is swallowed (62-char code + CR submits, 63-char + CR
+/// hangs forever, measured on CLI 2.1.220) — every fixture below 64 bytes
+/// is structurally incapable of catching this class of bug.
+#[cfg(feature = "auth")]
+#[test]
+fn test_production_length_code_submission_is_acknowledged_live() {
+    use claude_codes::auth::{LoginFlow, LoginMode};
+    use claude_codes::Error;
+    use std::time::{Duration, Instant};
+
+    for len in [92usize, 108] {
+        let code: String = "aB3".repeat(40)[..len - 6].to_string() + "#state";
+        assert!(code.len() >= 64, "fixture must exceed the paste threshold");
+
+        let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+        flow.auth_url(Duration::from_secs(30)).expect("url appears");
+        let t0 = Instant::now();
+        let err = flow
+            .submit_code_and_wait(&code, Duration::from_secs(20))
+            .expect_err("bogus code must be rejected");
+        match err {
+            Error::CodeRejected { .. } => {}
+            other => panic!("len {len}: expected CodeRejected, got: {other}"),
+        }
+        assert!(
+            t0.elapsed() < Duration::from_secs(15),
+            "len {len}: rejection took {:?} — submission may not have registered",
+            t0.elapsed()
+        );
+    }
+}
+
+/// The CLI's retry state machine (binary-verified): the error screen has NO
+/// input component and re-entering the flow rotates the PKCE challenge. A
+/// rejected flow must refuse further submissions until retry_new_url walks
+/// error -> Enter -> waiting_for_login and yields a DIFFERENT URL.
+#[cfg(feature = "auth")]
+#[test]
+fn test_rejected_flow_retries_with_new_url_live() {
+    use claude_codes::auth::{LoginFlow, LoginMode};
+    use claude_codes::Error;
+    use std::time::Duration;
+
+    let code: String = "aB3".repeat(40)[..86].to_string() + "#state";
+    let mut flow = LoginFlow::start(LoginMode::SetupToken).expect("flow starts");
+    let url1 = flow.auth_url(Duration::from_secs(30)).expect("first url");
+
+    match flow.submit_code_and_wait(&code, Duration::from_secs(20)) {
+        Err(Error::CodeRejected { .. }) => {}
+        other => panic!("expected CodeRejected, got {other:?}"),
+    }
+    assert!(
+        matches!(flow.submit_code(&code), Err(Error::InvalidState(_))),
+        "post-rejection paste must be refused, not silently dropped"
+    );
+
+    let url2 = flow
+        .retry_new_url(Duration::from_secs(20))
+        .expect("retry yields new url");
+    assert!(url2.contains("oauth/authorize"));
+    assert_ne!(url1, url2, "PKCE challenge must rotate on retry");
+
+    match flow.submit_code_and_wait(&code, Duration::from_secs(20)) {
+        Err(Error::CodeRejected { .. }) => {}
+        other => panic!("round 2 should reach a live input field, got {other:?}"),
     }
 }

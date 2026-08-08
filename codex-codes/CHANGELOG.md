@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.146.4] - 2026-08-05
+
+### Added
+
+- **`auth_local::auth_status_local()`** — best-effort, serde-shaped local
+  auth snapshot from `$CODEX_HOME/auth.json` (default `~/.codex/auth.json`):
+  `logged_in`, `auth_mode`, display-only `email` and `plan_type` decoded
+  (unverified, by design) from the stored id_token's claims, `account_id`,
+  `last_refresh`. Exists so status dashboards don't need an app-server
+  connection just to render a label — and so the **private-contract risk
+  lives in this crate**: the file layout is codex-internal, documented
+  loudly as such, unit-tested against a captured fixture, and watched by a
+  live integration test that parses the real file (a codex layout change
+  becomes a crate patch, not a silent consumer break). Requested by
+  agent-portal's login-matrix build; missing file = `Ok(logged_in: false)`;
+  garbage JWT degrades to no-label, never an error.
+
+## [0.146.3] - 2026-08-05
+
+Re-snapshots the app-server schema from `openai/codex@main` (fixes #275)
+and ships typed account/auth client helpers.
+
+### Added
+
+- **Account/auth client helpers** on `AsyncClient`: `account_read`,
+  `account_login_start` (api-key / browser `chatgpt` / `chatgptDeviceCode`
+  modes — browser and device flows complete via the
+  `account/login/completed` notification), `account_login_cancel`,
+  `account_logout`, `account_rate_limits_read`, `account_usage_read`.
+  The protocol layer (method constants, params/response types,
+  notification samples) already existed; these make it reachable without
+  hand-rolling `request()` calls. Live-tested: `account/read` returns the
+  active account; rate-limit/usage reads verified wire-correct (this
+  environment's token is rejected by the usage backend — the typed
+  JSON-RPC error path is exercised instead).
+
+### Changed
+
+- **`InitializeCapabilities`** gains `extensions` (v2) per the upstream
+  schema refresh; v1 snapshot picks up `modelSpecialty` on its
+  counterpart. (#275)
+
+## [0.146.2] - 2026-08-03
+
+Re-snapshots the app-server schema from `openai/codex@main`, fixing the
+drift reported in #256 (which had grown since filing). Schema coverage is
+175/175 (100%).
+
+### Added
+
+- **`threadSection/create` / `threadSection/update` / `threadSection/delete`**
+  client requests, with generated
+  `ThreadSectionCreateParams`/`Response`, `ThreadSectionUpdateParams`/`Response`,
+  and `ThreadSectionDeleteParams`/`Response` types, method constants, and
+  validated coverage samples — completing the thread-section family next to
+  the existing `threadSection/list` and `thread/section/move`.
+- **`PluginSearchResult` / `PluginSearchScope`** and
+  **`DesktopOnboardingEntrypoint`** generated types (new upstream
+  definitions; the latter landed upstream after #256 was filed).
+- **`Default` is now derived for every generated struct whose fields are all
+  serde-defaultable** (291 types) — any params type that deserializes from
+  `{}` can be built with `Params::default()`. Emitted by the codegen itself,
+  replacing the hand-written impls that covered only
+  `ThreadStartParams` / `TurnStartParams` / `ThreadResumeParams` /
+  `ThreadForkParams`. (#203)
+
+### Changed
+
+- **`AccountLoginCompletedNotification`** and `ClientRequest` bodies
+  refreshed to the upstream shapes; `ToolRequestUserInputParams` updated in
+  the v1 schema snapshot.
+
+## [0.146.1] - 2026-07-31
+
+### Changed
+
+- **Re-snapshotted the Codex app-server schemas** against `openai/codex@main`
+  (resolves the codex-schema-drift report, issue #248); both snapshots are
+  byte-identical to upstream and schema coverage is 172/172 (100%).
+  Purely additive generated-type changes, no new client-request methods:
+  new `ExternalAgentDetectedConnectorCandidate` /
+  `ExternalAgentDetectedConnectorSource` definitions and additive fields on
+  `ExternalAgentConfigDetectResponse`, `CommandAction`, and `PlanType`.
+
 ## [0.146.0] - 2026-07-31
 
 ### Changed

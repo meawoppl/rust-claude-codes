@@ -371,7 +371,13 @@ pub fn client_request_samples() -> Vec<(&'static str, Value)> {
         ("thread/start", json!({})),
         ("thread/unarchive", json!({"threadId": "x"})),
         ("thread/unsubscribe", json!({"threadId": "x"})),
+        ("threadSection/create", json!({"name": "x"})),
+        ("threadSection/delete", json!({"sectionId": "x"})),
         ("threadSection/list", json!({})),
+        (
+            "threadSection/update",
+            json!({"name": "x", "sectionId": "x"}),
+        ),
         ("turn/interrupt", json!({"threadId": "x", "turnId": "x"})),
         ("turn/start", json!({"input": [], "threadId": "x"})),
         (
@@ -417,7 +423,7 @@ pub fn server_request_samples() -> Vec<(&'static str, Value)> {
         ),
         (
             "item/tool/requestUserInput",
-            json!({"itemId": "x", "questions": [], "threadId": "x", "turnId": "x"}),
+            json!({"isBlocking": false, "itemId": "x", "questions": [], "threadId": "x", "turnId": "x"}),
         ),
         (
             "mcpServer/elicitation/request",

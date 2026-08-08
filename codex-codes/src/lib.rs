@@ -114,6 +114,8 @@ pub mod protocol;
 pub mod protocol_generated;
 
 #[cfg(any(feature = "sync-client", feature = "async-client"))]
+pub mod auth_local;
+#[cfg(any(feature = "sync-client", feature = "async-client"))]
 pub mod cli;
 
 #[cfg(any(feature = "sync-client", feature = "async-client"))]

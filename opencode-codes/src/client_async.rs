@@ -138,6 +138,19 @@ impl OpencodeClient {
             .await
     }
 
+    /// Fork a session — `POST /session/{sessionID}/fork`.
+    ///
+    /// Branches the source session's **whole history** into a new session and
+    /// returns the freshly created [`Session`] (server-assigned id); the
+    /// source is left untouched. The 1.18.x spec exposes no at-point cut on
+    /// this route — for fork-at-a-turn semantics see `codex-codes`'
+    /// `thread_fork` with `last_turn_id`.
+    pub async fn fork_session(&self, session_id: &str) -> Result<Session> {
+        self.transport
+            .request_json(Method::POST, &self.transport.fork_url(session_id), None)
+            .await
+    }
+
     /// Abort in-flight work — `POST /session/{sessionID}/abort`.
     ///
     /// Returns `true` when the session had work that was aborted.

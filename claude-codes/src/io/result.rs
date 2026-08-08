@@ -299,7 +299,17 @@ impl<'de> Deserialize<'de> for ResultSubtype {
     }
 }
 
-/// Usage information for the request
+/// Usage information for the request.
+///
+/// **These counters are accumulated roll-ups, not snapshots.** The CLI sums
+/// usage field-by-field across every API call ("iteration") in the turn's
+/// tool-use loop, so on a turn with N iterations each counter is the sum of
+/// all N. This is the right number for **cost**, and the wrong number for
+/// **context occupancy**: `cache_read_input_tokens` in particular re-counts
+/// the cached context on every iteration and can exceed the model's context
+/// window several times over on tool-heavy turns. To estimate context
+/// occupancy, use the *last* entry of [`iterations`](Self::iterations)
+/// instead (the CLI itself does exactly this).
 ///
 /// Note: the `result` frame's usage covers the **main agent only** — the
 /// subagent (`Task` / sidechain) token rollup the CLI renders as
@@ -308,12 +318,18 @@ impl<'de> Deserialize<'de> for ResultSubtype {
 /// [`SubagentUsageRollup`](crate::SubagentUsageRollup).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageInfo {
+    /// Sum of fresh (uncached) input tokens across all iterations of the turn.
     #[serde(default)]
     pub input_tokens: u32,
+    /// Sum of cache-write input tokens across all iterations of the turn.
     #[serde(default)]
     pub cache_creation_input_tokens: u32,
+    /// Sum of cache-read input tokens across all iterations of the turn.
+    /// Re-counts the cached context every iteration — **not** a measure of
+    /// context occupancy; see the type-level docs.
     #[serde(default)]
     pub cache_read_input_tokens: u32,
+    /// Sum of output tokens across all iterations of the turn.
     #[serde(default)]
     pub output_tokens: u32,
     #[serde(default)]
@@ -329,13 +345,43 @@ pub struct UsageInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inference_geo: Option<String>,
 
-    /// Per-turn usage breakdown
+    /// Per-iteration usage breakdown **within** this turn — one entry per
+    /// API call in the tool-use loop, in order. The last entry reflects the
+    /// final API call and is what the CLI reads for context-size estimates.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub iterations: Vec<Value>,
+    pub iterations: Vec<UsageIteration>,
 
     /// Speed tier (e.g., "standard")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub speed: Option<String>,
+}
+
+/// Usage for a single API call ("iteration") within a turn's tool-use loop.
+///
+/// Carried in [`UsageInfo::iterations`]. The cache fields are optional on
+/// the wire: some frames carry only `input_tokens` + `output_tokens`
+/// (observed with `type: "turn"`), while others carry the full cache
+/// breakdown (observed with `type: "message"` in captured subagent
+/// sessions). The CLI computes its context estimate from
+/// `input_tokens + output_tokens` of the **last** iteration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageIteration {
+    #[serde(default)]
+    pub input_tokens: u32,
+    #[serde(default)]
+    pub output_tokens: u32,
+    /// Cache-read input tokens for this iteration, when carried.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_input_tokens: Option<u32>,
+    /// Cache-write input tokens for this iteration, when carried.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation_input_tokens: Option<u32>,
+    /// Cache-write breakdown by TTL, when carried.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_creation: Option<super::message_types::CacheCreationDetails>,
+    /// Iteration kind; `"turn"` and `"message"` observed on the wire.
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 
 /// Server tool usage information
@@ -596,6 +642,9 @@ mod tests {
             assert_eq!(usage.inference_geo.as_deref(), Some("not_available"));
             assert_eq!(usage.speed.as_deref(), Some("standard"));
             assert_eq!(usage.iterations.len(), 1);
+            assert_eq!(usage.iterations[0].input_tokens, 3817);
+            assert_eq!(usage.iterations[0].output_tokens, 14);
+            assert_eq!(usage.iterations[0].kind.as_deref(), Some("turn"));
         } else {
             panic!("Expected Result");
         }

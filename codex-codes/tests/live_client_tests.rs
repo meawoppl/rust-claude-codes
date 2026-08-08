@@ -40,6 +40,80 @@ async fn test_async_client_start_and_thread_start() {
     client.shutdown().await.expect("Failed to shutdown");
 }
 
+/// Fork a thread with `thread/fork`. The source needs at least one persisted
+/// turn first — forking a fresh, turn-less thread is rejected with
+/// "no rollout found for thread id …".
+#[tokio::test]
+async fn test_async_client_thread_fork() {
+    let mut client = AsyncClient::start()
+        .await
+        .expect("Failed to start app-server");
+
+    let source = client
+        .thread_start(&serde_json::from_value::<ThreadStartParams>(serde_json::json!({})).unwrap())
+        .await
+        .expect("Failed to start source thread");
+
+    client
+        .turn_start(&TurnStartParams {
+            thread_id: source.thread.id.clone(),
+            input: vec![UserInput::Text {
+                text: "Reply with just OK.".to_string(),
+                text_elements: None,
+            }],
+            approval_policy: None,
+            approvals_reviewer: None,
+            client_user_message_id: None,
+            cwd: None,
+            effort: None,
+            model: None,
+            output_schema: None,
+            personality: None,
+            sandbox_policy: None,
+            service_tier: None,
+            summary: None,
+        })
+        .await
+        .expect("Failed to start seed turn");
+
+    let mut message_count = 0;
+    while let Some(msg) = client.next_message().await.expect("Failed to read message") {
+        message_count += 1;
+        match msg {
+            ServerMessage::Notification(Notification::TurnCompleted(_)) => break,
+            ServerMessage::Notification(_) => {}
+            ServerMessage::Request { id, .. } => {
+                client
+                    .respond(id, &serde_json::json!({"decision": "accept"}))
+                    .await
+                    .expect("Failed to respond");
+            }
+        }
+        if message_count > 100 {
+            panic!("seed turn did not complete");
+        }
+    }
+
+    let fork = client
+        .thread_fork(
+            &serde_json::from_value(serde_json::json!({ "threadId": source.thread.id }))
+                .expect("valid fork params"),
+        )
+        .await
+        .expect("Failed to fork thread");
+
+    assert!(
+        !fork.thread.id.is_empty(),
+        "forked thread id must not be empty"
+    );
+    assert_ne!(
+        fork.thread.id, source.thread.id,
+        "fork must get a NEW thread id"
+    );
+
+    client.shutdown().await.expect("Failed to shutdown");
+}
+
 // ── Async client: full turn lifecycle ───────────────────────────────
 
 #[tokio::test]
@@ -130,6 +204,7 @@ async fn test_async_client_custom_initialize() {
             },
             capabilities: Some(InitializeCapabilities {
                 experimental_api: Some(false),
+                extensions: None,
                 mcp_server_openai_form_elicitation: None,
                 opt_out_notification_methods: None,
                 request_attestation: None,
@@ -768,4 +843,68 @@ async fn test_async_client_writes_compilable_quicksort() {
     );
 
     let _ = std::fs::remove_dir_all(&scratch);
+}
+
+/// Account read-side helpers against the live app-server: `account/read`,
+/// `account/rateLimits/read`, `account/usage/read`. Read-only — never
+/// mutates the stored credential.
+#[tokio::test]
+async fn test_account_read_family() {
+    let mut client = AsyncClient::start()
+        .await
+        .expect("Failed to start app-server");
+
+    let account = client
+        .account_read(&codex_codes::protocol_generated::types::GetAccountParams::default())
+        .await
+        .expect("account/read");
+    // This environment is logged in via ChatGPT; a logged-out env would
+    // carry account: None and that's a legitimate wire answer too.
+    let _ = account;
+
+    // Rate-limit/usage reads proxy to the ChatGPT usage backend, which can
+    // reject a locally-valid session token (observed: 401 "Could not parse
+    // your authentication token" while model turns work fine). The wiring
+    // assertion is "typed request goes out, typed response OR a well-formed
+    // JSON-RPC error comes back" — not that this box's token can fetch
+    // usage.
+    match client.account_rate_limits_read().await {
+        Ok(_) => {}
+        Err(codex_codes::Error::JsonRpc { code, .. }) => {
+            assert_eq!(code, -32603, "unexpected rpc error class");
+        }
+        Err(other) => panic!("account/rateLimits/read transport failure: {other}"),
+    }
+    match client.account_usage_read().await {
+        Ok(_) => {}
+        Err(codex_codes::Error::JsonRpc { code, .. }) => {
+            assert_eq!(code, -32603, "unexpected rpc error class");
+        }
+        Err(other) => panic!("account/usage/read transport failure: {other}"),
+    }
+
+    client.shutdown().await.expect("shutdown");
+}
+
+/// Local auth snapshot parses the REAL ~/.codex/auth.json on this box —
+/// the private-contract shape watchdog. If codex changes the file layout,
+/// this fails here (a crate patch) instead of silently downstream.
+#[test]
+fn test_auth_status_local_parses_real_file() {
+    let path = codex_codes::auth_local::auth_json_path().expect("home resolves");
+    if !path.exists() {
+        eprintln!("skipping: no auth.json on this host");
+        return;
+    }
+    let s = codex_codes::auth_local::auth_status_local().expect("real auth.json parses");
+    assert!(s.logged_in, "file exists but parsed as logged out");
+    // This box is chatgpt-mode; a fresh api-key box would legitimately
+    // carry no identity claims.
+    if s.auth_mode.as_deref() == Some("chatgpt") {
+        assert!(
+            s.email.is_some(),
+            "chatgpt mode should yield an email label"
+        );
+        assert!(s.account_id.is_some());
+    }
 }

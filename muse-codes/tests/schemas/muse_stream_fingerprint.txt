@@ -1,0 +1,22 @@
+__envelope__: causation_id, durability, id, payload, payload_schema_version, payload_type, record_type, recorded_at, schema_version, sequence, stream
+run.lifecycle.started: command_id, kind, prompt, run_stream
+run.output.delta: command_id, kind, run_stream, text
+run.terminal.completed: command_id, kind, reason, run_stream, terminal, text
+runtime.command.accepted: client_id, command_id, command_kind, kind
+session.run.linked: command_id, kind, run_stream
+task.lifecycle.accepted: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.accepted::event[accepted]: kind, task_id
+task.lifecycle.completed: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.completed::event[completed]: kind, task_id
+task.lifecycle.failed: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.failed::event[failed]: kind, reason, task_id
+task.lifecycle.proposed: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.proposed::event[proposed]: kind, task_id, task_kind
+task.lifecycle.scheduled: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.scheduled::event[scheduled]: idempotency_key, kind, task_id
+task.lifecycle.side_effect_intent: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.side_effect_intent::event[side_effect_intent]: cancellation_handle, idempotency_key, kind, operation, parent_task_id, policy_decision, task_id
+task.lifecycle.started: command_id, event, kind, run_stream, task_id, task_stream
+task.lifecycle.started::event[started]: kind, task_id
+task.stream.linked: command_id, kind, run_stream, task_id, task_stream
+turn.input.user: command_id, kind, prompt, run_stream

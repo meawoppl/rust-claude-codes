@@ -248,6 +248,18 @@ impl HttpTransport {
         url
     }
 
+    /// URL for `POST /session/{sessionID}/fork`.
+    pub fn fork_url(&self, session_id: &str) -> String {
+        let mut url = format!(
+            "{}/session/{}/fork",
+            self.base_url,
+            encode_segment(session_id)
+        );
+        let mut sep = '?';
+        self.append_scope(&mut url, &mut sep);
+        url
+    }
+
     /// URL for `POST /session/{sessionID}/permissions/{permissionID}`.
     pub fn permission_url(&self, session_id: &str, permission_id: &str) -> String {
         let mut url = format!(

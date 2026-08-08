@@ -156,7 +156,30 @@ let serialized = Protocol::serialize(&output)?;
 
 ## Compatibility
 
-**Tested against:** Claude CLI 2.1.220
+## Login tooling (`auth` feature)
+
+The CLI's login flows are interactive Ink TUIs (they hang on a pipe), so the
+`auth` module drives them under a pseudo-terminal:
+
+```rust,ignore
+use claude_codes::auth::{auth_status, LoginFlow, LoginMode};
+
+let mut flow = LoginFlow::start(LoginMode::SetupToken)?;
+let url = flow.auth_url(Duration::from_secs(30))?;   // show to the user
+// … user authorizes in a browser, brings back a code …
+let outcome = flow.submit_code_and_wait(&code, Duration::from_secs(90))?;
+// outcome.token = Some("sk-ant-oat01-…") — recovered via screen text,
+// OSC 52 clipboard escapes, or the credentials-file watch.
+```
+
+Rejected codes keep the flow alive: call `retry_new_url()` for a fresh
+authorize URL (the CLI rotates the PKCE challenge; the old code is dead).
+Every failure self-describes — timeouts and child exits carry a channel
+line naming what each detection source saw. `auth_status()` types
+`claude auth status --json` (email, org, plan). Enable with
+`features = ["auth"]`.
+
+**Tested against:** Claude CLI 2.1.222
 
 The crate version tracks the Claude CLI version. If you're using a different CLI version, please report whether it works at:
 https://github.com/meawoppl/rust-code-agent-sdks/issues

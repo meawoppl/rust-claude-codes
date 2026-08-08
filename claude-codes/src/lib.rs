@@ -107,6 +107,10 @@ pub mod protocol;
 pub mod tool_inputs;
 pub mod types;
 
+// Login support tooling (PTY-driven `claude auth login` / `setup-token`)
+#[cfg(feature = "auth")]
+pub mod auth;
+
 // Client modules
 #[cfg(feature = "async-client")]
 pub mod client_async;
@@ -165,11 +169,11 @@ pub use io::{
     MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey,
     MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
     NotificationMessage, OutputStyle, PermissionDeniedMessage, PersistedFile, PluginDiagnostic,
-    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, StatusMessage,
-    StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage, SystemSubtype,
-    TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage, TaskStatus,
-    TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta, ToolUseMeta,
-    VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
+    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, RefusalFallbackScope,
+    StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage,
+    SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage,
+    TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta,
+    ToolUseMeta, VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
 };
 
 // Additional top-level output message wrappers
