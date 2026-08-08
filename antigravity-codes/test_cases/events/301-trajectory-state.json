@@ -1,0 +1,8 @@
+{
+  "seqNum": "2",
+  "timestampMicros": "1786229238327093",
+  "trajectoryStateUpdate": {
+    "state": "STATE_RUNNING",
+    "trajectoryId": "a1af14e4602c5a4fd4c16670ac0328ad"
+  }
+}

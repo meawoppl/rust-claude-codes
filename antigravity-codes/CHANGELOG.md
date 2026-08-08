@@ -55,6 +55,24 @@ Two defaults were corrected as a result:
   override. The `pro` models have zero free-tier quota and return
   `429 … limit: 0`.
 
+### Corpus and recorder
+
+- `RawClient::next_frame` returns the frame text alongside the decoded event,
+  and `RawClient::initialize_frame` retains the one frame `launch` consumes.
+  Without these a capture can only be written back out through the crate's own
+  types, which makes the no-field-loss test tautological — it would agree with
+  itself and never notice a field the types are missing.
+- `examples/capture_frames` records verbatim, and takes `ANTIGRAVITY_TOOLS`,
+  `ANTIGRAVITY_SUBAGENTS`, and `ANTIGRAVITY_POLICY` to widen what a session
+  exercises.
+- Added a captured `policyDecisionRequest` session. It confirms the synthetic
+  fixture written blind from the descriptor was right, and documents that the
+  harness blocks a turn indefinitely until a policy request is answered.
+- `tests/step_assembly_tests.rs` replays whole sessions through `StepAssembler`,
+  asserting accumulated text never regresses, settled steps stay final, and
+  concurrent trajectories do not collide. The unit tests in `steps.rs` prove the
+  arithmetic; these prove it matches how a harness actually streams.
+
 ### Notes
 
 - Unknown enum values and unknown `oneof` arms decode rather than fail. The

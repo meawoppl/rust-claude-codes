@@ -1,0 +1,15 @@
+{
+  "stepUpdate": {
+    "cascadeId": "f4466764cc0e2363826d740ae1dc4858",
+    "trajectoryId": "c36cb265-6252-4bb8-bbac-e2180e9eb172",
+    "stepIndex": 1,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_USER",
+    "thinking": "",
+    "thinkingDelta": "",
+    "text": "The second line is `beta`."
+  },
+  "seqNum": "8",
+  "timestampMicros": "1786229240007000"
+}
