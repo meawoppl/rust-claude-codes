@@ -1,0 +1,13 @@
+{
+  "policyDecisionRequest": {
+    "requestId": "1",
+    "ruleId": "shell-guard",
+    "toolArgs": {
+      "argumentsJson": "{\"CommandLine\":\"echo hi\",\"Cwd\":\"/tmp/agwrite\",\"WaitMsBeforeAsync\":2000}",
+      "serverName": "",
+      "toolName": "run_command"
+    }
+  },
+  "seqNum": "4",
+  "timestampMicros": "1786229240266527"
+}

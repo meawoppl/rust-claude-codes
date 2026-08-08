@@ -1,0 +1,16 @@
+{
+  "seqNum": "3",
+  "stepUpdate": {
+    "cascadeId": "a1af14e4602c5a4fd4c16670ac0328ad",
+    "source": "SOURCE_USER",
+    "state": "STATE_DONE",
+    "stepIndex": 0,
+    "target": "TARGET_MODEL",
+    "text": "Run the shell command 'echo hi'.",
+    "textDelta": "Run the shell command 'echo hi'.",
+    "thinking": "",
+    "thinkingDelta": "",
+    "trajectoryId": "a1af14e4602c5a4fd4c16670ac0328ad"
+  },
+  "timestampMicros": "1786229238417651"
+}

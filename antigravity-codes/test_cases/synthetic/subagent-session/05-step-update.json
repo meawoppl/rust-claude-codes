@@ -1,0 +1,20 @@
+{
+  "stepUpdate": {
+    "cascadeId": "f4466764cc0e2363826d740ae1dc4858",
+    "trajectoryId": "c36cb265-6252-4bb8-bbac-e2180e9eb172",
+    "stepIndex": 0,
+    "state": "STATE_DONE",
+    "source": "SOURCE_MODEL",
+    "target": "TARGET_ENVIRONMENT",
+    "thinking": "",
+    "thinkingDelta": "",
+    "text": "Read data.txt",
+    "viewFile": {
+      "filePath": "/tmp/agwrite/data.txt",
+      "startLine": 1,
+      "endLine": 3
+    }
+  },
+  "seqNum": "6",
+  "timestampMicros": "1786229240005000"
+}

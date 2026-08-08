@@ -44,6 +44,10 @@ pub struct RawClient {
     harness: Harness,
     socket: ws::Socket,
     initialize: InitializeConversationResponse,
+    /// The initialize frame exactly as it arrived, kept so a capture can record
+    /// the whole session verbatim — this one is consumed during `launch`, so it
+    /// is otherwise unrecoverable.
+    initialize_frame: String,
     closed: bool,
 }
 
@@ -57,6 +61,7 @@ impl RawClient {
             harness,
             socket,
             initialize: Default::default(),
+            initialize_frame: String::new(),
             closed: false,
         };
 
@@ -68,10 +73,11 @@ impl RawClient {
         // The harness answers the initialize event before anything else. If it
         // instead drops the socket, the reason is on stderr — most often "no
         // model configured", which it treats as fatal.
-        match client.next_event().await? {
-            Some(event) => match event.into_event() {
+        match client.next_frame().await? {
+            Some((raw, event)) => match event.into_event() {
                 Some(OutputEventEvent::InitializeConversationResponse(response)) => {
                     client.initialize = response;
+                    client.initialize_frame = raw;
                 }
                 other => {
                     return Err(Error::HandshakeFailed {
@@ -106,6 +112,15 @@ impl RawClient {
         self.initialize.cascade_id.as_deref()
     }
 
+    /// The initialize frame as it arrived on the wire.
+    ///
+    /// `launch` consumes this frame, so it is the one part of a session a
+    /// caller could not otherwise record. See [`Self::next_frame`] for why the
+    /// raw form is what matters for a capture.
+    pub fn initialize_frame(&self) -> &str {
+        &self.initialize_frame
+    }
+
     /// The running process, for its stderr tail and port.
     pub fn harness(&self) -> &Harness {
         &self.harness
@@ -131,6 +146,18 @@ impl RawClient {
     /// Non-text frames (pings, pongs, the close frame itself) are handled and
     /// skipped rather than surfaced.
     pub async fn next_event(&mut self) -> Result<Option<OutputEvent>> {
+        Ok(self.next_frame().await?.map(|(_raw, event)| event))
+    }
+
+    /// Like [`Self::next_event`], but also hands back the frame exactly as it
+    /// arrived.
+    ///
+    /// The raw text is what makes a capture evidentiary. A frame that has been
+    /// decoded and re-encoded can only contain fields this crate already knows
+    /// about, so a corpus built from re-serialised frames cannot detect a field
+    /// the types are missing — it agrees with itself by construction. Use this
+    /// when recording fixtures, or when attaching a frame to a bug report.
+    pub async fn next_frame(&mut self) -> Result<Option<(String, OutputEvent)>> {
         loop {
             let message = match self.socket.next().await {
                 Some(Ok(message)) => message,
@@ -154,9 +181,11 @@ impl RawClient {
             match message {
                 Message::Text(text) => {
                     log::trace!("<-- {text}");
-                    let event = serde_json::from_str::<OutputEvent>(&text)
-                        .map_err(|e| Error::decode(e, text))?;
-                    return Ok(Some(event));
+                    let event = match serde_json::from_str::<OutputEvent>(&text) {
+                        Ok(event) => event,
+                        Err(e) => return Err(Error::decode(e, text)),
+                    };
+                    return Ok(Some((text, event)));
                 }
                 Message::Close(_) => {
                     self.closed = true;
