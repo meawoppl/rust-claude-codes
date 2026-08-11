@@ -21,7 +21,7 @@ Each crate's version tracks the CLI it wraps:
 - **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.223`, tested against Claude CLI `2.1.222`.
 - **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.146.4`, tested against Codex CLI `0.146.0`.
 - **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.14`, tested against opencode `1.18.14`.
-- **`muse-codes`** version tracks the Muse Code release its stream captures were taken from, with patch offsets for crate-side additions. Currently `muse-codes 0.1.6`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`).
+- **`muse-codes`** version tracks the Muse Code release its stream captures were taken from, with patch offsets for crate-side additions. Currently `muse-codes 0.1.7`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`).
 - **`antigravity-codes`** version tracks the `google-antigravity` wheel whose bundled harness it was generated from. Currently `antigravity-codes 0.1.10`, tested against google-antigravity `0.1.10`.
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed

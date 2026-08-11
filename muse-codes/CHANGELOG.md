@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-08-11
+
+### Added
+
+- **`CommandResult` typed binding for `tool.result` bash/command output** (fixes #294) — `ToolResult.text` for the `bash` tool is a JSON string; new `CommandResult { chunk_id, command, description, exit_code, terminal_status, output, original_output_bytes, original_output_tokens, truncated, extra }` plus `ToolResult::is_command_tool()`, `command_result() -> Option<CommandResult>` and `try_command_result() -> Result<CommandResult, _>`. Docs note the dual emission (`tool.result` + `task.lifecycle.output` chunk) and that `tool.result` is authoritative for de-dupe.
+
 ## [0.1.6] - 2026-08-11
 
 ### Fixed
