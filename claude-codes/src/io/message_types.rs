@@ -43,6 +43,7 @@ pub enum SystemSubtype {
     Informational,
     CodeChangePublished,
     VcsStateChanged,
+    FeedbackDraftQueued,
     /// A subtype not yet known to this version of the crate.
     Unknown(String),
 }
@@ -80,6 +81,7 @@ impl SystemSubtype {
             Self::Informational => "informational",
             Self::CodeChangePublished => "code_change_published",
             Self::VcsStateChanged => "vcs_state_changed",
+            Self::FeedbackDraftQueued => "feedback_draft_queued",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -124,6 +126,7 @@ impl From<&str> for SystemSubtype {
             "informational" => Self::Informational,
             "code_change_published" => Self::CodeChangePublished,
             "vcs_state_changed" => Self::VcsStateChanged,
+            "feedback_draft_queued" => Self::FeedbackDraftQueued,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -996,6 +999,19 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Check if this is a feedback_draft_queued message.
+    pub fn is_feedback_draft_queued(&self) -> bool {
+        self.subtype == SystemSubtype::FeedbackDraftQueued
+    }
+
+    /// Try to parse as a feedback_draft_queued message.
+    pub fn as_feedback_draft_queued(&self) -> Option<FeedbackDraftQueuedMessage> {
+        if self.subtype != SystemSubtype::FeedbackDraftQueued {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
     /// Parse any typed system subtype known to this crate version.
     pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
         macro_rules! parse {
@@ -1055,6 +1071,9 @@ impl SystemMessage {
                 parse!(CodeChangePublished, CodeChangePublishedMessage)
             }
             SystemSubtype::VcsStateChanged => parse!(VcsStateChanged, VcsStateChangedMessage),
+            SystemSubtype::FeedbackDraftQueued => {
+                parse!(FeedbackDraftQueued, FeedbackDraftQueuedMessage)
+            }
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1128,6 +1147,9 @@ impl SystemMessage {
             SystemSubtype::VcsStateChanged => {
                 reserialize(parse_system::<VcsStateChangedMessage>(self))
             }
+            SystemSubtype::FeedbackDraftQueued => {
+                reserialize(parse_system::<FeedbackDraftQueuedMessage>(self))
+            }
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1170,6 +1192,7 @@ pub enum KnownSystemEvent {
     Informational(InformationalMessage),
     CodeChangePublished(CodeChangePublishedMessage),
     VcsStateChanged(VcsStateChangedMessage),
+    FeedbackDraftQueued(FeedbackDraftQueuedMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2176,6 +2199,21 @@ impl<'de> Deserialize<'de> for VcsMutationKind {
     }
 }
 
+/// `system/feedback_draft_queued` — a feedback draft was queued for submission.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackDraftQueuedMessage {
+    pub draft_id: String,
+    pub draft_type: String,
+    pub title: String,
+    pub details_preview: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
 /// Display metadata for a tool-use block carried on the assistant wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolUseMeta {
@@ -3114,6 +3152,48 @@ mod tests {
         let direct = sys.as_code_change_published().expect("direct accessor");
         assert_eq!(direct.url, "https://github.com/owner/repo/pull/42");
         assert!(sys.as_vcs_state_changed().is_none());
+    }
+
+    #[test]
+    fn test_feedback_draft_queued_fully_wrapped() {
+        use super::{KnownSystemEvent, SystemSubtype};
+        use serde_json::Value;
+
+        let raw: Value = serde_json::from_str(
+            r#"{
+            "type":"system","subtype":"feedback_draft_queued",
+            "draft_id":"draft-1","draft_type":"bug_report",
+            "title":"Tool output was truncated",
+            "details_preview":"The last command omitted its final lines",
+            "uuid":"u1","session_id":"s1","future_field":"preserved"
+        }"#,
+        )
+        .unwrap();
+        crate::io::assert_fully_wrapped(&raw);
+
+        let output: ClaudeOutput = serde_json::from_value(raw).unwrap();
+        let ClaudeOutput::System(sys) = output else {
+            panic!("expected System");
+        };
+        assert_eq!(sys.subtype, SystemSubtype::FeedbackDraftQueued);
+        assert!(sys.is_feedback_draft_queued());
+        assert!(!sys.is_vcs_state_changed());
+
+        let direct = sys
+            .as_feedback_draft_queued()
+            .expect("direct typed accessor");
+        assert_eq!(direct.draft_id, "draft-1");
+        assert_eq!(direct.draft_type, "bug_report");
+        assert_eq!(direct.extra["future_field"], "preserved");
+
+        let Some(KnownSystemEvent::FeedbackDraftQueued(known)) = sys.as_known_system_event() else {
+            panic!("expected FeedbackDraftQueued event");
+        };
+        assert_eq!(known.title, "Tool output was truncated");
+        assert_eq!(
+            sys.typed_value().expect("typed value")["future_field"],
+            "preserved"
+        );
     }
 
     #[test]
