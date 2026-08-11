@@ -43,6 +43,7 @@ pub enum SystemSubtype {
     Informational,
     CodeChangePublished,
     VcsStateChanged,
+    FeedbackDraftQueued,
     /// A subtype not yet known to this version of the crate.
     Unknown(String),
 }
@@ -80,6 +81,7 @@ impl SystemSubtype {
             Self::Informational => "informational",
             Self::CodeChangePublished => "code_change_published",
             Self::VcsStateChanged => "vcs_state_changed",
+            Self::FeedbackDraftQueued => "feedback_draft_queued",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -124,6 +126,7 @@ impl From<&str> for SystemSubtype {
             "informational" => Self::Informational,
             "code_change_published" => Self::CodeChangePublished,
             "vcs_state_changed" => Self::VcsStateChanged,
+            "feedback_draft_queued" => Self::FeedbackDraftQueued,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -1055,6 +1058,9 @@ impl SystemMessage {
                 parse!(CodeChangePublished, CodeChangePublishedMessage)
             }
             SystemSubtype::VcsStateChanged => parse!(VcsStateChanged, VcsStateChangedMessage),
+            SystemSubtype::FeedbackDraftQueued => {
+                parse!(FeedbackDraftQueued, FeedbackDraftQueuedMessage)
+            }
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1128,6 +1134,9 @@ impl SystemMessage {
             SystemSubtype::VcsStateChanged => {
                 reserialize(parse_system::<VcsStateChangedMessage>(self))
             }
+            SystemSubtype::FeedbackDraftQueued => {
+                reserialize(parse_system::<FeedbackDraftQueuedMessage>(self))
+            }
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1170,6 +1179,7 @@ pub enum KnownSystemEvent {
     Informational(InformationalMessage),
     CodeChangePublished(CodeChangePublishedMessage),
     VcsStateChanged(VcsStateChangedMessage),
+    FeedbackDraftQueued(FeedbackDraftQueuedMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2174,6 +2184,21 @@ impl<'de> Deserialize<'de> for VcsMutationKind {
         let s = String::deserialize(deserializer)?;
         Ok(Self::from(s.as_str()))
     }
+}
+
+/// `system/feedback_draft_queued` — a feedback draft was queued for submission.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackDraftQueuedMessage {
+    pub draft_id: String,
+    pub draft_type: String,
+    pub title: String,
+    pub details_preview: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 /// Display metadata for a tool-use block carried on the assistant wrapper.
