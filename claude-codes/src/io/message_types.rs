@@ -999,6 +999,19 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Check if this is a feedback_draft_queued message.
+    pub fn is_feedback_draft_queued(&self) -> bool {
+        self.subtype == SystemSubtype::FeedbackDraftQueued
+    }
+
+    /// Try to parse as a feedback_draft_queued message.
+    pub fn as_feedback_draft_queued(&self) -> Option<FeedbackDraftQueuedMessage> {
+        if self.subtype != SystemSubtype::FeedbackDraftQueued {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
     /// Parse any typed system subtype known to this crate version.
     pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
         macro_rules! parse {
@@ -3139,6 +3152,48 @@ mod tests {
         let direct = sys.as_code_change_published().expect("direct accessor");
         assert_eq!(direct.url, "https://github.com/owner/repo/pull/42");
         assert!(sys.as_vcs_state_changed().is_none());
+    }
+
+    #[test]
+    fn test_feedback_draft_queued_fully_wrapped() {
+        use super::{KnownSystemEvent, SystemSubtype};
+        use serde_json::Value;
+
+        let raw: Value = serde_json::from_str(
+            r#"{
+            "type":"system","subtype":"feedback_draft_queued",
+            "draft_id":"draft-1","draft_type":"bug_report",
+            "title":"Tool output was truncated",
+            "details_preview":"The last command omitted its final lines",
+            "uuid":"u1","session_id":"s1","future_field":"preserved"
+        }"#,
+        )
+        .unwrap();
+        crate::io::assert_fully_wrapped(&raw);
+
+        let output: ClaudeOutput = serde_json::from_value(raw).unwrap();
+        let ClaudeOutput::System(sys) = output else {
+            panic!("expected System");
+        };
+        assert_eq!(sys.subtype, SystemSubtype::FeedbackDraftQueued);
+        assert!(sys.is_feedback_draft_queued());
+        assert!(!sys.is_vcs_state_changed());
+
+        let direct = sys
+            .as_feedback_draft_queued()
+            .expect("direct typed accessor");
+        assert_eq!(direct.draft_id, "draft-1");
+        assert_eq!(direct.draft_type, "bug_report");
+        assert_eq!(direct.extra["future_field"], "preserved");
+
+        let Some(KnownSystemEvent::FeedbackDraftQueued(known)) = sys.as_known_system_event() else {
+            panic!("expected FeedbackDraftQueued event");
+        };
+        assert_eq!(known.title, "Tool output was truncated");
+        assert_eq!(
+            sys.typed_value().expect("typed value")["future_field"],
+            "preserved"
+        );
     }
 
     #[test]
