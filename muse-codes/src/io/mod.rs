@@ -226,6 +226,10 @@ pub struct ModelConfigured {
 /// heuristics mis-attribute: the issuing tool task has already completed
 /// when this record lands. `call_id` is the provider's call id, not a
 /// task handle — see the README's known-wire-gaps section.
+///
+/// `correlation_facts` is absent on some tool results (e.g. compact `bash`
+/// results like `{"items":5,"ok":true,"revision":4}` observed on
+/// `3035c77c-efca...`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResult {
     pub kind: String,
@@ -236,7 +240,9 @@ pub struct ToolResult {
     /// Result text as shown to the model (including failure prose).
     pub text: String,
     /// Correlation summary — observed `{outcome, tool_name}`, open-shaped.
-    pub correlation_facts: Value,
+    /// Absent on some results; treat as `None` when missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_facts: Option<Value>,
     /// Populated for file-editing tools; open-shaped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edit_facts: Option<Value>,

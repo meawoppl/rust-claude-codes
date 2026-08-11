@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-08-11
+
+### Fixed
+
+- **`tool.result` tolerates missing `correlation_facts`** — the live wire now
+  omits `correlation_facts` on some tool results (compact `bash` results
+  like `{"items":5,"ok":true,"revision":4}` from `3035c77c-efca...`).
+  `ToolResult.correlation_facts` is now `Option<Value>` with `#[serde(default)]`
+  so `typed_payload()` no longer errors with `missing field correlation_facts`
+  (fixes #293, #297, #298, #299). Existing captures still round-trip with
+  `Some({outcome, tool_name})`.
+
 ## [0.1.5] - 2026-08-06
 
 ### Added
