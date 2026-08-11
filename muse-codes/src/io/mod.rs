@@ -261,13 +261,15 @@ pub struct ToolResult {
 
 impl ToolResult {
     /// Whether this result came from the `bash`/`command` tool, via
-    /// `correlation_facts.tool_name == "bash"`.
+    /// `correlation_facts.tool_name == "bash" | "command"`.
     pub fn is_command_tool(&self) -> bool {
-        self.correlation_facts
-            .as_ref()
-            .and_then(|v| v.get("tool_name"))
-            .and_then(|v| v.as_str())
-            == Some("bash")
+        matches!(
+            self.correlation_facts
+                .as_ref()
+                .and_then(|v| v.get("tool_name"))
+                .and_then(|v| v.as_str()),
+            Some("bash" | "command")
+        )
     }
 
     /// Try to parse `text` as a structured [`CommandResult`] (the `bash` tool
@@ -458,5 +460,49 @@ mod tests {
         .unwrap();
         assert!(matches!(e, TaskLifecycleEvent::Failed { ref reason, .. }
             if reason.contains("base instructions")));
+    }
+
+    #[test]
+    fn command_result_parses_real_wire_shape_and_preserves_extensions() {
+        let result: ToolResult = serde_json::from_value(json!({
+            "kind": "tool_result",
+            "command_id": "cmd-1",
+            "run_stream": { "id": "run-1", "kind": "run" },
+            "call_id": "call-1",
+            "correlation_facts": { "outcome": "success", "tool_name": "bash" },
+            "text": r#"{"chunk_id":"exec-12-1","command":"printf ok","description":"Print a value","exit_code":0,"terminal_status":"completed","output":"ok","original_output_bytes":2,"original_output_tokens":1,"truncated":false,"provider_extension":true}"#
+        }))
+        .unwrap();
+
+        assert!(result.is_command_tool());
+        let command = result.command_result().expect("typed command result");
+        assert_eq!(command.command, "printf ok");
+        assert_eq!(command.output, "ok");
+        assert_eq!(command.exit_code, 0);
+        assert_eq!(command.extra["provider_extension"], true);
+        assert_eq!(
+            serde_json::to_value(command).unwrap()["provider_extension"],
+            true
+        );
+    }
+
+    #[test]
+    fn command_result_rejects_prose_and_recognizes_command_alias() {
+        let mut result: ToolResult = serde_json::from_value(json!({
+            "kind": "tool_result",
+            "command_id": "cmd-1",
+            "run_stream": { "id": "run-1", "kind": "run" },
+            "call_id": "call-1",
+            "correlation_facts": { "outcome": "failure", "tool_name": "command" },
+            "text": "tool failed before the command started"
+        }))
+        .unwrap();
+
+        assert!(result.is_command_tool());
+        assert!(result.command_result().is_none());
+        assert!(result.try_command_result().is_err());
+
+        result.correlation_facts = Some(json!({ "tool_name": "write_file" }));
+        assert!(!result.is_command_tool());
     }
 }
