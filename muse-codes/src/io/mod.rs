@@ -230,6 +230,13 @@ pub struct ModelConfigured {
 /// `correlation_facts` is absent on some tool results (e.g. compact `bash`
 /// results like `{"items":5,"ok":true,"revision":4}` observed on
 /// `3035c77c-efca...`).
+///
+/// `text` is opaque for most tools (prose, e.g. `write_file` → `"wrote 6 bytes …"`),
+/// but the **`bash`/`command` tool packs a structured JSON object into `text`**
+/// (see [`CommandResult`]). Use [`ToolResult::command_result`] to get a typed
+/// view when that shape is present. The same JSON is also emitted as a
+/// `task.lifecycle.output` chunk — consumers that render both channels should
+/// de-dupe (the `tool.result` record is authoritative).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolResult {
     pub kind: String,
@@ -238,6 +245,8 @@ pub struct ToolResult {
     /// Provider call id this result answers.
     pub call_id: String,
     /// Result text as shown to the model (including failure prose).
+    /// For the `bash`/`command` tool this is a JSON string of a [`CommandResult`];
+    /// see [`ToolResult::command_result`] and [`ToolResult::try_command_result`].
     pub text: String,
     /// Correlation summary — observed `{outcome, tool_name}`, open-shaped.
     /// Absent on some results; treat as `None` when missing.
@@ -246,6 +255,70 @@ pub struct ToolResult {
     /// Populated for file-editing tools; open-shaped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edit_facts: Option<Value>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+impl ToolResult {
+    /// Whether this result came from the `bash`/`command` tool, via
+    /// `correlation_facts.tool_name == "bash" | "command"`.
+    pub fn is_command_tool(&self) -> bool {
+        matches!(
+            self.correlation_facts
+                .as_ref()
+                .and_then(|v| v.get("tool_name"))
+                .and_then(|v| v.as_str()),
+            Some("bash" | "command")
+        )
+    }
+
+    /// Try to parse `text` as a structured [`CommandResult`] (the `bash` tool
+    /// shape described in #294). Returns `None` if `text` is not valid JSON
+    /// for that shape. Checks `is_command_tool()` first but also accepts any
+    /// JSON object that deserializes as `CommandResult` — so compact results
+    /// without `correlation_facts` (observed on #299) still parse.
+    pub fn command_result(&self) -> Option<CommandResult> {
+        serde_json::from_str(&self.text).ok()
+    }
+
+    /// Fallible parse of `text` as [`CommandResult`], preserving the serde error.
+    pub fn try_command_result(&self) -> Result<CommandResult, serde_json::Error> {
+        serde_json::from_str(&self.text)
+    }
+}
+
+/// Structured result packed into [`ToolResult::text`] for the `bash`/`command`
+/// tool. Real capture from #294:
+///
+/// ```json
+/// {
+///   "chunk_id": "exec-12-1",
+///   "command": "curl -s https://example.com | jq .",
+///   "description": "Test muse registration",
+///   "exit_code": 0,
+///   "terminal_status": "completed",
+///   "output": "{\\n  \"ok\": true\\n}",
+///   "original_output_bytes": 394,
+///   "original_output_tokens": 99,
+///   "truncated": false
+/// }
+/// ```
+///
+/// Field notes: `command`/`description` are the shell line and Muse's
+/// one-line rationale; `output` is combined stdout/stderr already truncated
+/// to budget; `original_output_*` are pre-truncation sizes; `truncated`
+/// signals truncation. Extra fields survive in `extra`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommandResult {
+    pub chunk_id: String,
+    pub command: String,
+    pub description: String,
+    pub exit_code: i32,
+    pub terminal_status: String,
+    pub output: String,
+    pub original_output_bytes: u64,
+    pub original_output_tokens: u64,
+    pub truncated: bool,
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, Value>,
 }
@@ -387,5 +460,49 @@ mod tests {
         .unwrap();
         assert!(matches!(e, TaskLifecycleEvent::Failed { ref reason, .. }
             if reason.contains("base instructions")));
+    }
+
+    #[test]
+    fn command_result_parses_real_wire_shape_and_preserves_extensions() {
+        let result: ToolResult = serde_json::from_value(json!({
+            "kind": "tool_result",
+            "command_id": "cmd-1",
+            "run_stream": { "id": "run-1", "kind": "run" },
+            "call_id": "call-1",
+            "correlation_facts": { "outcome": "success", "tool_name": "bash" },
+            "text": r#"{"chunk_id":"exec-12-1","command":"printf ok","description":"Print a value","exit_code":0,"terminal_status":"completed","output":"ok","original_output_bytes":2,"original_output_tokens":1,"truncated":false,"provider_extension":true}"#
+        }))
+        .unwrap();
+
+        assert!(result.is_command_tool());
+        let command = result.command_result().expect("typed command result");
+        assert_eq!(command.command, "printf ok");
+        assert_eq!(command.output, "ok");
+        assert_eq!(command.exit_code, 0);
+        assert_eq!(command.extra["provider_extension"], true);
+        assert_eq!(
+            serde_json::to_value(command).unwrap()["provider_extension"],
+            true
+        );
+    }
+
+    #[test]
+    fn command_result_rejects_prose_and_recognizes_command_alias() {
+        let mut result: ToolResult = serde_json::from_value(json!({
+            "kind": "tool_result",
+            "command_id": "cmd-1",
+            "run_stream": { "id": "run-1", "kind": "run" },
+            "call_id": "call-1",
+            "correlation_facts": { "outcome": "failure", "tool_name": "command" },
+            "text": "tool failed before the command started"
+        }))
+        .unwrap();
+
+        assert!(result.is_command_tool());
+        assert!(result.command_result().is_none());
+        assert!(result.try_command_result().is_err());
+
+        result.correlation_facts = Some(json!({ "tool_name": "write_file" }));
+        assert!(!result.is_command_tool());
     }
 }

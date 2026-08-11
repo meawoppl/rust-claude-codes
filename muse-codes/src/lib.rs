@@ -49,8 +49,8 @@ pub mod client_async;
 
 pub use error::{Error, Result};
 pub use io::{
-    CommandAccepted, Durability, ModelConfigured, MusePayload, MuseRecord, RecordType,
-    RunOutputDelta, RunStarted, RunTerminal, SessionRunLinked, StreamKind, StreamRef,
+    CommandAccepted, CommandResult, Durability, ModelConfigured, MusePayload, MuseRecord,
+    RecordType, RunOutputDelta, RunStarted, RunTerminal, SessionRunLinked, StreamKind, StreamRef,
     TaskLifecycle, TaskLifecycleEvent, TaskStreamLinked, ToolResult, TurnInputUser,
 };
 
