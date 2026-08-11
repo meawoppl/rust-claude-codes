@@ -535,6 +535,8 @@ pub struct AppsReadParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub include_tools: Option<bool>,
+    #[serde(rename = "threadId", default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -610,6 +612,23 @@ pub enum AutoCompactTokenLimitScope {
 pub enum AutoReviewDecisionSource {
     #[serde(rename = "agent")]
     Agent,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoReviewRequirements {
+    #[serde(
+        rename = "ignoreRules",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ignore_rules: Option<Vec<String>>,
+    #[serde(
+        rename = "requiredOnModels",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub required_on_models: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -1251,6 +1270,10 @@ pub struct ConfigLayerMetadata {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ConfigLayerSource {
+    #[serde(rename = "packagedDefaults")]
+    PackagedDefaults {
+        file: Value,
+    },
     Mdm {
         domain: String,
         key: String,
@@ -1363,6 +1386,12 @@ pub struct ConfigRequirements {
         skip_serializing_if = "Option::is_none"
     )]
     pub allowed_windows_sandbox_implementations: Option<Vec<WindowsSandboxSetupMode>>,
+    #[serde(
+        rename = "autoReview",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub auto_review: Option<AutoReviewRequirements>,
     #[serde(
         rename = "browserUse",
         default,
@@ -2762,6 +2791,12 @@ pub struct HookMetadata {
     pub enabled: bool,
     #[serde(rename = "eventName")]
     pub event_name: HookEventName,
+    #[serde(
+        rename = "executionMode",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub execution_mode: Option<Value>,
     #[serde(rename = "handlerType")]
     pub handler_type: HookHandlerType,
     #[serde(rename = "isManaged", default)]
@@ -3787,6 +3822,8 @@ pub struct McpServerStatus {
     pub auth_status: McpAuthStatus,
     #[serde(default)]
     pub name: String,
+    #[serde(rename = "pluginId", default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
     #[serde(rename = "resourceTemplates", default)]
     pub resource_templates: Vec<ResourceTemplate>,
     #[serde(default)]
@@ -4047,6 +4084,12 @@ pub struct Model {
     )]
     pub model_specialty: Option<String>,
     #[serde(
+        rename = "multiAgentVersion",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub multi_agent_version: Option<MultiAgentVersion>,
+    #[serde(
         rename = "serviceTiers",
         default,
         skip_serializing_if = "Option::is_none"
@@ -4221,6 +4264,16 @@ pub struct ModelVerificationNotification {
 pub struct ModelsRequirements {
     #[serde(rename = "newThread", default, skip_serializing_if = "Option::is_none")]
     pub new_thread: Option<NewThreadModelDefaults>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MultiAgentVersion {
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "v1")]
+    V1,
+    #[serde(rename = "v2")]
+    V2,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -4569,6 +4622,12 @@ pub struct PluginHookSummary {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInstallParams {
+    #[serde(
+        rename = "installAttemptId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub install_attempt_id: Option<String>,
     #[serde(
         rename = "marketplacePath",
         default,
@@ -6702,6 +6761,12 @@ pub enum ThreadItem {
         #[serde(rename = "savedPath", default, skip_serializing_if = "Option::is_none")]
         saved_path: Option<AbsolutePathBuf>,
         status: String,
+        #[serde(
+            rename = "transparentBackground",
+            default,
+            skip_serializing_if = "Option::is_none"
+        )]
+        transparent_background: Option<bool>,
     },
     #[serde(rename = "enteredReviewMode")]
     EnteredReviewMode {
@@ -7084,6 +7149,8 @@ pub struct ThreadRollbackResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<ThreadSectionAppearance>,
     #[serde(default)]
     pub id: String,
     #[serde(default)]
@@ -7092,7 +7159,18 @@ pub struct ThreadSection {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ThreadSectionAppearance {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ThreadSectionCreateParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<ThreadSectionAppearance>,
     #[serde(default)]
     pub name: String,
 }
@@ -7165,6 +7243,8 @@ pub struct ThreadSectionMoveResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadSectionUpdateParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub appearance: Option<ThreadSectionAppearance>,
     #[serde(default)]
     pub name: String,
     #[serde(rename = "sectionId", default)]
