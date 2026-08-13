@@ -2547,6 +2547,103 @@ pub struct GetAccountTokenUsageResponse {
     pub daily_usage_buckets: Option<Vec<AccountTokenUsageDailyBucket>>,
     #[serde()]
     pub summary: AccountTokenUsageSummary,
+    #[serde(
+        rename = "threadUsage",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub thread_usage: Option<ThreadUsage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GetAccountTokenUsageParams {
+    #[serde(rename = "threadId", default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadUsage {
+    #[serde(rename = "estimatedUsageCreditsMicros", default)]
+    pub estimated_usage_credits_micros: i64,
+    #[serde(
+        rename = "estimatedUsageUsdMicros",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub estimated_usage_usd_micros: Option<i64>,
+    #[serde(default)]
+    pub groups: Vec<ThreadUsageBreakdownGroup>,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadUsageBreakdownGroup {
+    #[serde(
+        rename = "cachedInputTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cached_input_tokens: Option<i64>,
+    #[serde(rename = "estimatedUsageCreditsMicros", default)]
+    pub estimated_usage_credits_micros: i64,
+    #[serde(
+        rename = "inputTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub input_tokens: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(
+        rename = "netNewInputTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub net_new_input_tokens: Option<i64>,
+    #[serde(
+        rename = "outputTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub output_tokens: Option<i64>,
+    #[serde(
+        rename = "reasoningEffort",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub reasoning_effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<String>,
+    #[serde(
+        rename = "totalTokens",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub total_tokens: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ImageGenerationFailure {
+    #[serde(rename = "usageLimitExceeded")]
+    UsageLimitExceeded {
+        #[serde(rename = "limitId")]
+        limit_id: String,
+        #[serde(rename = "resetsAt", default, skip_serializing_if = "Option::is_none")]
+        resets_at: Option<i64>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum McpServerOauthClientRegistration {
+    Auto,
+    Cimd,
+    Dcr,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -3769,6 +3866,12 @@ pub struct McpServerOauthLoginCompletedNotification {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerOauthLoginParams {
+    #[serde(
+        rename = "clientRegistration",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub client_registration: Option<McpServerOauthClientRegistration>,
     #[serde(default)]
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5601,6 +5704,8 @@ pub enum ReviewDecision {
     },
     #[serde(rename = "approved_for_session")]
     ApprovedForSession,
+    #[serde(rename = "approved_mcp_policy_amendment")]
+    ApprovedMcpPolicyAmendment,
     #[serde(rename = "network_policy_amendment")]
     NetworkPolicyAmendment {
         network_policy_amendment: NetworkPolicyAmendment,
@@ -6750,6 +6855,8 @@ pub enum ThreadItem {
     },
     #[serde(rename = "imageGeneration")]
     ImageGeneration {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        failure: Option<ImageGenerationFailure>,
         id: String,
         result: String,
         #[serde(
