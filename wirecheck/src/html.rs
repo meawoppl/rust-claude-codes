@@ -96,6 +96,7 @@ function card(name, p){
       <div class="what" style="margin-top:.6rem">cargo integration tests${p.cargo_status?` — ${esc(p.cargo_status)}`:""}</div>
       <ul class="checks">${(p.cargo_tests||[]).map(c=>`
         <li><span class="st ${c.status}">${icon(c.status)}</span>${esc(c.name)}
+            ${c.what?`<div class="what" style="margin-left:1.2rem">${esc(c.what)}</div>`:""}
             ${c.detail?`<div class="detail">${esc(c.detail)}</div>`:""}</li>`).join("")}</ul>`:""}
   </div>`;
 }

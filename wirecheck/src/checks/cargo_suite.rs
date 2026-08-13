@@ -25,6 +25,7 @@ pub async fn run(state: Shared, agent: &'static str) {
     let Some((package, _)) = plan(agent) else {
         return;
     };
+    let descriptions = load_descriptions(package).await;
 
     // opencode's integration tests read OPENCODE_BASE_URL; spawn a managed
     // server for the duration so they run hermetically.
@@ -47,7 +48,7 @@ pub async fn run(state: Shared, agent: &'static str) {
                     agent,
                     CheckResult {
                         name: "managed server".into(),
-                        what: "",
+                        what: String::new(),
                         status: CheckStatus::Fail,
                         detail: format!("could not spawn opencode serve: {e}"),
                         ms: None,
@@ -61,20 +62,19 @@ pub async fn run(state: Shared, agent: &'static str) {
     }
 
     set_status(&state, agent, "cargo test (compiling if needed)…").await;
-    let mut cmd = tokio::process::Command::new("cargo");
-    cmd.args([
-        "test",
-        "-p",
-        package,
-        "--features",
-        "integration-tests",
-        "--",
-        "--test-threads=1",
-    ])
-    .current_dir(env!("CARGO_MANIFEST_DIR").trim_end_matches("/wirecheck"))
-    .stdout(Stdio::piped())
-    .stderr(Stdio::piped())
-    .kill_on_drop(true);
+    // One merged stream (2>&1): cargo announces each test binary with a
+    // "Running tests/<file>.rs" header on STDERR while libtest results go
+    // to stdout — the parser needs them interleaved in order to resolve
+    // per-file descriptions.
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.arg("-c")
+        .arg(format!(
+            "cargo test -p {package} --features integration-tests -- --test-threads=1 2>&1"
+        ))
+        .current_dir(env!("CARGO_MANIFEST_DIR").trim_end_matches("/wirecheck"))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     for (k, v) in &envs {
         cmd.env(k, v);
     }
@@ -88,7 +88,7 @@ pub async fn run(state: Shared, agent: &'static str) {
                 agent,
                 CheckResult {
                     name: "cargo test".into(),
-                    what: "",
+                    what: String::new(),
                     status: CheckStatus::Fail,
                     detail: e.to_string(),
                     ms: None,
@@ -105,11 +105,24 @@ pub async fn run(state: Shared, agent: &'static str) {
     // whole stdout so they can be attached after the run.
     let stdout = child.stdout.take();
     let mut full = String::new();
+    // Which test binary is currently reporting — libtest prints a
+    // "Running tests/<file>.rs (…)" header before each — so descriptions
+    // resolve per-file and same-named tests in different files can't
+    // cross-wire.
+    let mut current_file: Option<String> = None;
     if let Some(out) = stdout {
         let mut lines = BufReader::new(out).lines();
         while let Ok(Some(line)) = lines.next_line().await {
             full.push_str(&line);
             full.push('\n');
+            if let Some(rest) = line.trim_start().strip_prefix("Running ") {
+                current_file = rest
+                    .split_whitespace()
+                    .next()
+                    .and_then(|p| p.rsplit('/').next())
+                    .and_then(|f| f.strip_suffix(".rs"))
+                    .map(str::to_string);
+            }
             if let Some(rest) = line.strip_prefix("test ") {
                 if let Some((name, verdict)) = rest.rsplit_once(" ... ") {
                     // Skip doc-test headers and the summary line.
@@ -120,13 +133,19 @@ pub async fn run(state: Shared, agent: &'static str) {
                             _ => CheckStatus::Fail,
                         };
                         let short = name.rsplit("::").next().unwrap_or(name).to_string();
+                        let what = current_file
+                            .as_deref()
+                            .and_then(|file| descriptions.get(file))
+                            .and_then(|fns| fns.get(&short))
+                            .cloned()
+                            .unwrap_or_default();
                         set_status(&state, agent, &format!("ran {short}")).await;
                         push_result(
                             &state,
                             agent,
                             CheckResult {
                                 name: short,
-                                what: "",
+                                what,
                                 status,
                                 detail: String::new(),
                                 ms: None,
@@ -154,6 +173,27 @@ pub async fn run(state: Shared, agent: &'static str) {
     };
     set_status(&state, agent, &summary).await;
     finish(&state, agent, managed).await;
+}
+
+/// Test descriptions from the /// doc comments, extracted by the same
+/// script CI uses to enforce them: `{file_stem: {fn_name: description}}`.
+/// Missing script or crate entry degrades to bare names, never an error.
+async fn load_descriptions(
+    package: &str,
+) -> std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>> {
+    let repo_root = env!("CARGO_MANIFEST_DIR").trim_end_matches("/wirecheck");
+    let out = tokio::process::Command::new("python3")
+        .args(["scripts/check_test_annotations.py", "--emit-json"])
+        .current_dir(repo_root)
+        .output()
+        .await;
+    let Ok(out) = out else {
+        return Default::default();
+    };
+    serde_json::from_slice::<serde_json::Value>(&out.stdout)
+        .ok()
+        .and_then(|v| serde_json::from_value(v.get(package)?.clone()).ok())
+        .unwrap_or_default()
 }
 
 /// Pull `---- name stdout ----` blocks out of libtest output and attach

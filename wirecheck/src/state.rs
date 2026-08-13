@@ -66,9 +66,10 @@ pub enum LoginState {
 #[derive(Debug, Clone, Serialize)]
 pub struct CheckResult {
     pub name: String,
-    /// What property this check pins, in one sentence. Empty for cargo
-    /// tests — the test name is the description.
-    pub what: &'static str,
+    /// What property this check pins, in one sentence. Curated checks set
+    /// it inline; cargo tests get it from the test fn's /// doc comment via
+    /// scripts/check_test_annotations.py --emit-json.
+    pub what: String,
     pub status: CheckStatus,
     /// Pass detail or failure explanation. Never contains secrets.
     pub detail: String,
@@ -114,7 +115,7 @@ impl Reporter {
             panel.checks.retain(|c| c.name != name);
             panel.checks.push(CheckResult {
                 name: name.to_string(),
-                what,
+                what: what.to_string(),
                 status: CheckStatus::Running,
                 detail: String::new(),
                 ms: None,

@@ -57,6 +57,7 @@ fn assert_standard_envelope(events: &[ThreadEvent]) {
 
 // ── hello_world: simplest possible session ──────────────────────────
 
+/// Every line of the captured hello-world exec stream parses into a typed event.
 #[test]
 fn test_hello_world_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/hello_world.jsonl"));
@@ -64,6 +65,7 @@ fn test_hello_world_parses_all_lines() {
     assert_eq!(events.len(), 5);
 }
 
+/// The hello-world capture contains both reasoning and agent-message items - the minimal turn vocabulary.
 #[test]
 fn test_hello_world_contains_reasoning_and_message() {
     let events = parse_capture(include_str!("../test_cases/captures/hello_world.jsonl"));
@@ -95,6 +97,7 @@ fn test_hello_world_contains_reasoning_and_message() {
 
 // ── list_files: command execution with item.started lifecycle ────────
 
+/// Every line of the captured list-files exec stream parses into a typed event.
 #[test]
 fn test_list_files_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/list_files.jsonl"));
@@ -102,6 +105,7 @@ fn test_list_files_parses_all_lines() {
     assert_eq!(events.len(), 8);
 }
 
+/// The list-files capture shows the full command lifecycle: item.started, command output, item.completed.
 #[test]
 fn test_list_files_command_lifecycle() {
     let events = parse_capture(include_str!("../test_cases/captures/list_files.jsonl"));
@@ -147,6 +151,7 @@ fn test_list_files_command_lifecycle() {
 
 // ── file_create: command that creates a file ────────────────────────
 
+/// Every line of the captured file-create exec stream parses into a typed event.
 #[test]
 fn test_file_create_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/file_create.jsonl"));
@@ -154,6 +159,7 @@ fn test_file_create_parses_all_lines() {
     assert_eq!(events.len(), 8);
 }
 
+/// The file-create capture carries the command output text on the completed item.
 #[test]
 fn test_file_create_command_output() {
     let events = parse_capture(include_str!("../test_cases/captures/file_create.jsonl"));
@@ -171,6 +177,7 @@ fn test_file_create_command_output() {
 
 // ── failed_command: non-zero exit code ──────────────────────────────
 
+/// Every line of the captured failed-command exec stream parses into a typed event.
 #[test]
 fn test_failed_command_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/failed_command.jsonl"));
@@ -178,6 +185,7 @@ fn test_failed_command_parses_all_lines() {
     assert_eq!(events.len(), 8);
 }
 
+/// A failed command reports failed status and its nonzero exit code on the completed item.
 #[test]
 fn test_failed_command_status_and_exit_code() {
     let events = parse_capture(include_str!("../test_cases/captures/failed_command.jsonl"));
@@ -211,6 +219,7 @@ fn test_failed_command_status_and_exit_code() {
 
 // ── file_change: patch-based file modification ──────────────────────
 
+/// Every line of the captured file-change exec stream parses into a typed event.
 #[test]
 fn test_file_change_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/file_change.jsonl"));
@@ -218,6 +227,7 @@ fn test_file_change_parses_all_lines() {
     assert_eq!(events.len(), 12);
 }
 
+/// A fileChange item carries the changed paths and change kinds.
 #[test]
 fn test_file_change_item_fields() {
     let events = parse_capture(include_str!("../test_cases/captures/file_change.jsonl"));
@@ -236,6 +246,7 @@ fn test_file_change_item_fields() {
     assert!(fc.changes[0].path.contains("test.txt"));
 }
 
+/// The file-change capture also runs a verification command - both item kinds coexist in one turn.
 #[test]
 fn test_file_change_also_has_command_verification() {
     let events = parse_capture(include_str!("../test_cases/captures/file_change.jsonl"));
@@ -258,6 +269,7 @@ fn test_file_change_also_has_command_verification() {
 
 // ── multi_command: multiple sequential commands ─────────────────────
 
+/// Every line of the captured multi-command exec stream parses into a typed event.
 #[test]
 fn test_multi_command_parses_all_lines() {
     let events = parse_capture(include_str!("../test_cases/captures/multi_command.jsonl"));
@@ -265,6 +277,7 @@ fn test_multi_command_parses_all_lines() {
     assert_eq!(events.len(), 12);
 }
 
+/// The multi-command capture executed all three requested commands.
 #[test]
 fn test_multi_command_three_commands_executed() {
     let events = parse_capture(include_str!("../test_cases/captures/multi_command.jsonl"));
@@ -301,6 +314,7 @@ fn test_multi_command_three_commands_executed() {
     }
 }
 
+/// Every item.started in the multi-command capture has a matching item.completed - no orphaned lifecycle events.
 #[test]
 fn test_multi_command_started_events_match_completed() {
     let events = parse_capture(include_str!("../test_cases/captures/multi_command.jsonl"));
@@ -334,6 +348,7 @@ fn test_multi_command_started_events_match_completed() {
 
 // ── cross-capture: verify all captures share structural invariants ──
 
+/// Thread ids are unique across all captures - the identity guarantee downstream keying relies on.
 #[test]
 fn test_all_captures_have_unique_thread_ids() {
     let captures = [
@@ -366,6 +381,7 @@ fn test_all_captures_have_unique_thread_ids() {
     );
 }
 
+/// Every capture reports cached-token usage - the accounting field consumers bill against.
 #[test]
 fn test_all_captures_have_cached_tokens() {
     let captures = [
@@ -389,6 +405,7 @@ fn test_all_captures_have_cached_tokens() {
     }
 }
 
+/// Item ids increase sequentially within a capture - the ordering guarantee for item lists.
 #[test]
 fn test_all_item_ids_are_sequential_within_capture() {
     let captures = [
@@ -454,6 +471,7 @@ fn test_all_item_ids_are_sequential_within_capture() {
 // `ServerRequest::from_envelope`, wrap the resulting `serde_json::Error` in a
 // `ParseError`, and check that nothing was dropped on the floor.
 
+/// An unmodeled notification surfaces as a parse error carrying its method and params - named, not silently dropped.
 #[test]
 fn parse_error_carries_method_and_params_for_unmodeled_notification_variant() {
     // Simulates a notification whose envelope is fine but whose params don't
@@ -490,6 +508,7 @@ fn parse_error_carries_method_and_params_for_unmodeled_notification_variant() {
     }
 }
 
+/// A malformed envelope keeps the raw line in the parse error so the bad wire bytes are recoverable.
 #[test]
 fn parse_error_from_invalid_envelope_keeps_raw_line_without_method() {
     // The bare-JSON failure path: line is not a valid JsonRpcMessage.
