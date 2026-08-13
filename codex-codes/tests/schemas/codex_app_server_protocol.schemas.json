@@ -2062,7 +2062,14 @@
               "type": "string"
             },
             "params": {
-              "type": "null"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/v2/GetAccountTokenUsageParams"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -4255,6 +4262,13 @@
           "description": "User has approved this request and wants future prompts in the same session-scoped approval cache to be automatically approved for the remainder of the session.",
           "enum": [
             "approved_for_session"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "User has approved this MCP tool call and wants to amend its policy so matching future calls are automatically approved across sessions.",
+          "enum": [
+            "approved_mcp_policy_amendment"
           ],
           "type": "string"
         },
@@ -11370,6 +11384,18 @@
         "title": "GetAccountResponse",
         "type": "object"
       },
+      "GetAccountTokenUsageParams": {
+        "properties": {
+          "threadId": {
+            "description": "When present, read estimated usage for this thread instead of account-wide token activity.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "GetAccountTokenUsageResponse": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
@@ -11384,6 +11410,18 @@
           },
           "summary": {
             "$ref": "#/definitions/v2/AccountTokenUsageSummary"
+          },
+          "threadUsage": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/ThreadUsage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Estimated usage when a thread was requested and its billing route is available."
           }
         },
         "required": [
@@ -12158,6 +12196,37 @@
           "original"
         ],
         "type": "string"
+      },
+      "ImageGenerationFailure": {
+        "oneOf": [
+          {
+            "properties": {
+              "limitId": {
+                "type": "string"
+              },
+              "resetsAt": {
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "type": {
+                "enum": [
+                  "usageLimitExceeded"
+                ],
+                "title": "UsageLimitExceededImageGenerationFailureType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "limitId",
+              "type"
+            ],
+            "title": "UsageLimitExceededImageGenerationFailure",
+            "type": "object"
+          }
+        ]
       },
       "InputModality": {
         "description": "Canonical user-input modality tags advertised by a model.",
@@ -13129,6 +13198,14 @@
         ],
         "type": "object"
       },
+      "McpServerOauthClientRegistration": {
+        "enum": [
+          "auto",
+          "cimd",
+          "dcr"
+        ],
+        "type": "string"
+      },
       "McpServerOauthLoginCompletedNotification": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
@@ -13161,6 +13238,17 @@
       "McpServerOauthLoginParams": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "properties": {
+          "clientRegistration": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/McpServerOauthClientRegistration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Registration strategy for this login only; omission selects automatic discovery."
+          },
           "name": {
             "type": "string"
           },
@@ -14195,6 +14283,18 @@
           "compact"
         ],
         "type": "string"
+      },
+      "NullableGetAccountTokenUsageParams": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "anyOf": [
+          {
+            "$ref": "#/definitions/v2/GetAccountTokenUsageParams"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Nullable_GetAccountTokenUsageParams"
       },
       "OverriddenMetadata": {
         "properties": {
@@ -19950,6 +20050,17 @@
           },
           {
             "properties": {
+              "failure": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/v2/ImageGenerationFailure"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "id": {
                 "type": "string"
               },
@@ -21748,6 +21859,101 @@
           "unsubscribed"
         ],
         "type": "string"
+      },
+      "ThreadUsage": {
+        "properties": {
+          "estimatedUsageCreditsMicros": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "estimatedUsageUsdMicros": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/definitions/v2/ThreadUsageBreakdownGroup"
+            },
+            "type": "array"
+          },
+          "threadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "estimatedUsageCreditsMicros",
+          "groups",
+          "threadId"
+        ],
+        "type": "object"
+      },
+      "ThreadUsageBreakdownGroup": {
+        "properties": {
+          "cachedInputTokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "estimatedUsageCreditsMicros": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "inputTokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "netNewInputTokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outputTokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reasoningEffort": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "speed": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "totalTokens": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "estimatedUsageCreditsMicros"
+        ],
+        "type": "object"
       },
       "TokenUsageBreakdown": {
         "properties": {
