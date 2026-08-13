@@ -383,10 +383,18 @@ async fn live_meta_checks(reporter: &Reporter) {
     let started = reporter
         .start("answer_text", "run.terminal.* carries the reply text")
         .await;
+    // Same contract the SDK documents: the reply is terminal `text`, and a
+    // failed/cancelled run without text carries its `reason` instead.
     let text = records
         .iter()
         .filter(|r| r.payload_type.starts_with("run.terminal."))
-        .filter_map(|r| r.payload.get("text").and_then(|t| t.as_str()))
+        .filter_map(|r| {
+            r.payload
+                .get("text")
+                .and_then(|t| t.as_str())
+                .filter(|t| !t.trim().is_empty())
+                .or_else(|| r.payload.get("reason").and_then(|t| t.as_str()))
+        })
         .next_back()
         .unwrap_or("");
     if text.trim().is_empty() {

@@ -15,6 +15,7 @@ use codex_codes::{
 
 // ── Version check ───────────────────────────────────────────────────
 
+/// The installed codex CLI answers --version - the binary-presence gate for the live suite.
 #[tokio::test]
 async fn test_codex_cli_version() {
     codex_codes::version::check_codex_version_async()
@@ -24,6 +25,7 @@ async fn test_codex_cli_version() {
 
 // ── Async client: initialize + thread_start ─────────────────────────
 
+/// The async client starts the app-server and thread/start returns a non-empty thread id.
 #[tokio::test]
 async fn test_async_client_start_and_thread_start() {
     let mut client = AsyncClient::start()
@@ -116,6 +118,7 @@ async fn test_async_client_thread_fork() {
 
 // ── Async client: full turn lifecycle ───────────────────────────────
 
+/// A live turn streams typed notifications to turnCompleted and the answer arrives in agent-message deltas.
 #[tokio::test]
 async fn test_async_client_basic_turn() {
     let mut client = AsyncClient::start()
@@ -189,6 +192,7 @@ async fn test_async_client_basic_turn() {
 
 // ── Async client: custom initialization ─────────────────────────────
 
+/// initialize with custom client info and capabilities is accepted by the live app-server.
 #[tokio::test]
 async fn test_async_client_custom_initialize() {
     let mut client = AsyncClient::spawn(AppServerBuilder::new())
@@ -231,6 +235,7 @@ async fn test_async_client_custom_initialize() {
 
 // ── Sync client: initialize + thread_start ──────────────────────────
 
+/// The sync client starts the app-server and opens a thread (blocking API parity with async).
 #[test]
 fn test_sync_client_start_and_thread_start() {
     let mut client = SyncClient::start().expect("Failed to start app-server");
@@ -244,6 +249,7 @@ fn test_sync_client_start_and_thread_start() {
 
 // ── Sync client: full turn lifecycle ────────────────────────────────
 
+/// A live turn completes through the sync client (blocking API parity with async).
 #[test]
 fn test_sync_client_basic_turn() {
     let mut client = SyncClient::start().expect("Failed to start app-server");
@@ -305,6 +311,7 @@ fn test_sync_client_basic_turn() {
 
 // ── Async client: multi-turn conversation ───────────────────────────
 
+/// Two turns on one thread share context - the second answer uses the first turn's information.
 #[tokio::test]
 async fn test_async_client_multi_turn() {
     let mut client = AsyncClient::start()
@@ -413,6 +420,7 @@ async fn test_async_client_multi_turn() {
 
 // ── Async client: event stream API ──────────────────────────────────
 
+/// The live notification stream arrives in protocol order and every frame deserializes.
 #[tokio::test]
 async fn test_async_client_event_stream() {
     let mut client = AsyncClient::start()
@@ -486,6 +494,7 @@ async fn test_async_client_event_stream() {
 // both regressions: a known method whose payload no longer fits the typed
 // struct fails the client call before we get here, and a brand-new method
 // that we haven't modeled fails the assertion below.
+/// STRICT audit: every message a live turn produces deserializes into a typed variant - any Unknown is drift, caught here first.
 #[tokio::test]
 async fn test_typed_message_audit_strict() {
     use std::collections::BTreeMap;
@@ -685,6 +694,7 @@ async fn test_typed_message_audit_strict() {
 // loudly is intentional — repairing those structs is the natural
 // follow-up. This file's `#![cfg(feature = "integration-tests")]`
 // gate keeps the failure off the default CI lane.
+/// End-to-end coding task: codex writes a quicksort that actually compiles and runs - the full-loop smoke test.
 #[tokio::test]
 async fn test_async_client_writes_compilable_quicksort() {
     use std::process::Command;

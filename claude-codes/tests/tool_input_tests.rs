@@ -227,6 +227,7 @@ fn test_parse_result_with_uuid() {
 // Tests for ToolInput enum deserialization
 // ============================================================================
 
+/// Bash tool input (command/timeout/description) deserializes into its typed struct.
 #[test]
 fn test_tool_input_bash_deserialization() {
     let json = json!({
@@ -242,6 +243,7 @@ fn test_tool_input_bash_deserialization() {
     assert_eq!(bash.command, "git status");
 }
 
+/// Read tool input (file_path/offset/limit) deserializes into its typed struct.
 #[test]
 fn test_tool_input_read_deserialization() {
     let json = json!({
@@ -259,6 +261,7 @@ fn test_tool_input_read_deserialization() {
     assert_eq!(read.limit, Some(50));
 }
 
+/// Write tool input (file_path/content) deserializes into its typed struct.
 #[test]
 fn test_tool_input_write_deserialization() {
     let json = json!({
@@ -274,6 +277,7 @@ fn test_tool_input_write_deserialization() {
     assert_eq!(write.content, "Hello, world!");
 }
 
+/// Edit tool input (old/new string fields) deserializes into its typed struct.
 #[test]
 fn test_tool_input_edit_deserialization() {
     let json = json!({
@@ -293,6 +297,7 @@ fn test_tool_input_edit_deserialization() {
     assert_eq!(edit.replace_all, Some(true));
 }
 
+/// Glob tool input (pattern/path) deserializes into its typed struct.
 #[test]
 fn test_tool_input_glob_deserialization() {
     let json = json!({
@@ -308,6 +313,7 @@ fn test_tool_input_glob_deserialization() {
     assert_eq!(glob.path, Some("/home/user/project".to_string()));
 }
 
+/// Grep tool input (pattern + option flags) deserializes into its typed struct.
 #[test]
 fn test_tool_input_grep_deserialization() {
     let json = json!({
@@ -329,6 +335,7 @@ fn test_tool_input_grep_deserialization() {
     assert_eq!(grep.context, Some(3));
 }
 
+/// Task (subagent) tool input deserializes into its typed struct.
 #[test]
 fn test_tool_input_task_deserialization() {
     let json = json!({
@@ -348,6 +355,7 @@ fn test_tool_input_task_deserialization() {
     assert_eq!(task.run_in_background, Some(true));
 }
 
+/// WebFetch tool input (url/prompt) deserializes into its typed struct.
 #[test]
 fn test_tool_input_web_fetch_deserialization() {
     let json = json!({
@@ -363,6 +371,7 @@ fn test_tool_input_web_fetch_deserialization() {
     assert_eq!(fetch.prompt, "Extract the main documentation");
 }
 
+/// WebSearch tool input (query + domain filters) deserializes into its typed struct.
 #[test]
 fn test_tool_input_web_search_deserialization() {
     let json = json!({
@@ -377,6 +386,7 @@ fn test_tool_input_web_search_deserialization() {
     assert_eq!(search.query, "rust serde tutorial 2026");
 }
 
+/// TodoWrite tool input (todo list items with status) deserializes into its typed struct.
 #[test]
 fn test_tool_input_todo_write_deserialization() {
     let json = json!({
@@ -403,6 +413,7 @@ fn test_tool_input_todo_write_deserialization() {
     assert_eq!(todo.todos[0].status, claude_codes::TodoStatus::InProgress);
 }
 
+/// AskUserQuestion tool input (questions/options) deserializes into its typed struct.
 #[test]
 fn test_tool_input_ask_user_question_deserialization() {
     let json = json!({
@@ -431,6 +442,7 @@ fn test_tool_input_ask_user_question_deserialization() {
     assert_eq!(question.questions[0].options.len(), 2);
 }
 
+/// An unrecognized tool name deserializes as the Unknown catch-all instead of failing the stream.
 #[test]
 fn test_tool_input_unknown_custom_tool() {
     // Simulates a custom MCP tool with unknown structure
@@ -455,6 +467,7 @@ fn test_tool_input_unknown_custom_tool() {
 // ToolUseBlock helper method tests
 // ============================================================================
 
+/// ToolUseBlock::typed_input lifts raw JSON into the matching typed tool input.
 #[test]
 fn test_tool_use_block_typed_input() {
     let block = ToolUseBlock {
@@ -475,6 +488,7 @@ fn test_tool_use_block_typed_input() {
     }
 }
 
+/// ToolUseBlock::try_typed_input reports a typed error (not a panic) when the input shape mismatches.
 #[test]
 fn test_tool_use_block_try_typed_input_error() {
     let block = ToolUseBlock {
@@ -673,6 +687,7 @@ fn test_parse_tool_result_multi_text_structured() {
 // ExitPlanModeInput tests (issue #62)
 // ============================================================================
 
+/// ExitPlanMode input with a plan field deserializes.
 #[test]
 fn test_exit_plan_mode_with_plan_field() {
     // This is the exact JSON from issue #62 that was failing with deny_unknown_fields
@@ -692,6 +707,7 @@ fn test_exit_plan_mode_with_plan_field() {
     assert_eq!(prompts[0].prompt, "run tests");
 }
 
+/// ExitPlanMode input with remote_session_title deserializes.
 #[test]
 fn test_exit_plan_mode_with_remote_session_title() {
     let json = json!({
@@ -714,6 +730,7 @@ fn test_exit_plan_mode_with_remote_session_title() {
     );
 }
 
+/// ExitPlanMode input with every optional field present deserializes.
 #[test]
 fn test_exit_plan_mode_all_fields() {
     let json = json!({
@@ -742,6 +759,7 @@ fn test_exit_plan_mode_all_fields() {
     assert_eq!(input.allowed_prompts.unwrap().len(), 2);
 }
 
+/// ExitPlanMode input with no fields deserializes (all fields optional).
 #[test]
 fn test_exit_plan_mode_empty() {
     // ExitPlanMode with no fields should still work
@@ -756,6 +774,7 @@ fn test_exit_plan_mode_empty() {
     assert_eq!(input.remote_session_url, None);
 }
 
+/// ExitPlanMode rejects unknown fields — the strict-schema guard that catches CLI additions.
 #[test]
 fn test_exit_plan_mode_unknown_field_rejected() {
     // deny_unknown_fields should still reject truly unknown fields
@@ -768,6 +787,7 @@ fn test_exit_plan_mode_unknown_field_rejected() {
     assert!(result.is_err(), "Should reject unknown fields");
 }
 
+/// ExitPlanMode routes correctly through the ToolInput enum dispatch.
 #[test]
 fn test_exit_plan_mode_via_tool_input_enum() {
     // Verify the ToolInput enum can deserialize ExitPlanModeInput with the new fields
@@ -789,6 +809,7 @@ fn test_exit_plan_mode_via_tool_input_enum() {
     }
 }
 
+/// ExitPlanMode serializes back to the same JSON it parsed from (byte-faithful round trip).
 #[test]
 fn test_exit_plan_mode_roundtrip() {
     let original = claude_codes::ExitPlanModeInput {
@@ -812,6 +833,7 @@ fn test_exit_plan_mode_roundtrip() {
 // Roundtrip serialization tests
 // ============================================================================
 
+/// Bash tool input round-trips through serialize/deserialize unchanged.
 #[test]
 fn test_bash_input_roundtrip() {
     let original = BashInput {
@@ -827,6 +849,7 @@ fn test_bash_input_roundtrip() {
     assert_eq!(original, parsed);
 }
 
+/// Every ToolInput variant round-trips through the enum unchanged.
 #[test]
 fn test_tool_input_enum_roundtrip() {
     let original = ToolInput::Bash(BashInput {

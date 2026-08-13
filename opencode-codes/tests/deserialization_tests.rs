@@ -82,6 +82,7 @@ fn roundtrip<T: DeserializeOwned + Serialize>(label: &str, json: &str) -> T {
     parsed
 }
 
+/// The captured session-create response parses typed and re-serializes byte-faithfully.
 #[test]
 fn session_create_roundtrips() {
     let session: Session = roundtrip(
@@ -93,6 +94,7 @@ fn session_create_roundtrips() {
     assert_eq!(session.version, "1.18.5");
 }
 
+/// An idle session-status response round-trips unchanged.
 #[test]
 fn session_status_empty_roundtrips() {
     let map: BTreeMap<String, SessionStatus> = roundtrip(
@@ -102,6 +104,7 @@ fn session_status_empty_roundtrips() {
     assert!(map.is_empty());
 }
 
+/// A busy session-status response round-trips unchanged.
 #[test]
 fn session_status_busy_roundtrips() {
     let map: BTreeMap<String, SessionStatus> = roundtrip(
@@ -113,6 +116,7 @@ fn session_status_busy_roundtrips() {
     assert!(matches!(status, SessionStatus::Busy));
 }
 
+/// An empty message listing round-trips unchanged.
 #[test]
 fn messages_empty_roundtrips() {
     let msgs: Vec<MessageWithParts> = roundtrip(
@@ -122,6 +126,7 @@ fn messages_empty_roundtrips() {
     assert!(msgs.is_empty());
 }
 
+/// A post-prompt message listing (user + assistant parts) round-trips unchanged.
 #[test]
 fn messages_after_prompt_roundtrips() {
     let msgs: Vec<MessageWithParts> = roundtrip(
@@ -141,6 +146,7 @@ fn messages_after_prompt_roundtrips() {
     assert!(has_text_part, "no text part found across captured messages");
 }
 
+/// The abort response (bare bool) round-trips unchanged.
 #[test]
 fn abort_response_roundtrips() {
     let aborted: bool = roundtrip(
@@ -150,6 +156,7 @@ fn abort_response_roundtrips() {
     assert!(aborted);
 }
 
+/// The session-not-found error shape parses typed and round-trips unchanged.
 #[test]
 fn session_not_found_error_roundtrips() {
     let err: NotFoundError = roundtrip(
@@ -160,6 +167,7 @@ fn session_not_found_error_roundtrips() {
     assert!(err.data.message.contains("Session not found"));
 }
 
+/// Every captured SSE frame parses into a typed event and re-serializes byte-faithfully.
 #[test]
 fn event_stream_every_frame_roundtrips() {
     let stream = include_str!("../test_cases/events/event_stream.jsonl");

@@ -46,6 +46,7 @@ fn load_test_case(path: &PathBuf) -> TestCase {
         .unwrap_or_else(|e| panic!("Failed to parse test case {:?}: {}", path, e))
 }
 
+/// Every captured failed-deserialization case now parses — regressions against previously-fixed wire shapes fail here.
 #[test]
 fn test_all_failed_deserializations() {
     let test_cases = get_test_cases();
@@ -100,6 +101,7 @@ fn test_all_failed_deserializations() {
     }
 }
 
+/// Each named failed-deserialization capture parses on its own, so a regression report points at the exact case.
 #[test]
 fn test_individual_cases() {
     let test_cases = get_test_cases();

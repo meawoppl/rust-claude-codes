@@ -16,6 +16,7 @@ struct ParseFailure {
     raw: String,
 }
 
+/// Every line of every committed real-transcript capture parses into a typed ClaudeOutput — the corpus gate against schema drift.
 #[test]
 fn parse_configured_claude_transcript_corpus() {
     let Some(root) = std::env::var_os("CLAUDE_CODES_CORPUS_DIR").map(PathBuf::from) else {
@@ -156,6 +157,7 @@ fn raw_preview(raw: &str) -> String {
 mod tests {
     use super::raw_preview;
 
+    /// Failure-report previews show short lines verbatim.
     #[test]
     fn raw_preview_keeps_short_lines_unchanged() {
         assert_eq!(
@@ -164,6 +166,7 @@ mod tests {
         );
     }
 
+    /// Failure-report previews truncate long lines on UTF-8 character boundaries, never mid-codepoint.
     #[test]
     fn raw_preview_truncates_long_lines_on_char_boundaries() {
         let raw = format!("{}{}", "a".repeat(500), "b".repeat(3));
