@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.232] - 2026-08-14
+
+### Added
+
+- Three fields CLI 2.1.232 added to the wire, each found by wirecheck's
+  live subagent wrapping audit (present on the wire, dropped by the typed
+  model): **`messaging_socket_path`** and **`terminal_slash_commands`**
+  on the `system` init message, and
+  **`usage.output_tokens_details.thinking_tokens`** on the `result`
+  message (typed as `OutputTokensDetails`).
+
+### Changed
+
+- `TESTED_VERSION` and the crate version move to 2.1.232; the full live
+  wirecheck claude tier (curated + cargo) passes against the installed
+  CLI.
+
 ## [2.1.223] - 2026-08-05
 
 ### Changed

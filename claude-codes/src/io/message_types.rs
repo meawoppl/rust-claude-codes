@@ -1160,6 +1160,11 @@ fn parse_system<T: serde::de::DeserializeOwned>(message: &SystemMessage) -> Opti
 }
 
 /// Owned typed view over any known system message subtype.
+// `InitMessage` outgrew clippy's variant-size threshold when CLI 2.1.232
+// added fields. This enum is a transient per-parse classification (never
+// stored in bulk), so boxing would break every match site for no retained-
+// memory win.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum KnownSystemEvent {
     Init(InitMessage),
@@ -1632,6 +1637,10 @@ pub struct InitMessage {
     /// Available slash commands (e.g., "compact", "cost", "review")
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slash_commands: Vec<String>,
+    /// Slash commands only meaningful in a terminal context (CLI 2.1.232+,
+    /// e.g. "doctor", "color")
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terminal_slash_commands: Vec<String>,
     /// Available agent types (e.g., "Bash", "Explore", "Plan")
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agents: Vec<String>,
@@ -1644,6 +1653,10 @@ pub struct InitMessage {
     /// Claude Code CLI version
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claude_code_version: Option<String>,
+    /// Unix socket path for the harness's inter-session messaging bridge
+    /// (new in CLI 2.1.232; absent on older CLIs and non-bridged runs)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messaging_socket_path: Option<String>,
     /// How the API key was sourced
     #[serde(skip_serializing_if = "Option::is_none", rename = "apiKeySource")]
     pub api_key_source: Option<ApiKeySource>,

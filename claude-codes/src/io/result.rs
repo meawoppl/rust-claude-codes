@@ -354,6 +354,20 @@ pub struct UsageInfo {
     /// Speed tier (e.g., "standard")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub speed: Option<String>,
+
+    /// Output-token breakdown (CLI 2.1.232+): currently the thinking-token
+    /// share of `output_tokens`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens_details: Option<OutputTokensDetails>,
+}
+
+/// Breakdown of a turn's output tokens, carried in
+/// [`UsageInfo::output_tokens_details`].
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OutputTokensDetails {
+    /// Output tokens spent on extended thinking.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_tokens: Option<u64>,
 }
 
 /// Usage for a single API call ("iteration") within a turn's tool-use loop.
