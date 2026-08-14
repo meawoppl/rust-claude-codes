@@ -27,7 +27,12 @@ struct Ctx {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    // Logs go to stderr: headless mode's contract is pure JSON on stdout,
+    // and a stray WARN (e.g. claude-codes' version notice) must not corrupt
+    // it for whoever parses the output.
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
     // Children must not think they're nested inside a Claude Code session
     // (the checks spawn real CLIs); clearing here covers every spawn path
     // without needing claude-codes' integration-tests feature — which, as
