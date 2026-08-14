@@ -27,7 +27,7 @@ models of the server's OpenAPI 3.1 wire contract, an async (Tokio) client over
 `reqwest`, an SSE reader for the `GET /event` stream, and an optional managed
 launcher for the `opencode serve` process.
 
-**Tested against:** opencode 1.18.14
+**Tested against:** opencode 1.18.18
 
 ## Installation
 

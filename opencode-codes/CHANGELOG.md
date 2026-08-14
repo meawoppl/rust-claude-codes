@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.18] - 2026-08-14
+
+### Changed
+
+- Track opencode CLI 1.18.18. Zero wire changes: the live OpenAPI drift
+  check reports all 162 paths and 472 component schemas identical to the
+  snapshot — pure version-pin move, caught by the server-version
+  watchdog in wirecheck after the CLI update.
+
 ## [1.18.14] - 2026-08-07
 
 ### Changed
