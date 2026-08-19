@@ -107,6 +107,9 @@ pub mod protocol;
 pub mod tool_inputs;
 pub mod types;
 
+// On-disk transcript locations (the CLI's unpublished path-encoding rule)
+pub mod transcript;
+
 // Login support tooling (PTY-driven `claude auth login` / `setup-token`)
 #[cfg(feature = "auth")]
 pub mod auth;
