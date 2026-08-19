@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.233] - 2026-08-19
+
+### Added
+
+- **`transcript` module** — the CLI's unpublished on-disk transcript
+  path rule, exported so consumers stop growing private copies:
+  `encode_project_dir` (`/` and `.` → `-`, measured against real
+  transcript stores and pinned by tests, documented as lossy) and
+  `transcript_path(home, cwd, session_id)`, which takes `home`
+  explicitly so a test can never accidentally resolve into a real
+  `~/.claude`. Extracted at agent-portal's request to delete its
+  duplicate implementation.
+
 ## [2.1.232] - 2026-08-14
 
 ### Added
