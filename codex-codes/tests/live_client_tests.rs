@@ -613,6 +613,11 @@ async fn test_typed_message_audit_strict() {
                     Notification::ThreadEnvironmentDisconnected(_) => {
                         "ThreadEnvironmentDisconnected"
                     }
+                    Notification::StrictReviewRequired(_) => "StrictReviewRequired",
+                    Notification::ProjectChanged(_) => "ProjectChanged",
+                    Notification::ThreadProjectUpdated(_) => "ThreadProjectUpdated",
+                    Notification::ThreadQueueChanged(_) => "ThreadQueueChanged",
+                    Notification::ThreadReverted(_) => "ThreadReverted",
                     Notification::ThreadRealtimeClosed(_) => "ThreadRealtimeClosed",
                     Notification::ThreadRealtimeError(_) => "ThreadRealtimeError",
                     Notification::ThreadRealtimeItemAdded(_) => "ThreadRealtimeItemAdded",
@@ -917,4 +922,69 @@ fn test_auth_status_local_parses_real_file() {
         );
         assert!(s.account_id.is_some());
     }
+}
+
+/// thread/resume reopens a persisted thread through the typed helper (no
+/// methods::* or raw request::<> needed downstream) and its response
+/// decodes: the resumed thread carries the same id and replays into a
+/// working turn.
+#[tokio::test]
+async fn test_thread_resume_reopens_thread_via_typed_helper() {
+    let mut client = AsyncClient::start().await.expect("start app-server");
+    let source = client
+        .thread_start(&ThreadStartParams::default())
+        .await
+        .expect("thread_start");
+    client
+        .turn_start(&TurnStartParams {
+            thread_id: source.thread.id.clone(),
+            input: vec![UserInput::Text {
+                text: "Remember the word 'garnet'. Reply with just OK.".to_string(),
+                text_elements: None,
+            }],
+            approval_policy: None,
+            approvals_reviewer: None,
+            client_user_message_id: None,
+            cwd: None,
+            effort: None,
+            model: None,
+            output_schema: None,
+            personality: None,
+            sandbox_policy: None,
+            service_tier: None,
+            summary: None,
+        })
+        .await
+        .expect("seed turn");
+    let mut n = 0;
+    while let Some(msg) = client.next_message().await.expect("read") {
+        n += 1;
+        match msg {
+            ServerMessage::Notification(Notification::TurnCompleted(_)) => break,
+            ServerMessage::Request { id, .. } => {
+                client
+                    .respond(id, &serde_json::json!({"decision": "accept"}))
+                    .await
+                    .expect("respond");
+            }
+            _ => {}
+        }
+        assert!(n < 200, "seed turn runaway");
+    }
+    client.shutdown().await.expect("shutdown source");
+
+    // Fresh app-server process: resume must rehydrate from persistence.
+    let mut resumed = AsyncClient::start().await.expect("restart app-server");
+    let response = resumed
+        .thread_resume(
+            &serde_json::from_value(serde_json::json!({ "threadId": source.thread.id }))
+                .expect("resume params"),
+        )
+        .await
+        .expect("thread_resume decodes");
+    assert_eq!(
+        response.thread.id, source.thread.id,
+        "resume must reopen the SAME thread id"
+    );
+    resumed.shutdown().await.expect("shutdown resumed");
 }

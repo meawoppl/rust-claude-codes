@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`events` module** (fixes #213): `ExecEvent` — a stable, serializable
+  exec-JSONL-style view over app-server notifications
+  (`thread.started` / `turn.started|completed|failed` /
+  `item.started|completed` / `item.agentMessage.delta` /
+  `thread.tokenUsage`), with everything unmapped passing through as
+  `ExecEvent::Raw { method, params }` so future notifications degrade to
+  raw rather than disappearing. Removes downstream renderers' hand-rolled
+  synthetic event structs.
+- **`AsyncClient::turn_steer`** (with `thread_resume`, completes #202):
+  the last app-server lifecycle call agent-portal still drove through
+  raw `request::<>` + `methods::*`. A live test pins `thread_resume`
+  reopening a persisted thread across an app-server restart with its
+  typed response decoding.
+
 - **Project surface** (upstream 0.147): `Project`/`ProjectRoot`/
   `ProjectChangeType` types, `Thread.project_id`, and typed notifications
   `project/changed` and `thread/project/updated`.
