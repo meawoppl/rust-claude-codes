@@ -6,7 +6,14 @@ use std::process::Command;
 use std::sync::Once;
 
 /// The latest Codex CLI version we've tested against.
-const TESTED_VERSION: &str = "0.146.0";
+const TESTED_VERSION: &str = "0.147.0";
+
+/// The Codex CLI release this crate's live integration suite last passed
+/// against — the machine-readable form of the crate's version convention.
+/// Kept in lockstep with the README's `Tested against:` line by CI.
+pub fn tested_cli_version() -> &'static str {
+    TESTED_VERSION
+}
 
 /// Ensures version warning is only shown once per session.
 static VERSION_CHECK: Once = Once::new();

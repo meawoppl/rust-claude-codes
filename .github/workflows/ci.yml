@@ -218,6 +218,29 @@ jobs:
           else
             echo "✅ README.md has muse-codes $MUSE_VERSION"
           fi
+          # Machine-readable pins must match the READMEs (tested_cli_version)
+          CODEX_CONST=$(grep 'const TESTED_VERSION' codex-codes/src/version.rs | grep -oP '\d+\.\d+\.\d+')
+          if [ "$CODEX_CONST" != "$CODEX_TESTED" ]; then
+            echo "❌ codex version.rs TESTED_VERSION ($CODEX_CONST) != README tested ($CODEX_TESTED)"
+            FAILED=1
+          else
+            echo "✅ codex tested_cli_version matches README"
+          fi
+          MUSE_CONST=$(grep -A2 'fn tested_cli_version' muse-codes/src/version.rs | grep -oP '"\K[0-9.]+' | head -1)
+          if [ "$MUSE_CONST" != "$MUSE_TESTED" ]; then
+            echo "❌ muse version.rs tested_cli_version ($MUSE_CONST) != README tested ($MUSE_TESTED)"
+            FAILED=1
+          else
+            echo "✅ muse tested_cli_version matches README"
+          fi
+          OPENCODE_CONST=$(grep -A2 'fn tested_cli_version' opencode-codes/src/version.rs | grep -oP '"\K[0-9.]+' | head -1)
+          if [ "$OPENCODE_CONST" != "$OPENCODE_TESTED" ]; then
+            echo "❌ opencode version.rs tested_cli_version ($OPENCODE_CONST) != README tested ($OPENCODE_TESTED)"
+            FAILED=1
+          else
+            echo "✅ opencode tested_cli_version matches README"
+          fi
+
           if ! grep -q "tested against Muse Code.*$MUSE_TESTED" README.md; then
             echo "❌ README.md missing Muse Code tested version $MUSE_TESTED"
             FAILED=1

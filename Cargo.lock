@@ -327,7 +327,7 @@ dependencies = [
 
 [[package]]
 name = "claude-codes"
-version = "2.1.233"
+version = "2.1.234"
 dependencies = [
  "anyhow",
  "base64",
@@ -1296,7 +1296,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "opencode-codes"
-version = "1.18.18"
+version = "1.18.19"
 dependencies = [
  "futures-core",
  "jsonschema",

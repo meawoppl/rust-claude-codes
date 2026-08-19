@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.19] - 2026-08-19
+
+### Added
+
+- **`version::tested_cli_version()`** — the tested-against opencode
+  release, machine-readable from the published artifact. The live
+  version watchdog now asserts the server against this pin instead of
+  the crate version, so crate-side patch offsets no longer trip it.
+
 ## [1.18.18] - 2026-08-14
 
 ### Changed
