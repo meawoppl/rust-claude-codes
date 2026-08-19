@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.147.1] - 2026-08-19
+
+### Changed
+
+- **`ExecEvent` wire shape v2** (bend-before-freeze with the filing
+  consumer, done hours after 0.147.0 published and before anything
+  adopted it): lifecycle events now serialize FLAT like real exec JSONL
+  (`thread.started` carries `thread_id`; `turn.completed` lifts
+  `turn_id`/`status`/`duration_ms`, full typed payloads still ride
+  along), and everything unmapped serializes as the proxy-forwarded
+  shape `{"type": "<slash method>", "params": …}` instead of a `raw`
+  tag — so passthrough renderers keyed on slash-form types work
+  unchanged and the load-bearing dot/slash split is preserved. The
+  invented `item.agentMessage.delta` / `thread.tokenUsage` dotted tags
+  are gone; those notifications ride the slash passthrough as on the
+  real proxy wire. Round-trip Deserialize handles the dynamic Raw tag.
+
 ## [0.147.0] - 2026-08-19
 
 ### Added
