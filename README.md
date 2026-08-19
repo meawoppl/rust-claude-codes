@@ -18,17 +18,28 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 
 Each crate's version means **tested against**: the version names the newest
 CLI release the crate's live integration suite has actually passed against —
-never a target, never an aspiration. When the crate needs a release of its
-own between CLI releases (new helpers, docs), the patch number advances past
-the CLI's and the tested CLI version stays stated explicitly below. Installed
-CLIs typically release faster than the wire changes, so the running binary
-may be newer than the pin; the nightly drift checks watch the wire and the
-pin moves forward only when it actually changes.
+never a target, never an aspiration. Installed CLIs typically release faster
+than the wire changes, so the running binary may be newer than the pin; the
+nightly drift checks watch the wire and the pin moves forward only when it
+actually changes.
 
-- **`claude-codes`** — currently `claude-codes 2.1.233`, tested against Claude CLI `2.1.232`.
+**Crate-side patch offsets.** When the crate needs a release of its own
+between CLI releases (new helpers, docs), the patch number advances past the
+tested CLI's and the bullet below spells the arithmetic out as
+`tested + N crate-side`. The tested pins themselves (`TESTED_VERSION`,
+the `Tested against:` lines) **never move on a crate-side release** — they
+change only when the live suite passes against a newer CLI. Offsets can
+temporarily occupy a version number the CLI hasn't shipped yet; when the CLI
+catches up, the next tested release jumps to or past the CLI's number.
+(Semver suffixes can't express this on crates.io: `-pre` versions sort
+*before* the base and are skipped by default caret requirements, and build
+metadata can't distinguish published versions — so explicit offset notes are
+the least-bad scheme.)
+
+- **`claude-codes`** — currently `claude-codes 2.1.233` (tested CLI + 1 crate-side patch), tested against Claude CLI `2.1.232`.
 - **`codex-codes`** — currently `codex-codes 0.147.0`, tested against Codex CLI `0.147.0`.
 - **`opencode-codes`** — currently `opencode-codes 1.18.18`, tested against opencode `1.18.18`.
-- **`muse-codes`** — currently `muse-codes 0.1.8`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`; Meta has shipped no newer CLI, so the patch offsets are all crate-side).
+- **`muse-codes`** — currently `muse-codes 0.1.8` (tested CLI + 8 crate-side patches), tested against Muse Code `0.1.0` (build `0.1.0-R708.1`; Meta has shipped no newer CLI).
 - **`antigravity-codes`** — currently `antigravity-codes 0.1.10`, tested against google-antigravity `0.1.10` (the wheel its bundled harness was generated from).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
