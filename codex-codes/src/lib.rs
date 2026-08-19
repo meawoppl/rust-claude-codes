@@ -107,6 +107,7 @@
 pub mod io;
 
 pub mod error;
+pub mod events;
 pub mod jsonrpc;
 pub mod messages;
 pub mod models;

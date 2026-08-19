@@ -53,6 +53,7 @@ use crate::protocol::{
     ThreadDeleteParams, ThreadDeleteResponse, ThreadForkParams, ThreadForkResponse,
     ThreadResumeParams, ThreadResumeResponse, ThreadStartParams, ThreadStartResponse,
     TurnInterruptParams, TurnInterruptResponse, TurnStartParams, TurnStartResponse,
+    TurnSteerParams, TurnSteerResponse,
 };
 use crate::protocol_generated::types::{
     CancelLoginAccountParams, CancelLoginAccountResponse, GetAccountParams,
@@ -284,6 +285,13 @@ impl AsyncClient {
     /// to stream notifications until `turn/completed` arrives.
     pub async fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
         self.request(crate::protocol::methods::TURN_START, params)
+            .await
+    }
+
+    /// Steer an active turn with additional user input (`turn/steer`) —
+    /// appends to the running turn instead of starting a new one.
+    pub async fn turn_steer(&mut self, params: &TurnSteerParams) -> Result<TurnSteerResponse> {
+        self.request(crate::protocol::methods::TURN_STEER, params)
             .await
     }
 
