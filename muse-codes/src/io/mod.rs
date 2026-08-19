@@ -248,10 +248,11 @@ pub struct ToolResult {
     /// For the `bash`/`command` tool this is a JSON string of a [`CommandResult`];
     /// see [`ToolResult::command_result`] and [`ToolResult::try_command_result`].
     pub text: String,
-    /// Correlation summary — observed `{outcome, tool_name}`, open-shaped.
-    /// Absent on some results; treat as `None` when missing.
+    /// Correlation summary — typed over the observed `{outcome, tool_name}`
+    /// shape; unknown keys round-trip through `extra`. Absent on some
+    /// results; treat as `None` when missing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_facts: Option<Value>,
+    pub correlation_facts: Option<ToolCorrelationFacts>,
     /// Populated for file-editing tools; open-shaped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edit_facts: Option<Value>,
@@ -259,17 +260,45 @@ pub struct ToolResult {
     pub extra: serde_json::Map<String, Value>,
 }
 
+/// Typed view of `tool.result`'s `correlation_facts` — the fields consumers
+/// key on: `tool_name` drives the `tool.<name>`-task attribution match, and
+/// `outcome` classifies the result. Every field is optional and unknown
+/// keys round-trip via `extra`, so a wire addition widens rather than
+/// breaks.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ToolCorrelationFacts {
+    /// Tool that produced this result (matches the `tool.<tool_name>` task
+    /// kind). Observed values: `write_file`, `read_file`, `bash`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
+    /// `"success"` or `"failure"` as observed on the wire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+impl ToolResult {
+    /// The result's `correlation_facts.outcome`, when carried.
+    pub fn outcome(&self) -> Option<&str> {
+        self.correlation_facts
+            .as_ref()
+            .and_then(|f| f.outcome.as_deref())
+    }
+
+    /// The result's `correlation_facts.tool_name`, when carried.
+    pub fn tool_name(&self) -> Option<&str> {
+        self.correlation_facts
+            .as_ref()
+            .and_then(|f| f.tool_name.as_deref())
+    }
+}
+
 impl ToolResult {
     /// Whether this result came from the `bash`/`command` tool, via
     /// `correlation_facts.tool_name == "bash" | "command"`.
     pub fn is_command_tool(&self) -> bool {
-        matches!(
-            self.correlation_facts
-                .as_ref()
-                .and_then(|v| v.get("tool_name"))
-                .and_then(|v| v.as_str()),
-            Some("bash" | "command")
-        )
+        matches!(self.tool_name(), Some("bash" | "command"))
     }
 
     /// Try to parse `text` as a structured [`CommandResult`] (the `bash` tool
@@ -502,7 +531,10 @@ mod tests {
         assert!(result.command_result().is_none());
         assert!(result.try_command_result().is_err());
 
-        result.correlation_facts = Some(json!({ "tool_name": "write_file" }));
+        result.correlation_facts = Some(ToolCorrelationFacts {
+            tool_name: Some("write_file".into()),
+            ..Default::default()
+        });
         assert!(!result.is_command_tool());
     }
 }

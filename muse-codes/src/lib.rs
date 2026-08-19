@@ -51,7 +51,8 @@ pub use error::{Error, Result};
 pub use io::{
     CommandAccepted, CommandResult, Durability, ModelConfigured, MusePayload, MuseRecord,
     RecordType, RunOutputDelta, RunStarted, RunTerminal, SessionRunLinked, StreamKind, StreamRef,
-    TaskLifecycle, TaskLifecycleEvent, TaskStreamLinked, ToolResult, TurnInputUser,
+    TaskLifecycle, TaskLifecycleEvent, TaskStreamLinked, ToolCorrelationFacts, ToolResult,
+    TurnInputUser,
 };
 
 #[cfg(feature = "async-client")]
