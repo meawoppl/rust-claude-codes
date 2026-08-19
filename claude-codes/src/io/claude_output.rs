@@ -253,10 +253,31 @@ pub struct PromptSuggestionMessage {
     pub session_id: String,
 }
 
+/// Emitted when the conversation is reset mid-stream (e.g. `/clear` sent as
+/// user input). **Identity semantics, measured live against CLI 2.1.232 —
+/// two traps here:**
+///
+/// 1. **The session id rotates.** After this frame the same process re-inits
+///    and every subsequent frame carries a NEW `session_id`; both the old
+///    and new ids get real transcript files on disk. A consumer keying a
+///    live stream's transcript by its first-seen session id will
+///    mis-attribute everything after a reset — treat this frame as a
+///    session-identity boundary and adopt the next `system` init's id.
+/// 2. **`new_conversation_id` is not the successor session id.** In live
+///    measurement it matched nothing: not the post-reset `session_id`, no
+///    transcript file, never referenced by any later frame. Do not key on
+///    it.
+///
+/// Pinned by `conversation_reset_rotates_the_session_id` in the live
+/// integration tests.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationResetMessage {
+    /// A fresh id announced for the new conversation. **Not** observed to
+    /// match the post-reset `session_id` or anything else on the wire or
+    /// disk — see the type-level docs before using.
     pub new_conversation_id: String,
     pub uuid: String,
+    /// The OLD session id — the identity being retired by this reset.
     pub session_id: String,
 }
 
