@@ -730,6 +730,8 @@ pub enum CodexErrorInfo {
     ServerOverloaded,
     #[serde(rename = "cyberPolicy")]
     CyberPolicy,
+    #[serde(rename = "misalignmentPolicyViolation")]
+    MisalignmentPolicyViolation,
     #[serde(rename = "internalServerError")]
     InternalServerError,
     #[serde(rename = "unauthorized")]
@@ -1332,6 +1334,18 @@ pub struct ConfigReadResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRequirements {
+    #[serde(
+        rename = "chatgptBaseUrl",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub chatgpt_base_url: Option<String>,
+    #[serde(
+        rename = "cliAuthCredentialsStore",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cli_auth_credentials_store: Option<CliAuthCredentialsStoreMode>,
     #[serde(
         rename = "allowAppshots",
         default,
@@ -2863,6 +2877,8 @@ pub enum HookExecutionMode {
 pub enum HookHandlerType {
     #[serde(rename = "command")]
     Command,
+    #[serde(rename = "mcpTool")]
+    McpTool,
     #[serde(rename = "prompt")]
     Prompt,
     #[serde(rename = "agent")]
@@ -2878,10 +2894,18 @@ pub struct HookMetadata {
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_context_limit: Option<i64>,
+    #[serde(rename = "async", default, skip_serializing_if = "Option::is_none")]
+    pub is_async: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
     #[serde(rename = "currentHash", default)]
     pub current_hash: String,
+    /// MCP server name (`handlerType: "mcpTool"` hooks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<String>,
+    /// MCP tool name (`handlerType: "mcpTool"` hooks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
     #[serde(rename = "displayOrder", default)]
     pub display_order: i64,
     #[serde(default)]
@@ -3758,6 +3782,19 @@ pub struct McpElicitationUntitledSingleSelectEnumSchema {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct McpResourceReadParams {
+    #[serde(
+        rename = "connectorId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub connector_id: Option<String>,
+    /// Originating MCP tool call used to select the resource's app.
+    #[serde(
+        rename = "originCallId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub origin_call_id: Option<String>,
     #[serde(default)]
     pub server: String,
     #[serde(rename = "threadId", default, skip_serializing_if = "Option::is_none")]
@@ -3771,6 +3808,14 @@ pub struct McpResourceReadParams {
 pub struct McpResourceReadResponse {
     #[serde(default)]
     pub contents: Vec<ResourceContent>,
+    /// Originating call when the server applied app-specific resource
+    /// scoping.
+    #[serde(
+        rename = "originCallId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub origin_call_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -4335,6 +4380,14 @@ pub struct ModelUpgradeInfo {
     pub migration_markdown: Option<String>,
     #[serde(default)]
     pub model: String,
+    /// Informational Unix timestamp for this upgrade's scheduled
+    /// retirement, if known.
+    #[serde(
+        rename = "retirementAt",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub retirement_at: Option<i64>,
     #[serde(rename = "modelLink", default, skip_serializing_if = "Option::is_none")]
     pub model_link: Option<String>,
     #[serde(
@@ -4629,6 +4682,10 @@ pub enum PlanType {
     Pro,
     #[serde(rename = "prolite")]
     Prolite,
+    #[serde(rename = "edu_plus")]
+    Edu_plus,
+    #[serde(rename = "edu_pro")]
+    Edu_pro,
     #[serde(rename = "team")]
     Team,
     #[serde(rename = "self_serve_business_prolite")]
@@ -5765,6 +5822,115 @@ pub enum ReviewTarget {
     },
 }
 
+/// Delivery mode for an agent message item (0.147: currently only `async`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AgentMessageDelivery {
+    #[serde(rename = "async")]
+    Async,
+}
+
+/// Where the CLI stores auth credentials.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CliAuthCredentialsStoreMode {
+    #[serde(rename = "file")]
+    File,
+    #[serde(rename = "keyring")]
+    Keyring,
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "ephemeral")]
+    Ephemeral,
+}
+
+/// A project grouping threads, owned by app-server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Project {
+    #[serde(rename = "createdAt", default)]
+    pub created_at: i64,
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub metadata: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub position: i64,
+    #[serde(default)]
+    pub roots: Vec<ProjectRoot>,
+    #[serde(rename = "updatedAt", default)]
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ProjectChangeType {
+    #[serde(rename = "created")]
+    Created,
+    #[serde(rename = "updated")]
+    Updated,
+    #[serde(rename = "deleted")]
+    Deleted,
+}
+
+/// `project/changed` — a project was created, updated, or deleted.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectChangedNotification {
+    #[serde(rename = "changeType")]
+    pub change_type: ProjectChangeType,
+    #[serde(rename = "projectId", default)]
+    pub project_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectRoot {
+    pub path: AbsolutePathBuf,
+}
+
+/// A user submission waiting in a thread's queue.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QueuedSubmission {
+    #[serde(rename = "clientUserMessageId", default)]
+    pub client_user_message_id: String,
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub input: Vec<UserInput>,
+}
+
+/// `autoApprovalReview/strictReviewRequired` — a strict review gate opened.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StrictReviewRequiredNotification {
+    /// Unix timestamp (ms) when this review started.
+    #[serde(rename = "startedAtMs", default)]
+    pub started_at_ms: i64,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+    #[serde(rename = "turnId", default)]
+    pub turn_id: String,
+}
+
+/// `thread/project/updated` — a thread's project assignment changed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadProjectUpdatedNotification {
+    #[serde(rename = "projectId", default)]
+    pub project_id: Option<String>,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// `thread/queue/changed` — the thread's queued submissions changed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadQueueChangedNotification {
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// `thread/reverted` — the thread was rolled back.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadRevertedNotification {
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SandboxMode {
     #[serde(rename = "read-only")]
@@ -6298,6 +6464,10 @@ pub struct Thread {
     pub forked_from_id: Option<String>,
     #[serde(rename = "gitInfo", default, skip_serializing_if = "Option::is_none")]
     pub git_info: Option<GitInfo>,
+    /// Canonical project assignment owned by app-server, if any. Required
+    /// upstream from 0.147 but kept tolerant for pre-project servers.
+    #[serde(rename = "projectId", default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
     #[serde(default)]
     pub id: String,
     #[serde(rename = "modelProvider", default)]
@@ -6679,6 +6849,8 @@ pub enum ThreadItem {
     },
     #[serde(rename = "agentMessage")]
     AgentMessage {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        delivery: Option<AgentMessageDelivery>,
         id: String,
         #[serde(
             rename = "memoryCitation",

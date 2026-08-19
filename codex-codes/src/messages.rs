@@ -41,16 +41,18 @@ use crate::protocol::{
     McpServerOauthLoginCompletedNotification, McpServerStatusUpdatedNotification,
     McpToolCallProgressNotification, ModelReroutedNotification,
     ModelSafetyBufferingUpdatedNotification, ModelVerificationNotification, PlanDeltaNotification,
-    ProcessExitedNotification, ProcessOutputDeltaNotification,
+    ProcessExitedNotification, ProcessOutputDeltaNotification, ProjectChangedNotification,
     ReasoningSummaryPartAddedNotification, ReasoningSummaryTextDeltaNotification,
     ReasoningTextDeltaNotification, RemoteControlStatusChangedNotification,
-    ServerRequestResolvedNotification, SkillsChangedNotification, TerminalInteractionNotification,
-    ThreadArchivedNotification, ThreadClosedNotification, ThreadDeletedNotification,
-    ThreadGoalClearedNotification, ThreadGoalUpdatedNotification, ThreadNameUpdatedNotification,
-    ThreadRealtimeClosedNotification, ThreadRealtimeErrorNotification,
-    ThreadRealtimeItemAddedNotification, ThreadRealtimeOutputAudioDeltaNotification,
-    ThreadRealtimeSdpNotification, ThreadRealtimeStartedNotification,
-    ThreadRealtimeTranscriptDeltaNotification, ThreadRealtimeTranscriptDoneNotification,
+    ServerRequestResolvedNotification, SkillsChangedNotification, StrictReviewRequiredNotification,
+    TerminalInteractionNotification, ThreadArchivedNotification, ThreadClosedNotification,
+    ThreadDeletedNotification, ThreadGoalClearedNotification, ThreadGoalUpdatedNotification,
+    ThreadNameUpdatedNotification, ThreadProjectUpdatedNotification,
+    ThreadQueueChangedNotification, ThreadRealtimeClosedNotification,
+    ThreadRealtimeErrorNotification, ThreadRealtimeItemAddedNotification,
+    ThreadRealtimeOutputAudioDeltaNotification, ThreadRealtimeSdpNotification,
+    ThreadRealtimeStartedNotification, ThreadRealtimeTranscriptDeltaNotification,
+    ThreadRealtimeTranscriptDoneNotification, ThreadRevertedNotification,
     ThreadSettingsUpdatedNotification, ThreadStartedNotification, ThreadStatusChangedNotification,
     ThreadTokenUsageUpdatedNotification, ThreadUnarchivedNotification, TurnCompletedNotification,
     TurnDiffUpdatedNotification, TurnModerationMetadataNotification, TurnPlanUpdatedNotification,
@@ -207,6 +209,16 @@ pub enum Notification {
     ThreadEnvironmentConnected(EnvironmentConnectionNotification),
     /// `thread/environment/disconnected`
     ThreadEnvironmentDisconnected(EnvironmentConnectionNotification),
+    /// `autoApprovalReview/strictReviewRequired` (0.147)
+    StrictReviewRequired(StrictReviewRequiredNotification),
+    /// `project/changed` (0.147)
+    ProjectChanged(ProjectChangedNotification),
+    /// `thread/project/updated` (0.147)
+    ThreadProjectUpdated(ThreadProjectUpdatedNotification),
+    /// `thread/queue/changed` (0.147)
+    ThreadQueueChanged(ThreadQueueChangedNotification),
+    /// `thread/reverted` (0.147)
+    ThreadReverted(ThreadRevertedNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -221,6 +233,11 @@ impl Notification {
     pub fn method(&self) -> &str {
         match self {
             Self::ThreadStarted(_) => methods::THREAD_STARTED,
+            Self::StrictReviewRequired(_) => methods::STRICT_REVIEW_REQUIRED,
+            Self::ProjectChanged(_) => methods::PROJECT_CHANGED,
+            Self::ThreadProjectUpdated(_) => methods::THREAD_PROJECT_UPDATED,
+            Self::ThreadQueueChanged(_) => methods::THREAD_QUEUE_CHANGED,
+            Self::ThreadReverted(_) => methods::THREAD_REVERTED,
             Self::ThreadStatusChanged(_) => methods::THREAD_STATUS_CHANGED,
             Self::ThreadTokenUsageUpdated(_) => methods::THREAD_TOKEN_USAGE_UPDATED,
             Self::TurnStarted(_) => methods::TURN_STARTED,
@@ -375,6 +392,21 @@ impl Notification {
         match method {
             methods::THREAD_STARTED => {
                 serde_json::from_value(params_value).map(Self::ThreadStarted)
+            }
+            methods::STRICT_REVIEW_REQUIRED => {
+                serde_json::from_value(params_value).map(Self::StrictReviewRequired)
+            }
+            methods::PROJECT_CHANGED => {
+                serde_json::from_value(params_value).map(Self::ProjectChanged)
+            }
+            methods::THREAD_PROJECT_UPDATED => {
+                serde_json::from_value(params_value).map(Self::ThreadProjectUpdated)
+            }
+            methods::THREAD_QUEUE_CHANGED => {
+                serde_json::from_value(params_value).map(Self::ThreadQueueChanged)
+            }
+            methods::THREAD_REVERTED => {
+                serde_json::from_value(params_value).map(Self::ThreadReverted)
             }
             methods::THREAD_STATUS_CHANGED => {
                 serde_json::from_value(params_value).map(Self::ThreadStatusChanged)
@@ -584,6 +616,11 @@ impl Notification {
         }
         match &self {
             Self::ThreadStarted(v) => pack(methods::THREAD_STARTED, v),
+            Self::StrictReviewRequired(v) => pack(methods::STRICT_REVIEW_REQUIRED, v),
+            Self::ProjectChanged(v) => pack(methods::PROJECT_CHANGED, v),
+            Self::ThreadProjectUpdated(v) => pack(methods::THREAD_PROJECT_UPDATED, v),
+            Self::ThreadQueueChanged(v) => pack(methods::THREAD_QUEUE_CHANGED, v),
+            Self::ThreadReverted(v) => pack(methods::THREAD_REVERTED, v),
             Self::ThreadStatusChanged(v) => pack(methods::THREAD_STATUS_CHANGED, v),
             Self::ThreadTokenUsageUpdated(v) => pack(methods::THREAD_TOKEN_USAGE_UPDATED, v),
             Self::TurnStarted(v) => pack(methods::TURN_STARTED, v),

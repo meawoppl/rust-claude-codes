@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.147.0] - 2026-08-19
+
+### Added
+
+- **Project surface** (upstream 0.147): `Project`/`ProjectRoot`/
+  `ProjectChangeType` types, `Thread.project_id`, and typed notifications
+  `project/changed` and `thread/project/updated`.
+- **Queue + revert notifications**: `thread/queue/changed` (with
+  `QueuedSubmission`) and `thread/reverted`, plus
+  `autoApprovalReview/strictReviewRequired` — all five wired through
+  `Notification` with method constants and `into_envelope` round trips.
+- **Per-thread usage types** (stranded on main since the previous
+  resnapshot at 0.146.4 — an already-published version, so this release
+  finally ships them): `ThreadUsage`, `ThreadUsageBreakdownGroup`,
+  `GetAccountTokenUsageParams`, `ImageGenerationFailure`,
+  `McpServerOauthClientRegistration`.
+- Field additions: `HookMetadata` mcpTool-hook fields (`server`, `tool`,
+  `async`) with `HookHandlerType::McpTool`; `ConfigRequirements`
+  `chatgptBaseUrl`/`cliAuthCredentialsStore`;
+  `McpResourceReadParams`/`Response` `connectorId`/`originCallId`;
+  `ModelUpgradeInfo.retirementAt`; `ThreadItem::AgentMessage.delivery`;
+  `CodexErrorInfo::MisalignmentPolicyViolation`; `PlanType`
+  `edu_plus`/`edu_pro`.
+
+### Changed
+
+- Schema snapshots re-pinned byte-identical to `openai/codex@main`
+  (fixes the nightly drift report); crate version tracks the installed
+  CLI 0.147.0, live-verified via wirecheck.
+
 ## [0.146.4] - 2026-08-05
 
 ### Added
