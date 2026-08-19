@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`version::tested_cli_version()`** — the tested-against CLI release,
+  machine-readable from the published artifact. This also fixes the
+  runtime version check, whose private const had gone stale at 0.146.0
+  while the README said 0.147.0 — the exact drift the new CI lockstep
+  clause now prevents.
+
 - **`events` module** (fixes #213): `ExecEvent` — a stable, serializable
   exec-JSONL-style view over app-server notifications
   (`thread.started` / `turn.started|completed|failed` /

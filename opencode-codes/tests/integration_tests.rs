@@ -99,8 +99,8 @@ async fn create_list_abort_loop() {
     );
     assert_eq!(
         session.version,
-        env!("CARGO_PKG_VERSION"),
-        "server version drifted from the crate pin"
+        opencode_codes::version::tested_cli_version(),
+        "server version drifted from the tested pin"
     );
 
     // A brand-new session has no messages yet.

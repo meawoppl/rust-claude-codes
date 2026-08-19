@@ -76,6 +76,7 @@
 
 pub mod error;
 pub mod protocol_generated;
+pub mod version;
 
 pub use error::{Error, Result};
 

@@ -8,6 +8,15 @@ use std::sync::Once;
 /// The latest Claude CLI version we've tested against
 const TESTED_VERSION: &str = "2.1.232";
 
+/// The Claude CLI release this crate's live integration suite last passed
+/// against — the machine-readable form of the crate's version convention
+/// (the crate version approximates this; crate-side patch offsets can push
+/// it past). Kept in lockstep with the README's `Tested against:` line by
+/// CI.
+pub fn tested_cli_version() -> &'static str {
+    TESTED_VERSION
+}
+
 /// Ensures version warning is only shown once per session
 static VERSION_CHECK: Once = Once::new();
 

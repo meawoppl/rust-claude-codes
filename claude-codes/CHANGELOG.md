@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.234] - 2026-08-19
+
+### Added
+
+- **`version::tested_cli_version()`** — the tested-against CLI release,
+  machine-readable from the published artifact (previously a private
+  const only the runtime warning could see). CI keeps it in lockstep
+  with the README's `Tested against:` line.
+
 ## [2.1.233] - 2026-08-19
 
 ### Added
