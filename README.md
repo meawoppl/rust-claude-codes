@@ -16,13 +16,20 @@ This workspace provides independent crates for interacting with [Claude Code](ht
 
 ## Versioning
 
-Each crate's version tracks the CLI it wraps:
+Each crate's version means **tested against**: the version names the newest
+CLI release the crate's live integration suite has actually passed against —
+never a target, never an aspiration. When the crate needs a release of its
+own between CLI releases (new helpers, docs), the patch number advances past
+the CLI's and the tested CLI version stays stated explicitly below. Installed
+CLIs typically release faster than the wire changes, so the running binary
+may be newer than the pin; the nightly drift checks watch the wire and the
+pin moves forward only when it actually changes.
 
-- **`claude-codes`** version tracks the Claude CLI it targets and may sit slightly ahead of the CLI it was last integration-tested against. Currently `claude-codes 2.1.233`, tested against Claude CLI `2.1.232`.
-- **`codex-codes`** version tracks the Codex CLI it has been tested against, sitting a small offset behind while the bindings stabilize. Currently `codex-codes 0.147.0`, tested against Codex CLI `0.147.0`.
-- **`opencode-codes`** version tracks the opencode release train it wraps. Currently `opencode-codes 1.18.18`, tested against opencode `1.18.18`.
-- **`muse-codes`** version tracks the Muse Code release its stream captures were taken from, with patch offsets for crate-side additions. Currently `muse-codes 0.1.8`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`).
-- **`antigravity-codes`** version tracks the `google-antigravity` wheel whose bundled harness it was generated from. Currently `antigravity-codes 0.1.10`, tested against google-antigravity `0.1.10`.
+- **`claude-codes`** — currently `claude-codes 2.1.233`, tested against Claude CLI `2.1.232`.
+- **`codex-codes`** — currently `codex-codes 0.147.0`, tested against Codex CLI `0.147.0`.
+- **`opencode-codes`** — currently `opencode-codes 1.18.18`, tested against opencode `1.18.18`.
+- **`muse-codes`** — currently `muse-codes 0.1.8`, tested against Muse Code `0.1.0` (build `0.1.0-R708.1`; Meta has shipped no newer CLI, so the patch offsets are all crate-side).
+- **`antigravity-codes`** — currently `antigravity-codes 0.1.10`, tested against google-antigravity `0.1.10` (the wheel its bundled harness was generated from).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
 CLI version diverges from the tested version. `opencode-codes` tracks the

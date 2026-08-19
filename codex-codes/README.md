@@ -215,9 +215,11 @@ Discriminated union of agent action items (shared between exec and app-server):
 
 ## Compatibility
 
-**Tested against:** Codex CLI 0.146.0
+**Tested against:** Codex CLI 0.147.0
 
-The crate version tracks the Codex CLI version. If you're using a different CLI version, please report whether it works at:
+The crate version means **tested against**: it names the newest Codex CLI
+the live integration suite has passed against. If you're using a different
+CLI version, please report whether it works at:
 https://github.com/meawoppl/rust-code-agent-sdks/issues
 
 ## Coverage scorecard
