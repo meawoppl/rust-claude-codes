@@ -20,6 +20,10 @@ use serde_json::Value;
 /// Typed payloads (`ThreadItem`, `Turn`, …) are embedded directly — they
 /// already serialize to their wire shapes, so consumers get stable JSON
 /// without a re-serialization layer.
+// Thread/ThreadItem payloads dwarf Raw. Like the Notification enum itself,
+// this is a transient per-frame classification consumers unpack promptly;
+// boxing would tax every construction/match site for no retained-memory win.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ExecEvent {
