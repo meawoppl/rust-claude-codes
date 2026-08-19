@@ -2560,3 +2560,83 @@ fn test_rejected_flow_retries_with_new_url_live() {
         other => panic!("round 2 should reach a live input field, got {other:?}"),
     }
 }
+
+/// `/clear` mid-stream rotates the SESSION id: a `conversation_reset` frame
+/// arrives carrying the OLD session id plus a `new_conversation_id` that
+/// matches NOTHING (not the successor session, no disk file — a phantom id
+/// consumers must not key on), and the stream then re-inits under a fresh
+/// session id that carries subsequent turns. Pins the identity boundary a
+/// transcript-keeper has to handle.
+#[tokio::test]
+async fn conversation_reset_rotates_the_session_id() {
+    let run = async {
+        let mut client = AsyncClient::with_defaults().await.expect("spawn claude");
+        let first_turn = client
+            .query("Reply with exactly: one")
+            .await
+            .expect("first turn");
+        // The wire's own identity, not the client-minted uuid: the id the
+        // first turn's frames actually carried.
+        let original = first_turn
+            .iter()
+            .find_map(|o| match o {
+                ClaudeOutput::Result(r) => Some(r.session_id.clone()),
+                _ => None,
+            })
+            .expect("first turn carries a session id");
+
+        client
+            .send(&ClaudeInput::user_message_without_session("/clear"))
+            .await
+            .expect("send /clear");
+
+        let mut reset: Option<claude_codes::io::ConversationResetMessage> = None;
+        let mut post_reset_session: Option<String> = None;
+        for _ in 0..50 {
+            match client.receive().await.expect("receive") {
+                ClaudeOutput::ConversationReset(msg) => {
+                    assert_eq!(
+                        msg.session_id, original,
+                        "the reset frame must name the session it retires"
+                    );
+                    reset = Some(msg);
+                }
+                ClaudeOutput::System(sys) if sys.is_init() && reset.is_some() => {
+                    post_reset_session = sys
+                        .data
+                        .get("session_id")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let reset = reset.expect("conversation_reset frame must arrive after /clear");
+        let rotated = post_reset_session.expect("a fresh system init must follow the reset");
+        assert_ne!(
+            rotated, original,
+            "the session id must ROTATE after a reset"
+        );
+        assert_ne!(
+            rotated, reset.new_conversation_id,
+            "new_conversation_id is a phantom — it must not be assumed to be \
+             the successor session id (if this ever fails, the CLI unified \
+             the identities and the ConversationResetMessage docs must change)"
+        );
+
+        // The rotated id is live: a turn completes under it.
+        let outputs = client
+            .query("Reply with exactly: two")
+            .await
+            .expect("post-reset turn");
+        assert!(
+            outputs.iter().any(|o| matches!(o, ClaudeOutput::Result(_))),
+            "the post-reset session must carry a full turn"
+        );
+        client.shutdown().await.expect("shutdown");
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(180), run)
+        .await
+        .expect("reset round trip within 180s");
+}
