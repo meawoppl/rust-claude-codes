@@ -128,6 +128,11 @@ pub mod methods {
 
     // Server → client notifications
     pub const THREAD_STARTED: &str = "thread/started";
+    pub const STRICT_REVIEW_REQUIRED: &str = "autoApprovalReview/strictReviewRequired";
+    pub const PROJECT_CHANGED: &str = "project/changed";
+    pub const THREAD_PROJECT_UPDATED: &str = "thread/project/updated";
+    pub const THREAD_QUEUE_CHANGED: &str = "thread/queue/changed";
+    pub const THREAD_REVERTED: &str = "thread/reverted";
     pub const THREAD_STATUS_CHANGED: &str = "thread/status/changed";
     pub const THREAD_TOKEN_USAGE_UPDATED: &str = "thread/tokenUsage/updated";
     pub const TURN_STARTED: &str = "turn/started";
