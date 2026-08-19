@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-08-19
+
+### Changed
+
+- **`ToolResult.correlation_facts` is typed** (`ToolCorrelationFacts
+  { tool_name, outcome, extra }`, fixes #310): the two fields consumers
+  key on — `tool_name` drives the `tool.<name>`-task attribution match,
+  `outcome` classifies the result — are now fields instead of `Value`
+  pokes, with `ToolResult::outcome()` / `tool_name()` accessors. Unknown
+  keys round-trip through a flattened `extra`, pinned by the corpus
+  byte-faithful round-trip tests. Filed by agent-portal to replace its
+  `correlation_facts.get("outcome")` poke.
+
 ## [0.1.7] - 2026-08-11
 
 ### Added
