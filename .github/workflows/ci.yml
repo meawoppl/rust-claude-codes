@@ -124,7 +124,7 @@ jobs:
           CLAUDE_VERSION=$(grep '^version' claude-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           CODEX_VERSION=$(grep '^version' codex-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           CLAUDE_TESTED=$(grep 'const TESTED_VERSION' claude-codes/src/version.rs | grep -oP '\d+\.\d+\.\d+')
-          CODEX_TESTED=$(grep 'Tested against.*Codex CLI' codex-codes/README.md | grep -oP '\d+\.\d+\.\d+')
+          CODEX_TESTED=$(grep 'Tested against.*Codex CLI' codex-codes/README.md | grep -oP '\d+\.\d+\.\d+' | head -1)
           OPENCODE_VERSION=$(grep '^version' opencode-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           OPENCODE_TESTED=$(grep 'Tested against.*opencode' opencode-codes/README.md | grep -oP '\d+\.\d+\.\d+')
 
@@ -226,7 +226,7 @@ jobs:
           else
             echo "✅ codex tested_cli_version matches README"
           fi
-          MUSE_CONST=$(grep -A2 'fn tested_cli_version' muse-codes/src/version.rs | grep -oP '"\K[0-9.]+' | head -1)
+          MUSE_CONST=$(grep 'TESTED_MUSE_VERSION: &str' muse-codes/src/version.rs | grep -oP '"\K[0-9.]+')
           if [ "$MUSE_CONST" != "$MUSE_TESTED" ]; then
             echo "❌ muse version.rs tested_cli_version ($MUSE_CONST) != README tested ($MUSE_TESTED)"
             FAILED=1
