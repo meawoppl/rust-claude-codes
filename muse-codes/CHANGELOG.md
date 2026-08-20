@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-19
+
+### Changed
+
+- **Tested pin moves to Muse Code 0.2.1 (`0.2.1-R1215.1`)** — surfaced by
+  a live drift report from agent-portal (host running 0.2.1 against
+  models captured from 0.1.0), the direction nobody was watching: the
+  HOST ahead of the SDK. The crate version jumps to match, per the
+  version-means-tested convention. Verified live: 12/13 wirecheck checks
+  green unchanged (identity counter trap, kind-match correlation,
+  envelope invariants all hold on 0.2.1); the echo fingerprint is
+  byte-identical.
+- **New committed capture `meta_tool_use_0_2_1.jsonl`** pinning the two
+  observed 0.2.1 behaviors: `task.lifecycle.failed` in the live
+  vocabulary (already typed, never before captured), and
+  `correlation_facts` ABSENT on tool results the binary rejects before
+  execution (the model's stringified-scalar bug tripping strict serde).
+  Known-wire-gaps documents the absence: such results cannot be
+  kind-matched and need the running-task fallback.
+
 ## [0.1.8] - 2026-08-19
 
 ### Added
