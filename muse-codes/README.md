@@ -8,7 +8,7 @@ journal on stdout: envelope records covering command intake, run lifecycle,
 task lifecycle, and streamed output. This crate types that stream and ships
 an async Tokio client for driving headless runs.
 
-Tested against Muse Code 0.1.0 (`0.1.0-R708.1`). The crate version may
+Tested against Muse Code 0.2.1 (`0.2.1-R1215.1`). The crate version may
 carry a patch offset above the CLI release for crate-side additions.
 
 ## Captured, not guessed
@@ -104,6 +104,12 @@ verbatim.
 
 Things the stream does *not* carry, which consumers must work around:
 
+- **`correlation_facts` is absent on pre-execution tool rejections**
+  (observed on 0.2.1): when the binary rejects a tool call before running
+  it (e.g. the model emitting stringified scalars — `"500"` for a usize —
+  which strict serde refuses), the failure `tool.result` carries only
+  `text`. Those results cannot be kind-matched to a task; attribute by
+  running-task fallback or leave unattributed.
 - **`tool.result` has no `task_id`** — but a correlation exists. The wire
   models each tool call as its own task (`task_kind: tool.<tool_name>`),
   and the result's `correlation_facts.tool_name` names it: in every

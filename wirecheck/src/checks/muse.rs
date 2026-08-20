@@ -358,6 +358,12 @@ async fn live_meta_checks(reporter: &Reporter) {
     if results.is_empty() {
         problems.push("model used no tools despite the prompt — rerun the suite".to_string());
     }
+    // correlation_facts is legitimately ABSENT on tool results the binary
+    // rejects before execution (measured on 0.2.1) — those are
+    // unattributable by design and must not fail the check. Facts-bearing
+    // results must still kind-match a tool.<name> task.
+    let mut factless = 0usize;
+    let mut matched = 0usize;
     for r in &results {
         let name = r
             .payload
@@ -365,16 +371,19 @@ async fn live_meta_checks(reporter: &Reporter) {
             .and_then(|f| f.get("tool_name"))
             .and_then(|t| t.as_str());
         match name {
-            Some(n) if tool_tasks.contains(&format!("tool.{n}")) => {}
+            Some(n) if tool_tasks.contains(&format!("tool.{n}")) => matched += 1,
             Some(n) => problems.push(format!("tool.result '{n}' has no matching tool.{n} task")),
-            None => problems.push("tool.result without correlation_facts.tool_name".to_string()),
+            None => factless += 1,
         }
+    }
+    if matched == 0 && factless > 0 {
+        problems.push(format!(
+            "ALL {factless} tool results lack correlation_facts — the kind-match key may have left the wire"
+        ));
     }
     finish_list(reporter, "tool_correlation", started, problems, || {
         format!(
-            "{} tool results, all matched to {:?}",
-            results.len(),
-            tool_tasks
+            "{matched} facts-bearing results matched to {tool_tasks:?}; {factless} pre-execution rejections without facts (expected)"
         )
     })
     .await;
