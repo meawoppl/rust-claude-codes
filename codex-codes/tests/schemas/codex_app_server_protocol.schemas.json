@@ -5206,6 +5206,26 @@
           "properties": {
             "method": {
               "enum": [
+                "mcpServer/event/stream/notification"
+              ],
+              "title": "McpServer/event/stream/notificationNotificationMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/McpServerEventStreamNotification"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "title": "McpServer/event/stream/notificationNotification",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "enum": [
                 "account/updated"
               ],
               "title": "Account/updatedNotificationMethod",
@@ -8908,6 +8928,12 @@
       },
       "ConfigRequirements": {
         "properties": {
+          "additionalDeveloperInstructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "allowAppshots": {
             "type": [
               "boolean",
@@ -9058,6 +9084,16 @@
             "anyOf": [
               {
                 "$ref": "#/definitions/v2/FeedbackRequirements"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inAppBrowser": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/InAppBrowserRequirements"
               },
               {
                 "type": "null"
@@ -12419,6 +12455,17 @@
           }
         ]
       },
+      "InAppBrowserRequirements": {
+        "properties": {
+          "allowExternalBrowserSettingsImport": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "InputModality": {
         "description": "Canonical user-input modality tags advertised by a model.",
         "oneOf": [
@@ -13355,6 +13402,36 @@
           "contents"
         ],
         "title": "McpResourceReadResponse",
+        "type": "object"
+      },
+      "McpServerEventNotification": {
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "params": true
+        },
+        "required": [
+          "method",
+          "params"
+        ],
+        "type": "object"
+      },
+      "McpServerEventStreamNotification": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "notification": {
+            "$ref": "#/definitions/v2/McpServerEventNotification"
+          },
+          "subscriptionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "notification",
+          "subscriptionId"
+        ],
+        "title": "McpServerEventStreamNotification",
         "type": "object"
       },
       "McpServerInfo": {
@@ -17295,7 +17372,10 @@
           {
             "properties": {
               "call_id": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "id": {
                 "type": [
@@ -17313,6 +17393,18 @@
                   }
                 ]
               },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "namespace": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "output": {
                 "$ref": "#/definitions/v2/FunctionCallOutputBody"
               },
@@ -17325,7 +17417,6 @@
               }
             },
             "required": [
-              "call_id",
               "output",
               "type"
             ],
@@ -21086,6 +21177,27 @@
               "type"
             ],
             "title": "WebrtcThreadRealtimeStartTransport",
+            "type": "object"
+          },
+          {
+            "properties": {
+              "callId": {
+                "description": "Identifier of a realtime call already created and negotiated by the client.",
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "existingCall"
+                ],
+                "title": "ExistingCallThreadRealtimeStartTransportType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "callId",
+              "type"
+            ],
+            "title": "ExistingCallThreadRealtimeStartTransport",
             "type": "object"
           }
         ]

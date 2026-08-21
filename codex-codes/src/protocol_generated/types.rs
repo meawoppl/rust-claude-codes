@@ -1335,6 +1335,18 @@ pub struct ConfigReadResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRequirements {
     #[serde(
+        rename = "additionalDeveloperInstructions",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub additional_developer_instructions: Option<String>,
+    #[serde(
+        rename = "inAppBrowser",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub in_app_browser: Option<InAppBrowserRequirements>,
+    #[serde(
         rename = "chatgptBaseUrl",
         default,
         skip_serializing_if = "Option::is_none"
@@ -5929,6 +5941,36 @@ pub struct ThreadQueueChangedNotification {
 pub struct ThreadRevertedNotification {
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
+}
+
+/// In-app browser requirements (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InAppBrowserRequirements {
+    #[serde(
+        rename = "allowExternalBrowserSettingsImport",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_external_browser_settings_import: Option<bool>,
+}
+
+/// One MCP-server-originated notification, relayed verbatim.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerEventNotification {
+    #[serde(default)]
+    pub method: String,
+    #[serde(default)]
+    pub params: Value,
+}
+
+/// `mcpServer/event/stream/notification` — an MCP server's own
+/// notification stream, forwarded to subscribers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerEventStreamNotification {
+    pub notification: McpServerEventNotification,
+    #[serde(rename = "subscriptionId", default)]
+    pub subscription_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

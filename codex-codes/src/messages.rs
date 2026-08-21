@@ -38,8 +38,8 @@ use crate::protocol::{
     GuardianWarningNotification, HookCompletedNotification, HookStartedNotification,
     ItemCompletedNotification, ItemGuardianApprovalReviewCompletedNotification,
     ItemGuardianApprovalReviewStartedNotification, ItemStartedNotification,
-    McpServerOauthLoginCompletedNotification, McpServerStatusUpdatedNotification,
-    McpToolCallProgressNotification, ModelReroutedNotification,
+    McpServerEventStreamNotification, McpServerOauthLoginCompletedNotification,
+    McpServerStatusUpdatedNotification, McpToolCallProgressNotification, ModelReroutedNotification,
     ModelSafetyBufferingUpdatedNotification, ModelVerificationNotification, PlanDeltaNotification,
     ProcessExitedNotification, ProcessOutputDeltaNotification, ProjectChangedNotification,
     ReasoningSummaryPartAddedNotification, ReasoningSummaryTextDeltaNotification,
@@ -219,6 +219,8 @@ pub enum Notification {
     ThreadQueueChanged(ThreadQueueChangedNotification),
     /// `thread/reverted` (0.147)
     ThreadReverted(ThreadRevertedNotification),
+    /// `mcpServer/event/stream/notification` (0.148 upstream)
+    McpServerEventStream(McpServerEventStreamNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -238,6 +240,7 @@ impl Notification {
             Self::ThreadProjectUpdated(_) => methods::THREAD_PROJECT_UPDATED,
             Self::ThreadQueueChanged(_) => methods::THREAD_QUEUE_CHANGED,
             Self::ThreadReverted(_) => methods::THREAD_REVERTED,
+            Self::McpServerEventStream(_) => methods::MCP_SERVER_EVENT_STREAM,
             Self::ThreadStatusChanged(_) => methods::THREAD_STATUS_CHANGED,
             Self::ThreadTokenUsageUpdated(_) => methods::THREAD_TOKEN_USAGE_UPDATED,
             Self::TurnStarted(_) => methods::TURN_STARTED,
@@ -407,6 +410,9 @@ impl Notification {
             }
             methods::THREAD_REVERTED => {
                 serde_json::from_value(params_value).map(Self::ThreadReverted)
+            }
+            methods::MCP_SERVER_EVENT_STREAM => {
+                serde_json::from_value(params_value).map(Self::McpServerEventStream)
             }
             methods::THREAD_STATUS_CHANGED => {
                 serde_json::from_value(params_value).map(Self::ThreadStatusChanged)
@@ -621,6 +627,7 @@ impl Notification {
             Self::ThreadProjectUpdated(v) => pack(methods::THREAD_PROJECT_UPDATED, v),
             Self::ThreadQueueChanged(v) => pack(methods::THREAD_QUEUE_CHANGED, v),
             Self::ThreadReverted(v) => pack(methods::THREAD_REVERTED, v),
+            Self::McpServerEventStream(v) => pack(methods::MCP_SERVER_EVENT_STREAM, v),
             Self::ThreadStatusChanged(v) => pack(methods::THREAD_STATUS_CHANGED, v),
             Self::ThreadTokenUsageUpdated(v) => pack(methods::THREAD_TOKEN_USAGE_UPDATED, v),
             Self::TurnStarted(v) => pack(methods::TURN_STARTED, v),
