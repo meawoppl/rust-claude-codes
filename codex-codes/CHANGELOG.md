@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.147.3] - 2026-08-22
+
+### Added
+
+- Resnapshot vs `openai/codex@main` (fixes #330): the browser-use /
+  computer-use policy surface — `AllowDenyRequirement`,
+  per-origin `BrowserUseOriginPolicy{,Config}` with approval lifetimes,
+  `ComputerUse{Macos,Windows}{Requirements,Config}` (bundle-id / AUMID /
+  signed-exe allowlists), the matching field additions on
+  `BrowserUseRequirements` / `ComputerUseRequirements` / `Config` /
+  `ConfigRequirements.allowBrowserAndComputerUse`, and
+  `McpServerStatus.runtimeStatus` (new typed
+  `McpServerConnectionStatus`). Note the wire's own casing split:
+  requirements types are camelCase, config types snake_case — mirrored
+  exactly.
+
 ## [0.147.2] - 2026-08-21
 
 ### Added
