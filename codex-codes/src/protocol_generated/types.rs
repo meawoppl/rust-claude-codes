@@ -635,6 +635,26 @@ pub struct AutoReviewRequirements {
 #[serde(rename_all = "camelCase")]
 pub struct BrowserUseRequirements {
     #[serde(
+        rename = "allowGlobalPersistentApproval",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_global_persistent_approval: Option<bool>,
+    #[serde(
+        rename = "allowHistoryAccess",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_history_access: Option<bool>,
+    #[serde(
+        rename = "defaultOriginPolicy",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_origin_policy: Option<BrowserUseOriginPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origins: Option<std::collections::HashMap<String, BrowserUseOriginPolicy>>,
+    #[serde(
         rename = "disableAutoReview",
         default,
         skip_serializing_if = "Option::is_none"
@@ -1153,6 +1173,22 @@ pub struct CommandMigration {
 #[serde(rename_all = "camelCase")]
 pub struct ComputerUseRequirements {
     #[serde(
+        rename = "allowPersistentApproval",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_persistent_approval: Option<bool>,
+    #[serde(
+        rename = "defaultAppAccess",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_app_access: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub macos: Option<ComputerUseMacosRequirements>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub windows: Option<ComputerUseWindowsRequirements>,
+    #[serde(
         rename = "allowLockedComputerUse",
         default,
         skip_serializing_if = "Option::is_none"
@@ -1165,6 +1201,10 @@ pub struct ComputerUseRequirements {
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analytics: Option<AnalyticsConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_use: Option<BrowserUseConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub computer_use: Option<ComputerUseConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_policy: Option<AskForApproval>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1334,6 +1374,12 @@ pub struct ConfigReadResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigRequirements {
+    #[serde(
+        rename = "allowBrowserAndComputerUse",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_browser_and_computer_use: Option<bool>,
     #[serde(
         rename = "additionalDeveloperInstructions",
         default,
@@ -3980,6 +4026,13 @@ pub enum McpServerStartupState {
 pub struct McpServerStatus {
     #[serde(rename = "authStatus")]
     pub auth_status: McpAuthStatus,
+    /// Current thread-runtime connection state; absent when unavailable.
+    #[serde(
+        rename = "runtimeStatus",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub runtime_status: Option<McpServerConnectionStatus>,
     #[serde(default)]
     pub name: String,
     #[serde(rename = "pluginId", default, skip_serializing_if = "Option::is_none")]
@@ -5971,6 +6024,173 @@ pub struct McpServerEventStreamNotification {
     pub notification: McpServerEventNotification,
     #[serde(rename = "subscriptionId", default)]
     pub subscription_id: String,
+}
+
+/// Allow/deny switch used across the browser-use / computer-use policy
+/// surface (0.148 upstream).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AllowDenyRequirement {
+    #[serde(rename = "allow")]
+    Allow,
+    #[serde(rename = "deny")]
+    Deny,
+}
+
+/// How long a granted browser-use access approval lasts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BrowserUseAccessApprovalLifetime {
+    #[serde(rename = "turn")]
+    Turn,
+    #[serde(rename = "thread")]
+    Thread,
+}
+
+/// Current thread-runtime MCP server connection state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum McpServerConnectionStatus {
+    #[serde(rename = "notStarted")]
+    NotStarted,
+    #[serde(rename = "starting")]
+    Starting,
+    #[serde(rename = "connected")]
+    Connected,
+    #[serde(rename = "authenticationRequired")]
+    AuthenticationRequired,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    #[serde(rename = "disabled")]
+    Disabled,
+}
+
+/// Per-origin browser-use policy (requirements side, camelCase wire).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserUseOriginPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access: Option<AllowDenyRequirement>,
+    #[serde(
+        rename = "accessApprovalLifetime",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_approval_lifetime: Option<BrowserUseAccessApprovalLifetime>,
+    #[serde(
+        rename = "autoReview",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub auto_review: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub downloads: Option<AllowDenyRequirement>,
+    #[serde(
+        rename = "fullCdpAccess",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub full_cdp_access: Option<AllowDenyRequirement>,
+    #[serde(
+        rename = "persistentApproval",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub persistent_approval: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uploads: Option<AllowDenyRequirement>,
+}
+
+/// Per-origin browser-use policy (config side, snake_case wire).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct BrowserUseOriginPolicyConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub downloads: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_cdp_access: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uploads: Option<AllowDenyRequirement>,
+}
+
+/// Browser-use configuration (config side, snake_case wire).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct BrowserUseConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_history_access: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_origin_policy: Option<BrowserUseOriginPolicyConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origins: Option<std::collections::HashMap<String, BrowserUseOriginPolicyConfig>>,
+}
+
+/// Computer-use configuration (config side, snake_case wire).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ComputerUseConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_app_access: Option<AllowDenyRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub macos: Option<ComputerUseMacosConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub windows: Option<ComputerUseWindowsConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ComputerUseMacosConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bundle_ids: Option<std::collections::HashMap<String, AllowDenyRequirement>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ComputerUseWindowsConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aumids: Option<std::collections::HashMap<String, AllowDenyRequirement>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exes: Option<Vec<ComputerUseWindowsExeConfig>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ComputerUseWindowsExeConfig {
+    pub access: AllowDenyRequirement,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_name: Option<String>,
+    #[serde(default)]
+    pub product_name: String,
+    #[serde(default)]
+    pub publisher_name: String,
+}
+
+/// Per-platform computer-use requirements (camelCase wire).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerUseMacosRequirements {
+    #[serde(rename = "bundleIds", default, skip_serializing_if = "Option::is_none")]
+    pub bundle_ids: Option<std::collections::HashMap<String, AllowDenyRequirement>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerUseWindowsRequirements {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aumids: Option<std::collections::HashMap<String, AllowDenyRequirement>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exes: Option<Vec<ComputerUseWindowsExeRequirement>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerUseWindowsExeRequirement {
+    pub access: AllowDenyRequirement,
+    #[serde(
+        rename = "binaryName",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub binary_name: Option<String>,
+    #[serde(rename = "productName", default)]
+    pub product_name: String,
+    #[serde(rename = "publisherName", default)]
+    pub publisher_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
