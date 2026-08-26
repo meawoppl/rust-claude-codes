@@ -49,6 +49,9 @@ pub mod methods {
     pub const THREAD_LOADED_LIST: &str = "thread/loaded/list";
     pub const THREAD_READ: &str = "thread/read";
     pub const THREAD_INJECT_ITEMS: &str = "thread/inject_items";
+    pub const THREAD_ITEMS_LIST: &str = "thread/items/list";
+    pub const THREAD_TURNS_LIST: &str = "thread/turns/list";
+    pub const THREAD_REVERT: &str = "thread/revert";
     pub const SKILLS_LIST: &str = "skills/list";
     pub const HOOKS_LIST: &str = "hooks/list";
     pub const MARKETPLACE_ADD: &str = "marketplace/add";
@@ -196,6 +199,9 @@ pub mod methods {
     pub const THREAD_REALTIME_STARTED: &str = "thread/realtime/started";
     pub const THREAD_REALTIME_TRANSCRIPT_DELTA: &str = "thread/realtime/transcript/delta";
     pub const THREAD_REALTIME_TRANSCRIPT_DONE: &str = "thread/realtime/transcript/done";
+    pub const THREAD_REALTIME_ITEM_STARTED: &str = "thread/realtime/item/started";
+    pub const THREAD_REALTIME_ITEM_COMPLETED: &str = "thread/realtime/item/completed";
+    pub const THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA: &str = "thread/realtime/item/transcript/delta";
     pub const WINDOWS_WORLD_WRITABLE_WARNING: &str = "windows/worldWritableWarning";
     pub const WINDOWS_SANDBOX_SETUP_COMPLETED: &str = "windowsSandbox/setupCompleted";
     pub const THREAD_SETTINGS_UPDATED: &str = "thread/settings/updated";

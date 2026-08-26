@@ -598,6 +598,8 @@ pub enum AuthMode {
     PersonalAccessToken,
     #[serde(rename = "bedrockApiKey")]
     BedrockApiKey,
+    #[serde(rename = "bedrockAccessKeys")]
+    BedrockAccessKeys,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -746,6 +748,8 @@ pub enum CodexErrorInfo {
     SessionBudgetExceeded,
     #[serde(rename = "usageLimitExceeded")]
     UsageLimitExceeded,
+    #[serde(rename = "rateLimitExceeded")]
+    RateLimitExceeded,
     #[serde(rename = "serverOverloaded")]
     ServerOverloaded,
     #[serde(rename = "cyberPolicy")]
@@ -846,6 +850,14 @@ pub enum CollabAgentTool {
     Wait,
     #[serde(rename = "closeAgent")]
     CloseAgent,
+    #[serde(rename = "sendMessage")]
+    SendMessage,
+    #[serde(rename = "followupTask")]
+    FollowupTask,
+    #[serde(rename = "interruptAgent")]
+    InterruptAgent,
+    #[serde(rename = "listAgents")]
+    ListAgents,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -856,6 +868,20 @@ pub enum CollabAgentToolCallStatus {
     Completed,
     #[serde(rename = "failed")]
     Failed,
+    #[serde(rename = "interrupted")]
+    Interrupted,
+}
+
+/// Requested cyber treatment for a ChatGPT-authenticated turn; authorization
+/// and model-tier restrictions stay server-owned (0.148 upstream).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CyberAccessProgram {
+    #[serde(rename = "standard")]
+    Standard,
+    #[serde(rename = "daybreakBlue")]
+    DaybreakBlue,
+    #[serde(rename = "daybreakRed")]
+    DaybreakRed,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1063,6 +1089,16 @@ pub enum CommandExecutionApprovalDecision {
     Cancel,
 }
 
+/// Distinguishes a command approval from input sent to an existing terminal
+/// (v1 `commandExecution/requestApproval`, 0.148 upstream).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CommandExecutionApprovalKind {
+    #[serde(rename = "command")]
+    Command,
+    #[serde(rename = "writeStdin")]
+    WriteStdin,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandExecutionOutputDeltaNotification {
@@ -1103,6 +1139,10 @@ pub struct CommandExecutionRequestApprovalParams {
     pub environment_id: Option<String>,
     #[serde(rename = "itemId", default)]
     pub item_id: String,
+    /// Kind of action under review; defaults to `command` on older servers.
+    /// `writeStdin` marks input to an existing terminal (0.148 upstream).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<CommandExecutionApprovalKind>,
     #[serde(
         rename = "networkApprovalContext",
         default,
@@ -2782,6 +2822,15 @@ pub enum GuardianApprovalReviewAction {
         program: String,
         source: GuardianCommandSource,
     },
+    #[serde(rename = "writeStdin")]
+    WriteStdin {
+        #[serde(rename = "approvalId")]
+        approval_id: String,
+        cwd: LegacyAppPathString,
+        #[serde(rename = "processId")]
+        process_id: String,
+        stdin: String,
+    },
     #[serde(rename = "applyPatch")]
     ApplyPatch {
         cwd: AbsolutePathBuf,
@@ -2921,6 +2970,8 @@ pub enum HookEventName {
     SubagentStop,
     #[serde(rename = "stop")]
     Stop,
+    #[serde(rename = "interrupt")]
+    Interrupt,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -3435,6 +3486,20 @@ pub enum LoginAccountParams {
         #[serde(rename = "apiKey")]
         api_key: String,
         region: String,
+    },
+    #[serde(rename = "amazonBedrockAccessKeys")]
+    AmazonBedrockAccessKeys {
+        #[serde(rename = "accessKeyId")]
+        access_key_id: String,
+        region: String,
+        #[serde(rename = "secretAccessKey")]
+        secret_access_key: String,
+        #[serde(
+            rename = "sessionToken",
+            default,
+            skip_serializing_if = "Option::is_none"
+        )]
+        session_token: Option<String>,
     },
 }
 
@@ -6459,6 +6524,8 @@ pub struct SkillMetadata {
     pub name: String,
     #[serde()]
     pub path: AbsolutePathBuf,
+    #[serde(rename = "pluginId", default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
     #[serde()]
     pub scope: SkillScope,
     #[serde(
@@ -6625,6 +6692,8 @@ pub enum SubAgentActivityKind {
     Interacted,
     #[serde(rename = "interrupted")]
     Interrupted,
+    #[serde(rename = "completed")]
+    Completed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -6726,6 +6795,14 @@ pub struct Thread {
     pub forked_from_id: Option<String>,
     #[serde(rename = "gitInfo", default, skip_serializing_if = "Option::is_none")]
     pub git_info: Option<GitInfo>,
+    /// Persisted history contract chosen at thread creation (0.148 upstream);
+    /// absent on older servers, which are always `legacy`.
+    #[serde(
+        rename = "historyMode",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub history_mode: Option<ThreadHistoryMode>,
     /// Canonical project assignment owned by app-server, if any. Required
     /// upstream from 0.147 but kept tolerant for pre-project servers.
     #[serde(rename = "projectId", default, skip_serializing_if = "Option::is_none")]
@@ -6894,6 +6971,12 @@ pub struct ThreadForkParams {
     pub developer_instructions: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ephemeral: Option<bool>,
+    #[serde(
+        rename = "excludeTurns",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub exclude_turns: Option<bool>,
     #[serde(
         rename = "lastTurnId",
         default,
@@ -7632,6 +7715,12 @@ pub struct ThreadResumeParams {
     pub service_tier: Option<String>,
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
+    #[serde(
+        rename = "excludeTurns",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub exclude_turns: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -7649,6 +7738,14 @@ pub struct ThreadResumeResponse {
         skip_serializing_if = "Option::is_none"
     )]
     pub instruction_sources: Option<Vec<LegacyAppPathString>>,
+    /// Cursor for hydrating paginated items backwards via `thread/items/list`
+    /// with `sortDirection: "desc"` (0.148 upstream).
+    #[serde(
+        rename = "itemsBackwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub items_backwards_cursor: Option<String>,
     #[serde(default)]
     pub model: String,
     #[serde(rename = "modelProvider", default)]
@@ -7669,6 +7766,209 @@ pub struct ThreadResumeResponse {
     pub service_tier: Option<String>,
     #[serde()]
     pub thread: Thread,
+    /// Cursor for hydrating paginated turns backwards via `thread/turns/list`
+    /// with `sortDirection: "desc"` (0.148 upstream).
+    #[serde(
+        rename = "turnsBackwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub turns_backwards_cursor: Option<String>,
+}
+
+/// Persisted thread history contract (0.148 upstream).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ThreadHistoryMode {
+    #[serde(rename = "legacy")]
+    Legacy,
+    #[serde(rename = "paginated")]
+    Paginated,
+}
+
+/// One item plus the turn that contains it, as returned by
+/// `thread/items/list` (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadItemEntry {
+    #[serde()]
+    pub item: ThreadItem,
+    #[serde(rename = "turnId", default)]
+    pub turn_id: String,
+}
+
+/// Params for `thread/items/list` — paginated item hydration (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadItemsListParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(
+        rename = "sortDirection",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sort_direction: Option<SortDirection>,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+    /// Optional turn id filter; omitted returns items across the thread.
+    #[serde(rename = "turnId", default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+}
+
+/// Response to `thread/items/list` (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadItemsListResponse {
+    #[serde(
+        rename = "backwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub backwards_cursor: Option<String>,
+    #[serde(default)]
+    pub data: Vec<ThreadItemEntry>,
+    #[serde(
+        rename = "nextCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
+/// EXPERIMENTAL upstream — a thread-scoped realtime item in the canonical
+/// timeline (0.148). Top-level identity fields are camelCase on the wire
+/// while variant payload fields are snake_case; mirrored exactly.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadRealtimeItem {
+    #[serde(default)]
+    pub id: String,
+    #[serde(rename = "realtimeSessionId", default)]
+    pub realtime_session_id: String,
+    #[serde(flatten)]
+    pub detail: ThreadRealtimeItemDetail,
+}
+
+/// The `type`-tagged payload of a [`ThreadRealtimeItem`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ThreadRealtimeItemDetail {
+    #[serde(rename = "realtimeSessionStarted")]
+    RealtimeSessionStarted,
+    #[serde(rename = "transcriptSegment")]
+    TranscriptSegment {
+        role: ThreadRealtimeTranscriptRole,
+        text: String,
+    },
+    #[serde(rename = "bemItemPromoted")]
+    BemItemPromoted {
+        item_id: String,
+        presentation: ThreadRealtimeBemItemPresentation,
+        turn_id: String,
+    },
+    #[serde(rename = "realtimeSessionClosed")]
+    RealtimeSessionClosed {
+        outcome: ThreadRealtimeSessionOutcome,
+    },
+}
+
+/// EXPERIMENTAL upstream — how an existing agent item appears in a realtime
+/// conversation (0.148).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ThreadRealtimeBemItemPresentation {
+    #[serde(rename = "wholeItem")]
+    WholeItem,
+    #[serde(rename = "inlineMarkdown")]
+    InlineMarkdown,
+    #[serde(rename = "inlineVisualization")]
+    InlineVisualization { index: u32 },
+}
+
+/// EXPERIMENTAL upstream — `thread/realtime/item/started` params (0.148).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRealtimeItemStartedNotification {
+    #[serde()]
+    pub item: ThreadRealtimeItem,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// EXPERIMENTAL upstream — `thread/realtime/item/completed` params (0.148).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRealtimeItemCompletedNotification {
+    #[serde()]
+    pub item: ThreadRealtimeItem,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// EXPERIMENTAL upstream — `thread/realtime/item/transcript/delta` params:
+/// text appended to an active realtime transcript item (0.148).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRealtimeItemTranscriptDeltaNotification {
+    #[serde(default)]
+    pub delta: String,
+    #[serde(rename = "itemId", default)]
+    pub item_id: String,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// EXPERIMENTAL upstream — outcome of a closed realtime session (0.148).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ThreadRealtimeSessionOutcome {
+    #[serde(rename = "ended")]
+    Ended,
+    #[serde(rename = "failed")]
+    Failed,
+}
+
+/// EXPERIMENTAL upstream — speaker role in a realtime transcript (0.148).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ThreadRealtimeTranscriptRole {
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "assistant")]
+    Assistant,
+}
+
+/// Params for `thread/revert` — replace a paginated thread's durable history
+/// with the prefix before one turn; local file changes are untouched
+/// (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRevertParams {
+    /// Turn excluded from the replacement history, with every later turn.
+    #[serde(rename = "beforeTurnId", default)]
+    pub before_turn_id: String,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// Response to `thread/revert` (0.148 upstream). `thread.turns` is always
+/// empty; retained history hydrates through `thread/turns/list`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRevertResponse {
+    #[serde(
+        rename = "itemsBackwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub items_backwards_cursor: Option<String>,
+    #[serde()]
+    pub thread: Thread,
+    #[serde(
+        rename = "turnsBackwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub turns_backwards_cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -8110,6 +8410,86 @@ pub struct ThreadUnarchivedNotification {
     pub thread_id: String,
 }
 
+/// EXPERIMENTAL upstream — one item or turn boundary in canonical rollout
+/// order (0.148). Wire quirk mirrored exactly: the `item` variant uses
+/// camelCase `turnId` while the turn-boundary variants use snake_case
+/// `turn_id`/`started_at`/`completed_at`/`duration_ms`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[allow(clippy::large_enum_variant)] // transient per-entry wire value, not stored in bulk
+pub enum ThreadTimelineEntry {
+    Item {
+        item: ThreadItem,
+        position: u64,
+        #[serde(rename = "turnId")]
+        turn_id: String,
+    },
+    Realtime {
+        item: ThreadRealtimeItem,
+        position: u64,
+    },
+    TurnStarted {
+        position: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started_at: Option<i64>,
+        turn_id: String,
+    },
+    TurnCompleted {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        completed_at: Option<i64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<i64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<TurnError>,
+        position: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started_at: Option<i64>,
+        status: TurnStatus,
+        turn_id: String,
+    },
+}
+
+/// Params for `thread/turns/list` — paginated turn hydration (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadTurnsListParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    /// How much item detail to include per turn; defaults to summary.
+    #[serde(rename = "itemsView", default, skip_serializing_if = "Option::is_none")]
+    pub items_view: Option<TurnItemsView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(
+        rename = "sortDirection",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sort_direction: Option<SortDirection>,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+}
+
+/// Response to `thread/turns/list` (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadTurnsListResponse {
+    #[serde(
+        rename = "backwardsCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub backwards_cursor: Option<String>,
+    #[serde(default)]
+    pub data: Vec<Turn>,
+    #[serde(
+        rename = "nextCursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadUnsubscribeParams {
@@ -8434,10 +8814,26 @@ pub struct TurnStartParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub service_tier: Option<String>,
+    /// One-turn service-tier override; `"default"` for standard speed.
+    /// Omitted or null inherits the thread's tier (0.148 upstream).
+    #[serde(
+        rename = "serviceTierForTurn",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub service_tier_for_turn: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<ReasoningSummary>,
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
+    /// Optional source classification for the caller starting this turn;
+    /// ignored when steering an already-active turn (0.148 upstream).
+    #[serde(
+        rename = "turnTrigger",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub turn_trigger: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

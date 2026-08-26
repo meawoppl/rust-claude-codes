@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.147.4] - 2026-08-26
+
+### Added
+
+- Resnapshot vs `openai/codex@main` (fixes #332): the experimental
+  realtime-item timeline surface — `thread/realtime/item/{started,completed}`
+  and `thread/realtime/item/transcript/delta` notifications with
+  `ThreadRealtimeItem` (session-started / transcript-segment /
+  bem-item-promoted / session-closed payloads), `ThreadTimelineEntry`,
+  and three new paginated-history RPCs with typed `AsyncClient` helpers:
+  `thread/items/list`, `thread/turns/list`, and `thread/revert`
+  (plus `excludeTurns` on fork/resume params and backwards cursors on
+  `ThreadResumeResponse`). Also mirrored: `AuthMode::BedrockAccessKeys` +
+  `LoginAccountParams::AmazonBedrockAccessKeys`,
+  `CodexErrorInfo::RateLimitExceeded`, four new `CollabAgentTool` verbs
+  and an `interrupted` call status, `HookEventName::Interrupt`,
+  `GuardianApprovalReviewAction::WriteStdin`, the v1
+  `CommandExecutionApprovalKind` on command approvals,
+  `SkillMetadata.pluginId`, `Thread.historyMode`,
+  `TurnStartParams.{serviceTierForTurn,turnTrigger}`,
+  `SubAgentActivityKind::Completed`, and the `CyberAccessProgram` enum.
+
 ## [0.147.3] - 2026-08-22
 
 ### Added

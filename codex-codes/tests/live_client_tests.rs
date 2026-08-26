@@ -73,7 +73,9 @@ async fn test_async_client_thread_fork() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start seed turn");
@@ -147,7 +149,9 @@ async fn test_async_client_basic_turn() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start turn");
@@ -275,7 +279,9 @@ fn test_sync_client_basic_turn() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .expect("Failed to start turn");
 
@@ -341,7 +347,9 @@ async fn test_async_client_multi_turn() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start first turn");
@@ -384,7 +392,9 @@ async fn test_async_client_multi_turn() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start second turn");
@@ -449,7 +459,9 @@ async fn test_async_client_event_stream() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start turn");
@@ -526,7 +538,9 @@ async fn test_typed_message_audit_strict() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("Failed to start turn");
@@ -634,6 +648,11 @@ async fn test_typed_message_audit_strict() {
                         "ThreadRealtimeTranscriptDelta"
                     }
                     Notification::ThreadRealtimeTranscriptDone(_) => "ThreadRealtimeTranscriptDone",
+                    Notification::ThreadRealtimeItemStarted(_) => "ThreadRealtimeItemStarted",
+                    Notification::ThreadRealtimeItemCompleted(_) => "ThreadRealtimeItemCompleted",
+                    Notification::ThreadRealtimeItemTranscriptDelta(_) => {
+                        "ThreadRealtimeItemTranscriptDelta"
+                    }
                     Notification::WindowsWorldWritableWarning(_) => "WindowsWorldWritableWarning",
                     Notification::WindowsSandboxSetupCompleted(_) => "WindowsSandboxSetupCompleted",
                     Notification::Unknown { method, .. } => {
@@ -772,7 +791,9 @@ async fn test_async_client_writes_compilable_quicksort() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("turn_start");
@@ -953,7 +974,9 @@ async fn test_thread_resume_reopens_thread_via_typed_helper() {
             personality: None,
             sandbox_policy: None,
             service_tier: None,
+            service_tier_for_turn: None,
             summary: None,
+            turn_trigger: None,
         })
         .await
         .expect("seed turn");

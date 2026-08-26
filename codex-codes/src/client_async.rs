@@ -51,9 +51,10 @@ use crate::messages::{Notification, ServerMessage, ServerRequest};
 use crate::protocol::{
     ClientInfo, InitializeParams, InitializeResponse, ThreadArchiveParams, ThreadArchiveResponse,
     ThreadDeleteParams, ThreadDeleteResponse, ThreadForkParams, ThreadForkResponse,
-    ThreadResumeParams, ThreadResumeResponse, ThreadStartParams, ThreadStartResponse,
-    TurnInterruptParams, TurnInterruptResponse, TurnStartParams, TurnStartResponse,
-    TurnSteerParams, TurnSteerResponse,
+    ThreadItemsListParams, ThreadItemsListResponse, ThreadResumeParams, ThreadResumeResponse,
+    ThreadRevertParams, ThreadRevertResponse, ThreadStartParams, ThreadStartResponse,
+    ThreadTurnsListParams, ThreadTurnsListResponse, TurnInterruptParams, TurnInterruptResponse,
+    TurnStartParams, TurnStartResponse, TurnSteerParams, TurnSteerResponse,
 };
 use crate::protocol_generated::types::{
     CancelLoginAccountParams, CancelLoginAccountResponse, GetAccountParams,
@@ -292,6 +293,37 @@ impl AsyncClient {
     /// appends to the running turn instead of starting a new one.
     pub async fn turn_steer(&mut self, params: &TurnSteerParams) -> Result<TurnSteerResponse> {
         self.request(crate::protocol::methods::TURN_STEER, params)
+            .await
+    }
+
+    /// Page through a thread's items in canonical order (`thread/items/list`).
+    /// Follow `next_cursor` for subsequent pages (0.148 upstream).
+    pub async fn thread_items_list(
+        &mut self,
+        params: &ThreadItemsListParams,
+    ) -> Result<ThreadItemsListResponse> {
+        self.request(crate::protocol::methods::THREAD_ITEMS_LIST, params)
+            .await
+    }
+
+    /// Page through a thread's turns (`thread/turns/list`); defaults to
+    /// newest-first with summary item detail (0.148 upstream).
+    pub async fn thread_turns_list(
+        &mut self,
+        params: &ThreadTurnsListParams,
+    ) -> Result<ThreadTurnsListResponse> {
+        self.request(crate::protocol::methods::THREAD_TURNS_LIST, params)
+            .await
+    }
+
+    /// Replace a paginated thread's durable history with the prefix before
+    /// one turn (`thread/revert`). Does not revert local file changes
+    /// (0.148 upstream).
+    pub async fn thread_revert(
+        &mut self,
+        params: &ThreadRevertParams,
+    ) -> Result<ThreadRevertResponse> {
+        self.request(crate::protocol::methods::THREAD_REVERT, params)
             .await
     }
 
