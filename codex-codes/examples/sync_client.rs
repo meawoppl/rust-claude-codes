@@ -38,7 +38,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         personality: None,
         sandbox_policy: None,
         service_tier: None,
+        service_tier_for_turn: None,
         summary: None,
+        turn_trigger: None,
     })?;
 
     // Iterate notifications until the turn completes

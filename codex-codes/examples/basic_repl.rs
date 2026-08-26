@@ -59,7 +59,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 personality: None,
                 sandbox_policy: None,
                 service_tier: None,
+                service_tier_for_turn: None,
                 summary: None,
+                turn_trigger: None,
             })
             .await?;
 

@@ -113,7 +113,9 @@ async fn thread_fork(reporter: &Reporter) {
                 personality: None,
                 sandbox_policy: None,
                 service_tier: None,
+                service_tier_for_turn: None,
                 summary: None,
+                turn_trigger: None,
             })
             .await
             .map_err(|e| e.to_string())?;
@@ -264,7 +266,9 @@ async fn live_turn(reporter: &Reporter) {
                 personality: None,
                 sandbox_policy: None,
                 service_tier: None,
+                service_tier_for_turn: None,
                 summary: None,
+                turn_trigger: None,
             })
             .await
             .map_err(|e| e.to_string())?;

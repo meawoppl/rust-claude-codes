@@ -50,13 +50,15 @@ use crate::protocol::{
     ThreadNameUpdatedNotification, ThreadProjectUpdatedNotification,
     ThreadQueueChangedNotification, ThreadRealtimeClosedNotification,
     ThreadRealtimeErrorNotification, ThreadRealtimeItemAddedNotification,
-    ThreadRealtimeOutputAudioDeltaNotification, ThreadRealtimeSdpNotification,
-    ThreadRealtimeStartedNotification, ThreadRealtimeTranscriptDeltaNotification,
-    ThreadRealtimeTranscriptDoneNotification, ThreadRevertedNotification,
-    ThreadSettingsUpdatedNotification, ThreadStartedNotification, ThreadStatusChangedNotification,
-    ThreadTokenUsageUpdatedNotification, ThreadUnarchivedNotification, TurnCompletedNotification,
-    TurnDiffUpdatedNotification, TurnModerationMetadataNotification, TurnPlanUpdatedNotification,
-    TurnStartedNotification, WarningNotification, WindowsSandboxSetupCompletedNotification,
+    ThreadRealtimeItemCompletedNotification, ThreadRealtimeItemStartedNotification,
+    ThreadRealtimeItemTranscriptDeltaNotification, ThreadRealtimeOutputAudioDeltaNotification,
+    ThreadRealtimeSdpNotification, ThreadRealtimeStartedNotification,
+    ThreadRealtimeTranscriptDeltaNotification, ThreadRealtimeTranscriptDoneNotification,
+    ThreadRevertedNotification, ThreadSettingsUpdatedNotification, ThreadStartedNotification,
+    ThreadStatusChangedNotification, ThreadTokenUsageUpdatedNotification,
+    ThreadUnarchivedNotification, TurnCompletedNotification, TurnDiffUpdatedNotification,
+    TurnModerationMetadataNotification, TurnPlanUpdatedNotification, TurnStartedNotification,
+    WarningNotification, WindowsSandboxSetupCompletedNotification,
     WindowsWorldWritableWarningNotification,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -221,6 +223,12 @@ pub enum Notification {
     ThreadReverted(ThreadRevertedNotification),
     /// `mcpServer/event/stream/notification` (0.148 upstream)
     McpServerEventStream(McpServerEventStreamNotification),
+    /// `thread/realtime/item/started` (0.148 upstream, experimental)
+    ThreadRealtimeItemStarted(ThreadRealtimeItemStartedNotification),
+    /// `thread/realtime/item/completed` (0.148 upstream, experimental)
+    ThreadRealtimeItemCompleted(ThreadRealtimeItemCompletedNotification),
+    /// `thread/realtime/item/transcript/delta` (0.148 upstream, experimental)
+    ThreadRealtimeItemTranscriptDelta(ThreadRealtimeItemTranscriptDeltaNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -241,6 +249,11 @@ impl Notification {
             Self::ThreadQueueChanged(_) => methods::THREAD_QUEUE_CHANGED,
             Self::ThreadReverted(_) => methods::THREAD_REVERTED,
             Self::McpServerEventStream(_) => methods::MCP_SERVER_EVENT_STREAM,
+            Self::ThreadRealtimeItemStarted(_) => methods::THREAD_REALTIME_ITEM_STARTED,
+            Self::ThreadRealtimeItemCompleted(_) => methods::THREAD_REALTIME_ITEM_COMPLETED,
+            Self::ThreadRealtimeItemTranscriptDelta(_) => {
+                methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA
+            }
             Self::ThreadStatusChanged(_) => methods::THREAD_STATUS_CHANGED,
             Self::ThreadTokenUsageUpdated(_) => methods::THREAD_TOKEN_USAGE_UPDATED,
             Self::TurnStarted(_) => methods::TURN_STARTED,
@@ -413,6 +426,15 @@ impl Notification {
             }
             methods::MCP_SERVER_EVENT_STREAM => {
                 serde_json::from_value(params_value).map(Self::McpServerEventStream)
+            }
+            methods::THREAD_REALTIME_ITEM_STARTED => {
+                serde_json::from_value(params_value).map(Self::ThreadRealtimeItemStarted)
+            }
+            methods::THREAD_REALTIME_ITEM_COMPLETED => {
+                serde_json::from_value(params_value).map(Self::ThreadRealtimeItemCompleted)
+            }
+            methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA => {
+                serde_json::from_value(params_value).map(Self::ThreadRealtimeItemTranscriptDelta)
             }
             methods::THREAD_STATUS_CHANGED => {
                 serde_json::from_value(params_value).map(Self::ThreadStatusChanged)
@@ -628,6 +650,13 @@ impl Notification {
             Self::ThreadQueueChanged(v) => pack(methods::THREAD_QUEUE_CHANGED, v),
             Self::ThreadReverted(v) => pack(methods::THREAD_REVERTED, v),
             Self::McpServerEventStream(v) => pack(methods::MCP_SERVER_EVENT_STREAM, v),
+            Self::ThreadRealtimeItemStarted(v) => pack(methods::THREAD_REALTIME_ITEM_STARTED, v),
+            Self::ThreadRealtimeItemCompleted(v) => {
+                pack(methods::THREAD_REALTIME_ITEM_COMPLETED, v)
+            }
+            Self::ThreadRealtimeItemTranscriptDelta(v) => {
+                pack(methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA, v)
+            }
             Self::ThreadStatusChanged(v) => pack(methods::THREAD_STATUS_CHANGED, v),
             Self::ThreadTokenUsageUpdated(v) => pack(methods::THREAD_TOKEN_USAGE_UPDATED, v),
             Self::TurnStarted(v) => pack(methods::TURN_STARTED, v),
