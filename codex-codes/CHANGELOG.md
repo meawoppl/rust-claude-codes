@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.150.1] - 2026-08-29
+
+### Changed
+
+- Re-baseline the tested pin: the full integration suite (19 capture-corpus
+  + 14 live app-server tests, including the strict typed-message audit)
+  passes against Codex CLI **0.150.1**. `version::tested_cli_version()`
+  and the README `Tested against:` lines move from 0.147.0 to 0.150.1;
+  per the version-means-tested convention the crate version jumps to
+  0.150.1 (no code changes beyond the pin — the wire surface was already
+  current as of 0.147.5's resnapshot).
+
 ## [0.147.5] - 2026-08-28
 
 ### Added
