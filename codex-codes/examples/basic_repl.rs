@@ -45,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         client
             .turn_start(&TurnStartParams {
                 thread_id: thread_id.clone(),
+                tool_output: None,
                 input: vec![UserInput::Text {
                     text: input.to_string(),
                     text_elements: None,

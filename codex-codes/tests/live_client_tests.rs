@@ -59,6 +59,7 @@ async fn test_async_client_thread_fork() {
     client
         .turn_start(&TurnStartParams {
             thread_id: source.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "Reply with just OK.".to_string(),
                 text_elements: None,
@@ -135,6 +136,7 @@ async fn test_async_client_basic_turn() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "What is 2 + 2? Reply with just the number.".to_string(),
                 text_elements: None,
@@ -265,6 +267,7 @@ fn test_sync_client_basic_turn() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "What is 2 + 2? Reply with just the number.".to_string(),
                 text_elements: None,
@@ -333,6 +336,7 @@ async fn test_async_client_multi_turn() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "Remember the number 42. Just say OK.".to_string(),
                 text_elements: None,
@@ -377,6 +381,7 @@ async fn test_async_client_multi_turn() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "What number did I ask you to remember? Reply with just the number."
                     .to_string(),
@@ -445,6 +450,7 @@ async fn test_async_client_event_stream() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "Say hello.".to_string(),
                 text_elements: None,
@@ -523,6 +529,7 @@ async fn test_typed_message_audit_strict() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "Run `ls` in the current directory, then briefly describe what you saw."
                     .to_string(),
@@ -653,6 +660,12 @@ async fn test_typed_message_audit_strict() {
                     Notification::ThreadRealtimeItemTranscriptDelta(_) => {
                         "ThreadRealtimeItemTranscriptDelta"
                     }
+                    Notification::ModelProviderAuthRecoveryStarted(_) => {
+                        "ModelProviderAuthRecoveryStarted"
+                    }
+                    Notification::ModelProviderAuthRecoveryCompleted(_) => {
+                        "ModelProviderAuthRecoveryCompleted"
+                    }
                     Notification::WindowsWorldWritableWarning(_) => "WindowsWorldWritableWarning",
                     Notification::WindowsSandboxSetupCompleted(_) => "WindowsSandboxSetupCompleted",
                     Notification::Unknown { method, .. } => {
@@ -777,6 +790,7 @@ async fn test_async_client_writes_compilable_quicksort() {
     client
         .turn_start(&TurnStartParams {
             thread_id: thread.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: prompt.to_string(),
                 text_elements: None,
@@ -960,6 +974,7 @@ async fn test_thread_resume_reopens_thread_via_typed_helper() {
     client
         .turn_start(&TurnStartParams {
             thread_id: source.thread.id.clone(),
+            tool_output: None,
             input: vec![UserInput::Text {
                 text: "Remember the word 'garnet'. Reply with just OK.".to_string(),
                 text_elements: None,

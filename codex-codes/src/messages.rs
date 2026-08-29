@@ -28,9 +28,10 @@ use crate::jsonrpc::{JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, Reques
 use crate::protocol::{
     methods, AccountLoginCompletedNotification, AccountRateLimitsUpdatedNotification,
     AccountUpdatedNotification, AgentMessageDeltaNotification, AppListUpdatedNotification,
-    CommandExecOutputDeltaNotification, CommandExecutionOutputDeltaNotification,
-    CommandExecutionRequestApprovalParams, ConfigWarningNotification, ContextCompactedNotification,
-    DeprecationNoticeNotification, EnvironmentConnectionNotification, ErrorNotification,
+    AuthRecoveryNotification, CommandExecOutputDeltaNotification,
+    CommandExecutionOutputDeltaNotification, CommandExecutionRequestApprovalParams,
+    ConfigWarningNotification, ContextCompactedNotification, DeprecationNoticeNotification,
+    EnvironmentConnectionNotification, ErrorNotification,
     ExternalAgentConfigImportCompletedNotification, ExternalAgentConfigImportProgressNotification,
     FileChangeOutputDeltaNotification, FileChangePatchUpdatedNotification,
     FileChangeRequestApprovalParams, FsChangedNotification,
@@ -229,6 +230,10 @@ pub enum Notification {
     ThreadRealtimeItemCompleted(ThreadRealtimeItemCompletedNotification),
     /// `thread/realtime/item/transcript/delta` (0.148 upstream, experimental)
     ThreadRealtimeItemTranscriptDelta(ThreadRealtimeItemTranscriptDeltaNotification),
+    /// `modelProvider/authRecoveryStarted` (0.148 upstream)
+    ModelProviderAuthRecoveryStarted(AuthRecoveryNotification),
+    /// `modelProvider/authRecoveryCompleted` (0.148 upstream)
+    ModelProviderAuthRecoveryCompleted(AuthRecoveryNotification),
     /// A method this crate version does not yet model. The raw params are
     /// preserved for caller inspection. Encountering this typically means
     /// the installed codex CLI is newer than the bindings.
@@ -253,6 +258,12 @@ impl Notification {
             Self::ThreadRealtimeItemCompleted(_) => methods::THREAD_REALTIME_ITEM_COMPLETED,
             Self::ThreadRealtimeItemTranscriptDelta(_) => {
                 methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA
+            }
+            Self::ModelProviderAuthRecoveryStarted(_) => {
+                methods::MODEL_PROVIDER_AUTH_RECOVERY_STARTED
+            }
+            Self::ModelProviderAuthRecoveryCompleted(_) => {
+                methods::MODEL_PROVIDER_AUTH_RECOVERY_COMPLETED
             }
             Self::ThreadStatusChanged(_) => methods::THREAD_STATUS_CHANGED,
             Self::ThreadTokenUsageUpdated(_) => methods::THREAD_TOKEN_USAGE_UPDATED,
@@ -435,6 +446,12 @@ impl Notification {
             }
             methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA => {
                 serde_json::from_value(params_value).map(Self::ThreadRealtimeItemTranscriptDelta)
+            }
+            methods::MODEL_PROVIDER_AUTH_RECOVERY_STARTED => {
+                serde_json::from_value(params_value).map(Self::ModelProviderAuthRecoveryStarted)
+            }
+            methods::MODEL_PROVIDER_AUTH_RECOVERY_COMPLETED => {
+                serde_json::from_value(params_value).map(Self::ModelProviderAuthRecoveryCompleted)
             }
             methods::THREAD_STATUS_CHANGED => {
                 serde_json::from_value(params_value).map(Self::ThreadStatusChanged)
@@ -656,6 +673,12 @@ impl Notification {
             }
             Self::ThreadRealtimeItemTranscriptDelta(v) => {
                 pack(methods::THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA, v)
+            }
+            Self::ModelProviderAuthRecoveryStarted(v) => {
+                pack(methods::MODEL_PROVIDER_AUTH_RECOVERY_STARTED, v)
+            }
+            Self::ModelProviderAuthRecoveryCompleted(v) => {
+                pack(methods::MODEL_PROVIDER_AUTH_RECOVERY_COMPLETED, v)
             }
             Self::ThreadStatusChanged(v) => pack(methods::THREAD_STATUS_CHANGED, v),
             Self::ThreadTokenUsageUpdated(v) => pack(methods::THREAD_TOKEN_USAGE_UPDATED, v),

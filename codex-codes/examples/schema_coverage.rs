@@ -599,6 +599,7 @@ mod samples {
                     message: "something blew up".into(),
                     additional_details: None,
                     codex_error_info: None,
+                    misalignment: None,
                 },
                 thread_id: "th_abc".into(),
                 turn_id: "tn_xyz".into(),
