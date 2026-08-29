@@ -582,6 +582,22 @@ pub struct AttestationGenerateResponse {
     pub token: String,
 }
 
+/// `modelProvider/authRecoveryStarted` / `modelProvider/authRecoveryCompleted`
+/// params — the server is re-establishing a model provider's credentials
+/// mid-turn (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthRecoveryNotification {
+    #[serde(default)]
+    pub message: String,
+    #[serde(default)]
+    pub provider: String,
+    #[serde(rename = "threadId", default)]
+    pub thread_id: String,
+    #[serde(rename = "turnId", default)]
+    pub turn_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AuthMode {
     #[serde(rename = "apikey")]
@@ -2574,6 +2590,35 @@ pub struct FuzzyFileSearchResponse {
     pub files: Vec<FuzzyFileSearchResult>,
 }
 
+/// A tool call's output body: either a plain string or Responses-API
+/// compatible content items (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FunctionCallOutputBody {
+    Text(String),
+    Items(Vec<FunctionCallOutputContentItem>),
+}
+
+/// Responses-API compatible content items a tool call can return — the
+/// subset of ContentItem supported as function call outputs (0.148 upstream).
+/// Wire tags and fields are snake_case, unlike most v2 types.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum FunctionCallOutputContentItem {
+    #[serde(rename = "input_text")]
+    InputText { text: String },
+    #[serde(rename = "input_image")]
+    InputImage {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        detail: Option<ImageDetail>,
+        image_url: String,
+    },
+    #[serde(rename = "input_audio")]
+    InputAudio { audio_url: String },
+    #[serde(rename = "encrypted_content")]
+    EncryptedContent { encrypted_content: String },
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FuzzyFileSearchResult {
@@ -4306,6 +4351,34 @@ pub struct MigrationDetails {
     pub subagents: Option<Vec<SubagentMigration>>,
 }
 
+/// Public explanation and continuation instruction attached to a
+/// misalignment-blocked turn error (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MisalignmentErrorDetails {
+    #[serde(
+        rename = "detailedExplanation",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub detailed_explanation: Option<String>,
+    /// Open-ended classification; accept categories added upstream.
+    #[serde(rename = "errorType", default, skip_serializing_if = "Option::is_none")]
+    pub error_type: Option<String>,
+    /// Instruction to submit as the next turn's user input if continuation
+    /// is confirmed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steer: Option<MisalignmentSteer>,
+}
+
+/// The steering instruction inside [`MisalignmentErrorDetails`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MisalignmentSteer {
+    #[serde(default)]
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ModeKind {
     #[serde(rename = "plan")]
@@ -5881,6 +5954,14 @@ pub struct ResourceTemplate {
     pub uri_template: String,
 }
 
+/// Usage metadata reported for one upstream response (0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseUsageMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub amount: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ReviewDecision {
     #[serde(rename = "approved")]
@@ -5985,10 +6066,23 @@ pub struct Project {
     pub name: String,
     #[serde(default)]
     pub position: i64,
+    /// Newest non-archived member thread's recency, in Unix seconds;
+    /// absent/null when none exist (0.148 upstream).
+    #[serde(rename = "recencyAt", default, skip_serializing_if = "Option::is_none")]
+    pub recency_at: Option<i64>,
     #[serde(default)]
     pub roots: Vec<ProjectRoot>,
     #[serde(rename = "updatedAt", default)]
     pub updated_at: i64,
+}
+
+/// Sort order for project listings (0.148 upstream).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProjectSortKey {
+    #[serde(rename = "position")]
+    Position,
+    #[serde(rename = "recencyAt")]
+    RecencyAt,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -7406,6 +7500,14 @@ pub enum ThreadItem {
     ContextCompaction {
         id: String,
     },
+    #[serde(rename = "functionCallOutput")]
+    FunctionCallOutput {
+        id: String,
+        name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        namespace: Option<String>,
+        output: FunctionCallOutputBody,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -8168,6 +8270,10 @@ pub struct ThreadShellCommandParams {
     pub command: String,
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
+    /// Maximum execution time in ms; defaults to one hour when omitted.
+    /// Zero requests an immediate timeout, not unlimited (0.148 upstream).
+    #[serde(rename = "timeoutMs", default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -8694,6 +8800,10 @@ pub struct TurnError {
     pub codex_error_info: Option<CodexErrorInfo>,
     #[serde(default)]
     pub message: String,
+    /// Public explanation and continuation instruction for a misalignment
+    /// block (0.148 upstream).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub misalignment: Option<MisalignmentErrorDetails>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -8826,6 +8936,14 @@ pub struct TurnStartParams {
     pub summary: Option<ReasoningSummary>,
     #[serde(rename = "threadId", default)]
     pub thread_id: String,
+    /// Pre-computed tool output to inject when starting the turn
+    /// (0.148 upstream).
+    #[serde(
+        rename = "toolOutput",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tool_output: Option<TurnToolOutput>,
     /// Optional source classification for the caller starting this turn;
     /// ignored when steering an already-active turn (0.148 upstream).
     #[serde(
@@ -8862,6 +8980,19 @@ pub enum TurnStatus {
     Failed,
     #[serde(rename = "inProgress")]
     InProgress,
+}
+
+/// A pre-computed tool output supplied when starting a turn
+/// (`TurnStartParams.toolOutput`, 0.148 upstream).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnToolOutput {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    #[serde()]
+    pub output: FunctionCallOutputBody,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]

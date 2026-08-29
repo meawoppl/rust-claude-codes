@@ -5576,6 +5576,46 @@
           "properties": {
             "method": {
               "enum": [
+                "modelProvider/authRecoveryStarted"
+              ],
+              "title": "ModelProvider/authRecoveryStartedNotificationMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/AuthRecoveryNotification"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "title": "ModelProvider/authRecoveryStartedNotification",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "enum": [
+                "modelProvider/authRecoveryCompleted"
+              ],
+              "title": "ModelProvider/authRecoveryCompletedNotificationMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/AuthRecoveryNotification"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "title": "ModelProvider/authRecoveryCompletedNotification",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "enum": [
                 "turn/moderationMetadata"
               ],
               "title": "Turn/moderationMetadataNotificationMethod",
@@ -7668,6 +7708,31 @@
             "type": "string"
           }
         ]
+      },
+      "AuthRecoveryNotification": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "provider",
+          "threadId",
+          "turnId"
+        ],
+        "title": "AuthRecoveryNotification",
+        "type": "object"
       },
       "AutoCompactTokenLimitScope": {
         "description": "Selects which part of the active context is charged against `model_auto_compact_token_limit`.",
@@ -14654,6 +14719,47 @@
         },
         "type": "object"
       },
+      "MisalignmentErrorDetails": {
+        "properties": {
+          "detailedExplanation": {
+            "description": "A substantive localized explanation is required before offering continuation.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorType": {
+            "description": "Open-ended classification; clients must accept categories added by Responses.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "steer": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/MisalignmentSteer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instruction to submit as the next turn's user input if continuation is confirmed."
+          }
+        },
+        "type": "object"
+      },
+      "MisalignmentSteer": {
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
       "ModeKind": {
         "description": "Initial collaboration mode to use when the TUI starts.",
         "enum": [
@@ -16904,6 +17010,14 @@
             "format": "int64",
             "type": "integer"
           },
+          "recencyAt": {
+            "description": "Newest non-archived member thread's recency, in Unix seconds; null when none exist.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "roots": {
             "items": {
               "$ref": "#/definitions/v2/ProjectRoot"
@@ -16961,6 +17075,13 @@
           "path"
         ],
         "type": "object"
+      },
+      "ProjectSortKey": {
+        "enum": [
+          "position",
+          "recencyAt"
+        ],
+        "type": "string"
       },
       "QueuedSubmission": {
         "properties": {
@@ -17207,6 +17328,16 @@
             "anyOf": [
               {
                 "$ref": "#/definitions/v2/TokenUsageBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usageMetadata": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/ResponseUsageMetadata"
               },
               {
                 "type": "null"
@@ -18459,6 +18590,18 @@
             "type": "object"
           }
         ]
+      },
+      "ResponseUsageMetadata": {
+        "description": "Usage metadata reported for one upstream response.",
+        "properties": {
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
       },
       "ResponsesApiWebSearchAction": {
         "oneOf": [
@@ -20654,6 +20797,40 @@
               "type"
             ],
             "title": "AgentMessageThreadItem",
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "namespace": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "output": {
+                "$ref": "#/definitions/v2/FunctionCallOutputBody"
+              },
+              "type": {
+                "enum": [
+                  "functionCallOutput"
+                ],
+                "title": "FunctionCallOutputThreadItemType",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "output",
+              "type"
+            ],
+            "title": "FunctionCallOutputThreadItem",
             "type": "object"
           },
           {
@@ -23007,6 +23184,14 @@
           },
           "threadId": {
             "type": "string"
+          },
+          "timeoutMs": {
+            "description": "Maximum execution time in milliseconds. Defaults to one hour when omitted or null. Must be non-negative; zero requests an immediate timeout, not unlimited execution. Does not affect the immediate RPC acknowledgement.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
@@ -24043,6 +24228,18 @@
           },
           "message": {
             "type": "string"
+          },
+          "misalignment": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/MisalignmentErrorDetails"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional public explanation and continuation instruction for a misalignment block."
           }
         },
         "required": [
@@ -24284,6 +24481,16 @@
           "threadId": {
             "type": "string"
           },
+          "toolOutput": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/TurnToolOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "turnTrigger": {
             "description": "Optional source classification for the caller that starts this turn. Ignored when this request steers an already-active turn.",
             "type": [
@@ -24380,6 +24587,27 @@
           "turnId"
         ],
         "title": "TurnSteerResponse",
+        "type": "object"
+      },
+      "TurnToolOutput": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output": {
+            "$ref": "#/definitions/v2/FunctionCallOutputBody"
+          }
+        },
+        "required": [
+          "name",
+          "output"
+        ],
         "type": "object"
       },
       "TurnsPage": {

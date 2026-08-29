@@ -99,6 +99,7 @@ async fn thread_fork(reporter: &Reporter) {
         client
             .turn_start(&TurnStartParams {
                 thread_id: source.thread.id.clone(),
+                tool_output: None,
                 input: vec![UserInput::Text {
                     text: "Reply with just OK.".to_string(),
                     text_elements: None,
@@ -252,6 +253,7 @@ async fn live_turn(reporter: &Reporter) {
         client
             .turn_start(&TurnStartParams {
                 thread_id: thread.thread.id.clone(),
+                tool_output: None,
                 input: vec![UserInput::Text {
                     text: "What is 2 + 2? Reply with just the number.".to_string(),
                     text_elements: None,

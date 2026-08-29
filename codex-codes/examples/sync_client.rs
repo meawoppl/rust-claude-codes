@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nSending query: What is the capital of France?\n");
     client.turn_start(&TurnStartParams {
         thread_id: thread.thread.id.clone(),
+        tool_output: None,
         input: vec![UserInput::Text {
             text: "What is the capital of France?".to_string(),
             text_elements: None,

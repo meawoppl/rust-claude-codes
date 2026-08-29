@@ -202,6 +202,8 @@ pub mod methods {
     pub const THREAD_REALTIME_ITEM_STARTED: &str = "thread/realtime/item/started";
     pub const THREAD_REALTIME_ITEM_COMPLETED: &str = "thread/realtime/item/completed";
     pub const THREAD_REALTIME_ITEM_TRANSCRIPT_DELTA: &str = "thread/realtime/item/transcript/delta";
+    pub const MODEL_PROVIDER_AUTH_RECOVERY_STARTED: &str = "modelProvider/authRecoveryStarted";
+    pub const MODEL_PROVIDER_AUTH_RECOVERY_COMPLETED: &str = "modelProvider/authRecoveryCompleted";
     pub const WINDOWS_WORLD_WRITABLE_WARNING: &str = "windows/worldWritableWarning";
     pub const WINDOWS_SANDBOX_SETUP_COMPLETED: &str = "windowsSandbox/setupCompleted";
     pub const THREAD_SETTINGS_UPDATED: &str = "thread/settings/updated";

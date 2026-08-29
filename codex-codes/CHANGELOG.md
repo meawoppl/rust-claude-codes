@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.147.5] - 2026-08-28
+
+### Added
+
+- Resnapshot vs `openai/codex@main` (fixes #334): the misalignment-block
+  continuation surface — `TurnError.misalignment` with
+  `MisalignmentErrorDetails` (public explanation, open-ended `errorType`,
+  and a `MisalignmentSteer` instruction to submit as the next turn's input);
+  typed `modelProvider/authRecoveryStarted` / `authRecoveryCompleted`
+  notifications (`AuthRecoveryNotification`); tool-output injection on
+  turn start (`TurnStartParams.toolOutput` → `TurnToolOutput` with
+  `FunctionCallOutputBody` / `FunctionCallOutputContentItem`, newly
+  modeled) and the matching `ThreadItem::FunctionCallOutput` variant;
+  `Project.recencyAt` + `ProjectSortKey`;
+  `ThreadShellCommandParams.timeoutMs`; and `ResponseUsageMetadata`.
+
 ## [0.147.4] - 2026-08-26
 
 ### Added
