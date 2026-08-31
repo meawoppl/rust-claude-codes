@@ -1,0 +1,52 @@
+# Publish any workspace crate whose Cargo.toml version is not yet on
+# crates.io. Runs on every push to main; version bumps land through PRs, so
+# a merged bump publishes automatically and everything else is a fast no-op
+# (one sparse-index read per crate).
+#
+# wirecheck is publish = false and intentionally absent from CRATES.
+
+name: Publish Crates
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-crates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish crates with unpublished versions
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          CRATES="antigravity-codes claude-codes codex-codes muse-codes opencode-codes"
+          failed=0
+          for crate in $CRATES; do
+            version=$(grep '^version' "$crate/Cargo.toml" | head -1 | sed 's/.*"\(.*\)"/\1/')
+            # Sparse-index path for names of 4+ chars: <first2>/<next2>/<name>
+            prefix="${crate:0:2}/${crate:2:2}"
+            listed=$(curl -sf "https://index.crates.io/$prefix/$crate" | \
+              python3 -c "import json,sys; print('\n'.join(json.loads(l)['vers'] for l in sys.stdin))" \
+              || true)
+            if printf '%s\n' "$listed" | grep -qx "$version"; then
+              echo "✅ $crate $version already on crates.io — skipping"
+              continue
+            fi
+            echo "📦 publishing $crate $version"
+            if cargo publish -p "$crate"; then
+              echo "✅ published $crate $version"
+            else
+              echo "❌ publish failed for $crate $version"
+              failed=1
+            fi
+          done
+          exit $failed
