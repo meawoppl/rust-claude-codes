@@ -189,10 +189,12 @@ pub struct AgentMessageDeltaNotification {
 pub struct AgentPath(pub String);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct AnalyticsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub additional: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -1253,7 +1255,7 @@ pub struct ComputerUseRequirements {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analytics: Option<AnalyticsConfig>,
@@ -1305,6 +1307,8 @@ pub struct Config {
     pub tools: Option<ToolsV2>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub web_search: Option<WebSearchMode>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub additional: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -2668,12 +2672,20 @@ pub struct GetAccountParams {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountRateLimitsResponse {
+    #[serde(rename = "accountId", default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
     #[serde(
         rename = "rateLimitResetCredits",
         default,
         skip_serializing_if = "Option::is_none"
     )]
     pub rate_limit_reset_credits: Option<RateLimitResetCreditsSummary>,
+    #[serde(
+        rename = "rateLimitUpsell",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub rate_limit_upsell: Option<Value>,
     #[serde(rename = "rateLimits", default)]
     pub rate_limits: Value,
     #[serde(
@@ -4008,6 +4020,14 @@ pub enum McpServerElicitationRequestParams {
     },
     #[serde(rename = "openai/form")]
     OpenaiForm {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        _meta: Option<Value>,
+        message: String,
+        #[serde(rename = "requestedSchema")]
+        requested_schema: Value,
+    },
+    #[serde(rename = "openaiForm")]
+    OpenAiElicitationForm {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         _meta: Option<Value>,
         message: String,
@@ -6415,7 +6435,7 @@ pub enum SandboxPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct SandboxWorkspaceWrite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exclude_slash_tmp: Option<bool>,

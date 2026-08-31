@@ -51,8 +51,10 @@ use crate::messages::{Notification, ServerMessage, ServerRequest};
 use crate::protocol::{
     ClientInfo, InitializeParams, InitializeResponse, ThreadArchiveParams, ThreadArchiveResponse,
     ThreadDeleteParams, ThreadDeleteResponse, ThreadForkParams, ThreadForkResponse,
-    ThreadResumeParams, ThreadResumeResponse, ThreadStartParams, ThreadStartResponse,
-    TurnInterruptParams, TurnInterruptResponse, TurnStartParams, TurnStartResponse,
+    ThreadItemsListParams, ThreadItemsListResponse, ThreadResumeParams, ThreadResumeResponse,
+    ThreadRevertParams, ThreadRevertResponse, ThreadStartParams, ThreadStartResponse,
+    ThreadTurnsListParams, ThreadTurnsListResponse, TurnInterruptParams, TurnInterruptResponse,
+    TurnStartParams, TurnStartResponse, TurnSteerParams, TurnSteerResponse,
 };
 use log::{debug, warn};
 use serde::de::DeserializeOwned;
@@ -264,6 +266,32 @@ impl SyncClient {
     /// or [`SyncClient::next_message`] to consume notifications until `turn/completed`.
     pub fn turn_start(&mut self, params: &TurnStartParams) -> Result<TurnStartResponse> {
         self.request(crate::protocol::methods::TURN_START, params)
+    }
+
+    /// Steer an active turn with additional user input (`turn/steer`).
+    pub fn turn_steer(&mut self, params: &TurnSteerParams) -> Result<TurnSteerResponse> {
+        self.request(crate::protocol::methods::TURN_STEER, params)
+    }
+
+    /// Page through a thread's items in canonical order (`thread/items/list`).
+    pub fn thread_items_list(
+        &mut self,
+        params: &ThreadItemsListParams,
+    ) -> Result<ThreadItemsListResponse> {
+        self.request(crate::protocol::methods::THREAD_ITEMS_LIST, params)
+    }
+
+    /// Page through a thread's turns (`thread/turns/list`).
+    pub fn thread_turns_list(
+        &mut self,
+        params: &ThreadTurnsListParams,
+    ) -> Result<ThreadTurnsListResponse> {
+        self.request(crate::protocol::methods::THREAD_TURNS_LIST, params)
+    }
+
+    /// Revert a thread's durable history to before one turn (`thread/revert`).
+    pub fn thread_revert(&mut self, params: &ThreadRevertParams) -> Result<ThreadRevertResponse> {
+        self.request(crate::protocol::methods::THREAD_REVERT, params)
     }
 
     /// Interrupt an active turn.
