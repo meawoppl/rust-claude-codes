@@ -1,7 +1,118 @@
 use codex_codes::io::items::{
     CommandExecutionStatus, FileChangeItem, PatchApplyStatus, PatchChangeKind, ThreadItem,
 };
-use codex_codes::{JsonRpcMessage, JsonRpcNotification, Notification, ParseError, ThreadEvent};
+use codex_codes::protocol::{ConfigReadResponse, GetAccountRateLimitsResponse};
+use codex_codes::{
+    JsonRpcMessage, JsonRpcNotification, McpServerElicitationRequestParams, Notification,
+    ParseError, ThreadEvent, ThreadItemsListResponse, ThreadRevertResponse,
+    ThreadTurnsListResponse, TurnSteerResponse,
+};
+
+#[test]
+fn config_read_preserves_additional_properties() {
+    let original = serde_json::json!({
+        "config": {
+            "analytics": {
+                "enabled": true,
+                "unknownAnalyticsSetting": "kept"
+            },
+            "sandbox_workspace_write": {
+                "network_access": true,
+                "writable_roots": ["/tmp/cache"]
+            },
+            "model_providers": {
+                "local": {
+                    "base_url": "http://localhost:11434/v1"
+                }
+            }
+        },
+        "origins": {}
+    });
+
+    let response: ConfigReadResponse =
+        serde_json::from_value(original.clone()).expect("deserialize config/read response");
+
+    assert_eq!(
+        response.config.additional.get("model_providers"),
+        original["config"].get("model_providers")
+    );
+    assert_eq!(
+        response
+            .config
+            .analytics
+            .as_ref()
+            .and_then(|analytics| analytics.additional.get("unknownAnalyticsSetting")),
+        Some(&serde_json::json!("kept"))
+    );
+    assert_eq!(
+        response
+            .config
+            .sandbox_workspace_write
+            .as_ref()
+            .and_then(|sandbox| sandbox.writable_roots.as_deref()),
+        Some(["/tmp/cache".to_string()].as_slice())
+    );
+    assert_eq!(
+        serde_json::to_value(response).expect("serialize config/read response"),
+        original
+    );
+}
+
+#[test]
+fn account_rate_limits_include_account_and_upsell() {
+    let original = serde_json::json!({
+        "accountId": "workspace-123",
+        "rateLimits": {},
+        "rateLimitUpsell": {
+            "message": "Upgrade for more usage"
+        }
+    });
+
+    let response: GetAccountRateLimitsResponse =
+        serde_json::from_value(original.clone()).expect("deserialize rate limits response");
+
+    assert_eq!(response.account_id.as_deref(), Some("workspace-123"));
+    assert_eq!(
+        response.rate_limit_upsell.as_ref(),
+        original.get("rateLimitUpsell")
+    );
+    assert_eq!(
+        serde_json::to_value(response).expect("serialize rate limits response"),
+        original
+    );
+}
+
+#[test]
+fn mcp_elicitation_accepts_current_openai_form_mode() {
+    let request: McpServerElicitationRequestParams = serde_json::from_value(serde_json::json!({
+        "mode": "openaiForm",
+        "message": "Choose an account",
+        "requestedSchema": {"type": "object"}
+    }))
+    .expect("deserialize openaiForm elicitation");
+
+    assert!(matches!(
+        request,
+        McpServerElicitationRequestParams::OpenAiElicitationForm { .. }
+    ));
+}
+
+#[test]
+fn sync_helper_response_types_decode_current_wire_shapes() {
+    let steer: TurnSteerResponse =
+        serde_json::from_value(serde_json::json!({"turnId": "turn-1"})).unwrap();
+    let items: ThreadItemsListResponse =
+        serde_json::from_value(serde_json::json!({"data": []})).unwrap();
+    let turns: ThreadTurnsListResponse =
+        serde_json::from_value(serde_json::json!({"data": []})).unwrap();
+    let revert: ThreadRevertResponse =
+        serde_json::from_value(serde_json::json!({"thread": {}})).unwrap();
+
+    assert_eq!(steer.turn_id, "turn-1");
+    assert!(items.data.is_empty());
+    assert!(turns.data.is_empty());
+    assert_eq!(revert.thread, codex_codes::Thread::default());
+}
 
 /// Parse every line from a JSONL capture file into ThreadEvents,
 /// panicking on any deserialization failure.

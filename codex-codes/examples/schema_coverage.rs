@@ -498,6 +498,9 @@ mod samples {
             methods::THREAD_LOADED_LIST,
             methods::THREAD_READ,
             methods::THREAD_INJECT_ITEMS,
+            methods::THREAD_ITEMS_LIST,
+            methods::THREAD_TURNS_LIST,
+            methods::THREAD_REVERT,
             methods::SKILLS_LIST,
             methods::HOOKS_LIST,
             methods::MARKETPLACE_ADD,
@@ -616,6 +619,30 @@ mod samples {
         for (method, sample) in codex_codes::protocol_generated::samples::client_request_samples() {
             m.insert(method, sample);
         }
+        m.insert(
+            methods::THREAD_ITEMS_LIST,
+            serde_json::to_value(codex_codes::ThreadItemsListParams {
+                thread_id: "thread-1".into(),
+                ..Default::default()
+            })
+            .expect("ThreadItemsListParams serializes"),
+        );
+        m.insert(
+            methods::THREAD_TURNS_LIST,
+            serde_json::to_value(codex_codes::ThreadTurnsListParams {
+                thread_id: "thread-1".into(),
+                ..Default::default()
+            })
+            .expect("ThreadTurnsListParams serializes"),
+        );
+        m.insert(
+            methods::THREAD_REVERT,
+            serde_json::to_value(codex_codes::ThreadRevertParams {
+                before_turn_id: "turn-2".into(),
+                thread_id: "thread-1".into(),
+            })
+            .expect("ThreadRevertParams serializes"),
+        );
         m
     }
 

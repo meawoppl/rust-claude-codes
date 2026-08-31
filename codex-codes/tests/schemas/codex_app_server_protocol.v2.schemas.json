@@ -8174,6 +8174,13 @@
     "GetAccountRateLimitsResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
+        "accountId": {
+          "description": "Account associated with this usage snapshot, when supplied by the backend.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "rateLimitResetCredits": {
           "anyOf": [
             {
@@ -8183,6 +8190,9 @@
               "type": "null"
             }
           ]
+        },
+        "rateLimitUpsell": {
+          "description": "Optional backend-owned banner from the same usage read. Its nested keys retain the backend's snake_case contract; an absent banner leaves the client's existing UI unchanged."
         },
         "rateLimits": {
           "allOf": [

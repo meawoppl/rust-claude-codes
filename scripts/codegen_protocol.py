@@ -268,6 +268,9 @@ def emit_struct(name: str, schema: dict[str, Any]) -> str:
             all_default = False
         body.append("    #[serde(" + ", ".join(attrs) + ")]")
         body.append(f"    pub {rs_field}: {rs_type},")
+    if props and schema.get("additionalProperties") is True:
+        body.append("    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]")
+        body.append("    pub additional: serde_json::Map<String, Value>,")
     body.append("}")
     rs = []
     # PartialEq (but not Eq) so structs compose into enums that need
@@ -277,7 +280,14 @@ def emit_struct(name: str, schema: dict[str, Any]) -> str:
     if all_default:
         derives += ", Default"
     rs.append(f"#[derive({derives})]")
-    rs.append('#[serde(rename_all = "camelCase")]')
+    # Config RPC values mirror config.toml and therefore use snake_case,
+    # unlike the rest of app-server v2's camelCase payloads.
+    rename_all = "snake_case" if name in {
+        "AnalyticsConfig",
+        "Config",
+        "SandboxWorkspaceWrite",
+    } else "camelCase"
+    rs.append(f'#[serde(rename_all = "{rename_all}")]')
     rs.extend(body)
     return "\n".join(rs)
 
