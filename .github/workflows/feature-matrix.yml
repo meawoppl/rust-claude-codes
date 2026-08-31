@@ -30,7 +30,7 @@ jobs:
             args: "-p claude-codes --features auth"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -63,7 +63,7 @@ jobs:
             args: "-p codex-codes"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -96,7 +96,7 @@ jobs:
             args: "-p opencode-codes"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -127,7 +127,7 @@ jobs:
             args: "-p muse-codes"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -160,7 +160,7 @@ jobs:
             args: "-p muse-codes --no-default-features --features types"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Setup Rust with WASM target
       uses: actions-rust-lang/setup-rust-toolchain@v1
