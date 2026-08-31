@@ -160,14 +160,9 @@ def main() -> int:
             print(f"error: could not fetch/parse upstream {url}: {e}", file=sys.stderr)
             return 2
 
-        if local_text == upstream_text:
-            output_chunks.append(f"- ✅ `{local_name}` — byte-identical to upstream\n")
-            continue
+        # JSON equality is the contract; formatting and key order don't matter.
         if local == upstream:
-            # Different bytes but identical JSON (formatting / key ordering).
-            output_chunks.append(
-                f"- ✳️ `{local_name}` — different bytes, identical JSON (formatting only)\n"
-            )
+            output_chunks.append(f"- ✅ `{local_name}` — matches upstream (JSON-identical)\n")
             continue
 
         any_drift = True
