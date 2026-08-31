@@ -5,19 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.150.2] - 2026-08-31
+
+Wire-surface work in this release landed via #339 (thanks @marmeladema);
+this release also resnapshots vs `openai/codex@main` (fixes #337).
 
 ### Added
 
 - Synchronous helpers for turn steering, paginated thread history, and thread
   revert, matching the asynchronous client.
+- `GetAccountRateLimitsResponse.{accountId, rateLimitUpsell}` and the
+  `openaiForm` MCP elicitation request mode (`OpenAiElicitationForm`).
 
 ### Fixed
 
-- Preserve unknown properties in open config objects, including
-  `model_providers`, and distinguish modeled methods from sample coverage.
-- Include `accountId` and `rateLimitUpsell` in account rate-limit responses.
-- Accept the current `openaiForm` MCP elicitation request mode.
+- **Breaking**: `Config`, `AnalyticsConfig`, and `SandboxWorkspaceWrite` now
+  serialize with Codex's canonical snake_case wire field names (they mirror
+  config.toml, unlike the rest of app-server v2's camelCase). The previous
+  camelCase serialization silently decoded every field to its default on the
+  real wire.
+- Unknown properties on `Config`/`AnalyticsConfig` (which upstream marks
+  `additionalProperties: true`, e.g. `model_providers`) are preserved in
+  flatten maps instead of dropped.
 
 ## [0.150.1] - 2026-08-29
 

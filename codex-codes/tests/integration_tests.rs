@@ -8,6 +8,7 @@ use codex_codes::{
     ThreadTurnsListResponse, TurnSteerResponse,
 };
 
+/// config/read round-trips snake_case wire fields and keeps unknown Config/AnalyticsConfig properties in the flatten maps.
 #[test]
 fn config_read_preserves_additional_properties() {
     let original = serde_json::json!({
@@ -58,6 +59,7 @@ fn config_read_preserves_additional_properties() {
     );
 }
 
+/// GetAccountRateLimitsResponse decodes accountId and the backend-owned rateLimitUpsell banner, round-tripping both.
 #[test]
 fn account_rate_limits_include_account_and_upsell() {
     let original = serde_json::json!({
@@ -82,6 +84,7 @@ fn account_rate_limits_include_account_and_upsell() {
     );
 }
 
+/// MCP elicitation requests with the newer camelCase "openaiForm" mode decode to the OpenAiElicitationForm arm.
 #[test]
 fn mcp_elicitation_accepts_current_openai_form_mode() {
     let request: McpServerElicitationRequestParams = serde_json::from_value(serde_json::json!({
@@ -97,6 +100,7 @@ fn mcp_elicitation_accepts_current_openai_form_mode() {
     ));
 }
 
+/// Response types behind the new sync helpers (turn/steer, items/turns list, thread/revert) decode minimal wire shapes.
 #[test]
 fn sync_helper_response_types_decode_current_wire_shapes() {
     let steer: TurnSteerResponse =
