@@ -1,14 +1,14 @@
 //! Version pins this crate is tested against.
 
 /// Muse Code release the live suite last passed against
-/// (`muse --version` reports `Muse Code 0.2.1 (0.2.1-R1215.1)`). The
-/// 0.1.0 captures remain committed and still parse — 0.2.1's wire is a
-/// superset (adds `task.lifecycle.failed` in practice and drops
-/// `correlation_facts` on pre-execution tool rejections).
-pub const TESTED_MUSE_VERSION: &str = "0.2.1";
+/// (`muse --version` reports `Muse Code 1.0.1 (1.0.1-R2006.1)`). The
+/// 0.1.0 and 0.2.1 captures remain committed and still parse — 1.0.1's
+/// wire is a near-superset (its one observed break, `profile_id: null`
+/// on `run.model.configured`, is modeled as `Option`).
+pub const TESTED_MUSE_VERSION: &str = "1.0.1";
 
 /// Full build string of the tested binary.
-pub const TESTED_MUSE_BUILD: &str = "0.2.1-R1215.1";
+pub const TESTED_MUSE_BUILD: &str = "1.0.1-R2006.1";
 
 /// Envelope `schema_version` the models target.
 pub const STREAM_SCHEMA_VERSION: u32 = 1;
