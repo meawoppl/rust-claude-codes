@@ -113,3 +113,88 @@ async fn unknown_command_fails_cleanly() {
     assert!(resp.error.is_some());
     client.shutdown().await.unwrap();
 }
+
+/// Full model turn through RPC (needs OPENAI_API_KEY; skips cleanly without): prompt → typed
+/// events stream to agent_end, assistant reply echoes a nonce, no decode failures anywhere.
+#[tokio::test]
+async fn model_turn_streams_typed_events() {
+    if std::env::var("OPENAI_API_KEY").is_err() {
+        eprintln!("skipping: OPENAI_API_KEY not set");
+        return;
+    }
+    let mut client = PiRpcClient::spawn(
+        pi_codes::PiCliBuilder::new()
+            .no_session(true)
+            .provider("openai")
+            .model("gpt-4.1-mini"),
+    )
+    .await
+    .expect("spawn");
+    let resp = client
+        .request_ok(RpcCommand::Prompt {
+            id: None,
+            message: "Reply with exactly: pi-codes-model-probe".into(),
+            images: None,
+            streaming_behavior: None,
+        })
+        .await
+        .expect("prompt accepted");
+    assert!(resp.success);
+
+    let mut kinds = Vec::new();
+    let mut answer = String::new();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    loop {
+        assert!(std::time::Instant::now() < deadline, "turn did not finish");
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(60), client.next_event())
+            .await
+            .expect("event within 60s")
+            .expect("stream healthy")
+            .expect("stream open");
+        kinds.push(ev.event_type().to_string());
+        match &ev {
+            pi_codes::PiEvent::MessageEnd { message } => {
+                if let pi_codes::PiMessage::Assistant {
+                    content,
+                    stop_reason,
+                    extra,
+                    ..
+                } = message.as_ref()
+                {
+                    for block in content {
+                        if let pi_codes::ContentBlock::Text { text } = block {
+                            answer.push_str(text);
+                        }
+                    }
+                    // Provider failures arrive as a typed assistant
+                    // message with stopReason "error" — fail with the
+                    // provider's own words (e.g. an out-of-credits key).
+                    if stop_reason == "error" {
+                        panic!(
+                            "provider errored: {}",
+                            extra
+                                .get("errorMessage")
+                                .and_then(|e| e.as_str())
+                                .unwrap_or("(no errorMessage)")
+                        );
+                    }
+                }
+            }
+            pi_codes::PiEvent::AgentEnd { .. } => break,
+            _ => {}
+        }
+    }
+    client.shutdown().await.unwrap();
+    assert!(
+        answer.contains("pi-codes-model-probe"),
+        "assistant echoed the nonce; got: {answer:?}; events: {kinds:?}"
+    );
+    assert!(
+        kinds.contains(&"agent_start".to_string()),
+        "events: {kinds:?}"
+    );
+    assert!(
+        kinds.contains(&"message_update".to_string()),
+        "streaming deltas present"
+    );
+}
