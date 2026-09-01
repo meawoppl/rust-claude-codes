@@ -4,5 +4,6 @@
 pub mod cargo_suite;
 pub mod claude;
 pub mod codex;
+pub mod conformance;
 pub mod muse;
 pub mod opencode;

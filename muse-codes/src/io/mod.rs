@@ -210,7 +210,11 @@ pub struct ModelConfigured {
     pub run_stream: StreamRef,
     pub model_id: String,
     pub display_label: String,
-    pub profile_id: String,
+    /// Explicitly `null` on Muse Code 1.0.1 when no profile applies
+    /// (0.2.1 always sent a string). Serialized as `null`, not omitted,
+    /// to round-trip the 1.0.1 wire.
+    #[serde(default)]
+    pub profile_id: Option<String>,
     pub provider_id: String,
     /// How the model was chosen (`startup` observed).
     pub source: String,
