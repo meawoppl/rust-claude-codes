@@ -113,6 +113,7 @@ pub mod methods {
     pub const ACCOUNT_USAGE_READ: &str = "account/usage/read";
     pub const PERMISSION_PROFILE_LIST: &str = "permissionProfile/list";
     pub const PLUGIN_INSTALLED: &str = "plugin/installed";
+    pub const PLUGIN_RECONCILE: &str = "plugin/reconcile";
     pub const SKILLS_EXTRA_ROOTS_SET: &str = "skills/extraRoots/set";
     pub const THREAD_GOAL_GET: &str = "thread/goal/get";
     pub const THREAD_GOAL_SET: &str = "thread/goal/set";

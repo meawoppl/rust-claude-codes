@@ -5262,6 +5262,59 @@ pub struct PluginReadResponse {
     pub plugin: PluginDetail,
 }
 
+/// Runtime categories affected by this change, not just capabilities
+/// currently present. Flags describe declarations before runtime policy
+/// filtering. Updates OR the old and new bundle flags; enablement changes and
+/// cached reinstalls use the cached bundle; removals retain the old bundle's
+/// flags.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginReconcileChangedPlugin {
+    #[serde(rename = "hasApps", default)]
+    pub has_apps: bool,
+    #[serde(rename = "hasHooks", default)]
+    pub has_hooks: bool,
+    #[serde(rename = "hasMcps", default)]
+    pub has_mcps: bool,
+    /// Whether either bundle declares skill roots; not a validated inventory
+    /// of enabled skills.
+    #[serde(rename = "hasSkills", default)]
+    pub has_skills: bool,
+    /// Local plugin ID (`name@marketplace`), matching `PluginSummary.id`.
+    #[serde(default)]
+    pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginReconcileParams {
+    /// Optional client-provided reason recorded with the reconciliation
+    /// attempt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// Bundle and installed-state changes observed by this pass, not a
+/// runtime-readiness acknowledgement or a cumulative diff since the client's
+/// last request. Other metadata-only changes are not listed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginReconcileResponse {
+    /// Plugins affected by bundle changes, enablement changes, or removals.
+    /// Installed-state changes compare against the previous cached snapshot,
+    /// including cached reinstalls. Removal hints survive cache cleanup
+    /// failures; unchanged plugins are omitted.
+    #[serde(rename = "changedPlugins", default)]
+    pub changed_plugins: Vec<PluginReconcileChangedPlugin>,
+    /// Subset of failures for which the requested bundle could not be
+    /// materialized. A previously cached version may still be available.
+    #[serde(rename = "failedMaterializationRemotePluginIds", default)]
+    pub failed_materialization_remote_plugin_ids: Vec<String>,
+    /// Backend remote plugin IDs whose bundle or identity update failed.
+    #[serde(rename = "failedRemotePluginIds", default)]
+    pub failed_remote_plugin_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginShareCheckoutParams {
@@ -5980,6 +6033,8 @@ pub struct ResourceTemplate {
 pub struct ResponseUsageMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub amount: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
