@@ -28,7 +28,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
-          CRATES="antigravity-codes claude-codes codex-codes muse-codes opencode-codes"
+          CRATES="antigravity-codes claude-codes codex-codes muse-codes opencode-codes pi-codes"
           failed=0
           for crate in $CRATES; do
             version=$(grep '^version' "$crate/Cargo.toml" | head -1 | sed 's/.*"\(.*\)"/\1/')

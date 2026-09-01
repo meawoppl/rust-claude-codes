@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CRATES = ["claude-codes", "codex-codes", "muse-codes", "opencode-codes"]
+CRATES = ["claude-codes", "codex-codes", "muse-codes", "opencode-codes", "pi-codes"]
 
 TEST_ATTR = re.compile(r"#\[(?:tokio::)?test(?:\([^)]*\))?\]")
 FN_NAME = re.compile(r"(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")

@@ -233,6 +233,23 @@ jobs:
           else
             echo "✅ muse tested_cli_version matches README"
           fi
+          # pi-codes: crate version tracks the tested pi release
+          PI_VERSION=$(grep '^version' pi-codes/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          PI_TESTED=$(grep 'Tested against pi' pi-codes/README.md | grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+          PI_CONST=$(grep 'TESTED_PI_VERSION: &str' pi-codes/src/version.rs | grep -oP '"\K[0-9.]+')
+          echo "pi-codes version: $PI_VERSION (tested: $PI_TESTED)"
+          if ! grep -q "pi-codes $PI_VERSION" README.md; then
+            echo "❌ README.md missing 'pi-codes $PI_VERSION'"
+            FAILED=1
+          else
+            echo "✅ README.md has pi-codes $PI_VERSION"
+          fi
+          if [ "$PI_CONST" != "$PI_TESTED" ]; then
+            echo "❌ pi version.rs TESTED_PI_VERSION ($PI_CONST) != README tested ($PI_TESTED)"
+            FAILED=1
+          else
+            echo "✅ pi tested_cli_version matches README"
+          fi
           OPENCODE_CONST=$(grep -A2 'fn tested_cli_version' opencode-codes/src/version.rs | grep -oP '"\K[0-9.]+' | head -1)
           if [ "$OPENCODE_CONST" != "$OPENCODE_TESTED" ]; then
             echo "❌ opencode version.rs tested_cli_version ($OPENCODE_CONST) != README tested ($OPENCODE_TESTED)"
