@@ -91,6 +91,7 @@ fn options() -> HarnessOptions {
     if std::env::var("ANTIGRAVITY_SUBAGENTS").is_ok() {
         tools.subagents = Some(SubagentsConfig {
             enabled: Some(true),
+            ..Default::default()
         });
     }
 
@@ -114,6 +115,7 @@ fn options() -> HarnessOptions {
                 is_dynamic: Some(true),
                 ..Default::default()
             }],
+            ..Default::default()
         });
     }
 

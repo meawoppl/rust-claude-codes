@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "antigravity-codes"
-version = "0.1.10"
+version = "0.1.15"
 dependencies = [
  "base64",
  "env_logger",

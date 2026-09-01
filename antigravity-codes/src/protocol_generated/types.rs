@@ -73,6 +73,64 @@ impl<'de> Deserialize<'de> for ActionEditFileDiffLineLineAction {
     }
 }
 
+/// `antigravity.localharness.AgentBehavior`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum AgentBehavior {
+    #[default]
+    Unspecified,
+    Autonomous,
+    Interactive,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl AgentBehavior {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "AGENT_BEHAVIOR_UNSPECIFIED",
+            Self::Autonomous => "AGENT_BEHAVIOR_AUTONOMOUS",
+            Self::Interactive => "AGENT_BEHAVIOR_INTERACTIVE",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for AgentBehavior {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for AgentBehavior {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentBehavior {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "AGENT_BEHAVIOR_UNSPECIFIED" => {
+                Self::Unspecified
+            }
+            crate::wire::EnumRepr::Name(n) if n == "AGENT_BEHAVIOR_AUTONOMOUS" => Self::Autonomous,
+            crate::wire::EnumRepr::Name(n) if n == "AGENT_BEHAVIOR_INTERACTIVE" => {
+                Self::Interactive
+            }
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::Autonomous,
+            crate::wire::EnumRepr::Number(2) => Self::Interactive,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
 /// `genai.AudioContent.MimeType`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum AudioContentMimeType {
@@ -501,6 +559,7 @@ pub enum LifecycleHook {
     PreTool,
     PostTool,
     OnToolError,
+    OnCompaction,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -521,6 +580,7 @@ impl LifecycleHook {
             Self::PreTool => "LIFECYCLE_HOOK_PRE_TOOL",
             Self::PostTool => "LIFECYCLE_HOOK_POST_TOOL",
             Self::OnToolError => "LIFECYCLE_HOOK_ON_TOOL_ERROR",
+            Self::OnCompaction => "LIFECYCLE_HOOK_ON_COMPACTION",
             Self::Unknown(s) => s,
         }
     }
@@ -557,6 +617,9 @@ impl<'de> Deserialize<'de> for LifecycleHook {
             crate::wire::EnumRepr::Name(n) if n == "LIFECYCLE_HOOK_ON_TOOL_ERROR" => {
                 Self::OnToolError
             }
+            crate::wire::EnumRepr::Name(n) if n == "LIFECYCLE_HOOK_ON_COMPACTION" => {
+                Self::OnCompaction
+            }
             crate::wire::EnumRepr::Number(0) => Self::Unspecified,
             crate::wire::EnumRepr::Number(1) => Self::OnSessionStart,
             crate::wire::EnumRepr::Number(2) => Self::OnSessionEnd,
@@ -565,6 +628,7 @@ impl<'de> Deserialize<'de> for LifecycleHook {
             crate::wire::EnumRepr::Number(5) => Self::PreTool,
             crate::wire::EnumRepr::Number(6) => Self::PostTool,
             crate::wire::EnumRepr::Number(7) => Self::OnToolError,
+            crate::wire::EnumRepr::Number(8) => Self::OnCompaction,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -689,6 +753,72 @@ impl<'de> Deserialize<'de> for MediaResolution {
     }
 }
 
+/// `antigravity.localharness.Modality`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum Modality {
+    #[default]
+    Unspecified,
+    Text,
+    Image,
+    Video,
+    Audio,
+    Document,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl Modality {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "MODALITY_UNSPECIFIED",
+            Self::Text => "TEXT",
+            Self::Image => "IMAGE",
+            Self::Video => "VIDEO",
+            Self::Audio => "AUDIO",
+            Self::Document => "DOCUMENT",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for Modality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for Modality {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Modality {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "MODALITY_UNSPECIFIED" => Self::Unspecified,
+            crate::wire::EnumRepr::Name(n) if n == "TEXT" => Self::Text,
+            crate::wire::EnumRepr::Name(n) if n == "IMAGE" => Self::Image,
+            crate::wire::EnumRepr::Name(n) if n == "VIDEO" => Self::Video,
+            crate::wire::EnumRepr::Name(n) if n == "AUDIO" => Self::Audio,
+            crate::wire::EnumRepr::Name(n) if n == "DOCUMENT" => Self::Document,
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::Text,
+            crate::wire::EnumRepr::Number(2) => Self::Image,
+            crate::wire::EnumRepr::Number(3) => Self::Video,
+            crate::wire::EnumRepr::Number(4) => Self::Audio,
+            crate::wire::EnumRepr::Number(5) => Self::Document,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
 /// `antigravity.localharness.ModelType`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum ModelType {
@@ -783,6 +913,64 @@ impl<'de> Deserialize<'de> for NullValue {
         Ok(match crate::wire::EnumRepr::deserialize(d)? {
             crate::wire::EnumRepr::Name(n) if n == "NULL_VALUE" => Self::NullValue,
             crate::wire::EnumRepr::Number(0) => Self::NullValue,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
+/// `antigravity.localharness.PolicyConfig.WorkspaceContainment`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum PolicyConfigWorkspaceContainment {
+    #[default]
+    Unspecified,
+    Enabled,
+    Disabled,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl PolicyConfigWorkspaceContainment {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "WORKSPACE_CONTAINMENT_UNSPECIFIED",
+            Self::Enabled => "WORKSPACE_CONTAINMENT_ENABLED",
+            Self::Disabled => "WORKSPACE_CONTAINMENT_DISABLED",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for PolicyConfigWorkspaceContainment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for PolicyConfigWorkspaceContainment {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for PolicyConfigWorkspaceContainment {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "WORKSPACE_CONTAINMENT_UNSPECIFIED" => {
+                Self::Unspecified
+            }
+            crate::wire::EnumRepr::Name(n) if n == "WORKSPACE_CONTAINMENT_ENABLED" => Self::Enabled,
+            crate::wire::EnumRepr::Name(n) if n == "WORKSPACE_CONTAINMENT_DISABLED" => {
+                Self::Disabled
+            }
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::Enabled,
+            crate::wire::EnumRepr::Number(2) => Self::Disabled,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -1261,6 +1449,88 @@ impl<'de> Deserialize<'de> for TrajectoryStateUpdateState {
     }
 }
 
+/// `antigravity.localharness.TrajectoryStateUpdate.StopReason`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum TrajectoryStateUpdateStopReason {
+    #[default]
+    Unspecified,
+    MaxModelCallsExceeded,
+    MaxToolCallsExceeded,
+    MaxInputTokensExceeded,
+    MaxOutputTokensExceeded,
+    MaxTotalTokensExceeded,
+    QuotaExhausted,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl TrajectoryStateUpdateStopReason {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "STOP_REASON_UNSPECIFIED",
+            Self::MaxModelCallsExceeded => "STOP_REASON_MAX_MODEL_CALLS_EXCEEDED",
+            Self::MaxToolCallsExceeded => "STOP_REASON_MAX_TOOL_CALLS_EXCEEDED",
+            Self::MaxInputTokensExceeded => "STOP_REASON_MAX_INPUT_TOKENS_EXCEEDED",
+            Self::MaxOutputTokensExceeded => "STOP_REASON_MAX_OUTPUT_TOKENS_EXCEEDED",
+            Self::MaxTotalTokensExceeded => "STOP_REASON_MAX_TOTAL_TOKENS_EXCEEDED",
+            Self::QuotaExhausted => "STOP_REASON_QUOTA_EXHAUSTED",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for TrajectoryStateUpdateStopReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for TrajectoryStateUpdateStopReason {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TrajectoryStateUpdateStopReason {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_UNSPECIFIED" => Self::Unspecified,
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_MAX_MODEL_CALLS_EXCEEDED" => {
+                Self::MaxModelCallsExceeded
+            }
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_MAX_TOOL_CALLS_EXCEEDED" => {
+                Self::MaxToolCallsExceeded
+            }
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_MAX_INPUT_TOKENS_EXCEEDED" => {
+                Self::MaxInputTokensExceeded
+            }
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_MAX_OUTPUT_TOKENS_EXCEEDED" => {
+                Self::MaxOutputTokensExceeded
+            }
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_MAX_TOTAL_TOKENS_EXCEEDED" => {
+                Self::MaxTotalTokensExceeded
+            }
+            crate::wire::EnumRepr::Name(n) if n == "STOP_REASON_QUOTA_EXHAUSTED" => {
+                Self::QuotaExhausted
+            }
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::MaxModelCallsExceeded,
+            crate::wire::EnumRepr::Number(2) => Self::MaxToolCallsExceeded,
+            crate::wire::EnumRepr::Number(3) => Self::MaxInputTokensExceeded,
+            crate::wire::EnumRepr::Number(4) => Self::MaxOutputTokensExceeded,
+            crate::wire::EnumRepr::Number(5) => Self::MaxTotalTokensExceeded,
+            crate::wire::EnumRepr::Number(6) => Self::QuotaExhausted,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
 /// `genai.UrlContextResultContent.UrlContextResult.Status`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum UrlContextResultContentUrlContextResultStatus {
@@ -1338,6 +1608,7 @@ pub enum VideoContentMimeType {
     TypeWmv,
     Type3gpp,
     TypeYtBeyond,
+    TypeJpeg2000,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -1361,6 +1632,7 @@ impl VideoContentMimeType {
             Self::TypeWmv => "TYPE_WMV",
             Self::Type3gpp => "TYPE_3GPP",
             Self::TypeYtBeyond => "TYPE_YT_BEYOND",
+            Self::TypeJpeg2000 => "TYPE_JPEG2000",
             Self::Unknown(s) => s,
         }
     }
@@ -1392,6 +1664,7 @@ impl<'de> Deserialize<'de> for VideoContentMimeType {
             crate::wire::EnumRepr::Name(n) if n == "TYPE_WMV" => Self::TypeWmv,
             crate::wire::EnumRepr::Name(n) if n == "TYPE_3GPP" => Self::Type3gpp,
             crate::wire::EnumRepr::Name(n) if n == "TYPE_YT_BEYOND" => Self::TypeYtBeyond,
+            crate::wire::EnumRepr::Name(n) if n == "TYPE_JPEG2000" => Self::TypeJpeg2000,
             crate::wire::EnumRepr::Number(0) => Self::TypeUnspecified,
             crate::wire::EnumRepr::Number(1) => Self::TypeMp4,
             crate::wire::EnumRepr::Number(2) => Self::TypeMpeg,
@@ -1403,6 +1676,61 @@ impl<'de> Deserialize<'de> for VideoContentMimeType {
             crate::wire::EnumRepr::Number(8) => Self::TypeWmv,
             crate::wire::EnumRepr::Number(9) => Self::Type3gpp,
             crate::wire::EnumRepr::Number(10) => Self::TypeYtBeyond,
+            crate::wire::EnumRepr::Number(11) => Self::TypeJpeg2000,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
+/// `genai.VideoContent.Processing`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum VideoContentProcessing {
+    #[default]
+    Unspecified,
+    Static,
+    Agentic,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl VideoContentProcessing {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "PROCESSING_UNSPECIFIED",
+            Self::Static => "STATIC",
+            Self::Agentic => "AGENTIC",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for VideoContentProcessing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for VideoContentProcessing {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for VideoContentProcessing {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "PROCESSING_UNSPECIFIED" => Self::Unspecified,
+            crate::wire::EnumRepr::Name(n) if n == "STATIC" => Self::Static,
+            crate::wire::EnumRepr::Name(n) if n == "AGENTIC" => Self::Agentic,
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::Static,
+            crate::wire::EnumRepr::Number(2) => Self::Agentic,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -1528,6 +1856,12 @@ pub struct ActionGenerateImage {
         skip_serializing_if = "Option::is_none"
     )]
     pub aspect_ratio: Option<String>,
+    #[serde(
+        alias = "output_path",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub output_path: Option<String>,
 }
 
 /// `antigravity.localharness.ActionInvokeSubagent`
@@ -1701,6 +2035,12 @@ pub struct ActionViewFile {
     pub start_line: Option<u32>,
     #[serde(alias = "end_line", default, skip_serializing_if = "Option::is_none")]
     pub end_line: Option<u32>,
+    #[serde(
+        alias = "content_offset",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub content_offset: Option<i32>,
 }
 
 /// `antigravity.localharness.AppendedSystemInstructions`
@@ -1743,8 +2083,19 @@ pub struct AudioContent {
     pub data: Option<Vec<u8>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(alias = "mime_type", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "legacy_mime_type_enum",
+        alias = "mime_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub mime_type: Option<AudioContentMimeType>,
+    #[serde(
+        alias = "mime_type_string",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mime_type_string: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channels: Option<i32>,
     #[serde(
@@ -1778,6 +2129,45 @@ impl AudioContent {
     pub fn has_data_or_uri(&self) -> bool {
         self.data.is_some() || self.uri.is_some()
     }
+}
+
+/// `antigravity.localharness.BudgetConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BudgetConfig {
+    #[serde(
+        alias = "max_model_calls",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_model_calls: Option<i32>,
+    #[serde(
+        alias = "max_tool_calls",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_tool_calls: Option<i32>,
+    #[serde(
+        alias = "max_input_tokens",
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::wire::opt_int"
+    )]
+    pub max_input_tokens: Option<i64>,
+    #[serde(
+        alias = "max_output_tokens",
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::wire::opt_int"
+    )]
+    pub max_output_tokens: Option<i64>,
+    #[serde(
+        alias = "max_total_tokens",
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::wire::opt_int"
+    )]
+    pub max_total_tokens: Option<i64>,
 }
 
 /// `antigravity.localharness.CallHookRequest`
@@ -1814,6 +2204,12 @@ pub struct CallHookRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub on_tool_error_args: Option<OnToolErrorArgs>,
+    #[serde(
+        alias = "on_compaction_args",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub on_compaction_args: Option<OnCompactionArgs>,
     #[serde(alias = "request_id", default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1830,6 +2226,7 @@ pub enum CallHookRequestArgs {
     PreToolArgs(PreToolArgs),
     PostToolArgs(PostToolArgs),
     OnToolErrorArgs(OnToolErrorArgs),
+    OnCompactionArgs(OnCompactionArgs),
 }
 
 impl CallHookRequest {
@@ -1850,6 +2247,9 @@ impl CallHookRequest {
         if let Some(v) = self.on_tool_error_args {
             return Some(CallHookRequestArgs::OnToolErrorArgs(v));
         }
+        if let Some(v) = self.on_compaction_args {
+            return Some(CallHookRequestArgs::OnCompactionArgs(v));
+        }
         None
     }
 
@@ -1860,6 +2260,7 @@ impl CallHookRequest {
             || self.pre_tool_args.is_some()
             || self.post_tool_args.is_some()
             || self.on_tool_error_args.is_some()
+            || self.on_compaction_args.is_some()
     }
 }
 
@@ -2094,6 +2495,18 @@ pub struct CustomAgent {
     pub harness_side_tools: Option<HarnessSideTools>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<Tool>,
+    #[serde(
+        alias = "skills_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub skills_config: Option<SubagentSkillsConfig>,
+    #[serde(
+        alias = "agent_behavior",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub agent_behavior: Option<AgentBehavior>,
 }
 
 /// `antigravity.localharness.CustomEndpoint`
@@ -2193,8 +2606,19 @@ pub struct DocumentContent {
     pub data: Option<Vec<u8>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(alias = "mime_type", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "legacy_mime_type_enum",
+        alias = "mime_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub mime_type: Option<DocumentContentMimeType>,
+    #[serde(
+        alias = "mime_type_string",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mime_type_string: Option<String>,
 }
 
 /// The `data_or_uri` oneof of [`DocumentContent`], as an owned value.
@@ -2668,6 +3092,18 @@ pub struct HarnessConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub policy_config: Option<PolicyConfig>,
+    #[serde(
+        alias = "agent_behavior",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub agent_behavior: Option<AgentBehavior>,
+    #[serde(
+        alias = "budget_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub budget_config: Option<BudgetConfig>,
 }
 
 /// `antigravity.localharness.HarnessSideTools`
@@ -2730,6 +3166,14 @@ pub struct HarnessSideTools {
         skip_serializing_if = "Option::is_none"
     )]
     pub tool_search_config: Option<ToolSearchConfig>,
+    #[serde(
+        alias = "manage_task",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub manage_task: Option<ManageTaskToolConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ScheduleToolConfig>,
 }
 
 /// `genai.ImageContent`
@@ -2744,8 +3188,19 @@ pub struct ImageContent {
     pub data: Option<Vec<u8>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(alias = "mime_type", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "legacy_mime_type_enum",
+        alias = "mime_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub mime_type: Option<ImageContentMimeType>,
+    #[serde(
+        alias = "mime_type_string",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mime_type_string: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolution: Option<MediaResolution>,
 }
@@ -2839,13 +3294,7 @@ pub struct InputConfig {
 #[serde(rename_all = "camelCase")]
 pub struct InputEvent {
     #[serde(alias = "user_input", default, skip_serializing_if = "Option::is_none")]
-    pub user_input: Option<String>,
-    #[serde(
-        alias = "complex_user_input",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub complex_user_input: Option<UserInput>,
+    pub user_input: Option<UserInput>,
     #[serde(
         alias = "tool_confirmation",
         default,
@@ -2899,8 +3348,7 @@ pub struct InputEvent {
 /// The `event` oneof of [`InputEvent`], as an owned value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputEventEvent {
-    UserInput(String),
-    ComplexUserInput(UserInput),
+    UserInput(UserInput),
     ToolConfirmation(ToolConfirmation),
     ToolResponse(ToolResponse),
     QuestionResponse(UserQuestionsResponse),
@@ -2916,9 +3364,6 @@ impl InputEvent {
     pub fn into_event(self) -> Option<InputEventEvent> {
         if let Some(v) = self.user_input {
             return Some(InputEventEvent::UserInput(v));
-        }
-        if let Some(v) = self.complex_user_input {
-            return Some(InputEventEvent::ComplexUserInput(v));
         }
         if let Some(v) = self.tool_confirmation {
             return Some(InputEventEvent::ToolConfirmation(v));
@@ -2950,7 +3395,6 @@ impl InputEvent {
     /// True when any arm of the `event` oneof is set.
     pub fn has_event(&self) -> bool {
         self.user_input.is_some()
-            || self.complex_user_input.is_some()
             || self.tool_confirmation.is_some()
             || self.tool_response.is_some()
             || self.question_response.is_some()
@@ -2976,6 +3420,14 @@ pub struct ListDirToolConfig {
 pub struct ListValue {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub values: Vec<Value>,
+}
+
+/// `antigravity.localharness.ManageTaskToolConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManageTaskToolConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 /// `antigravity.localharness.McpHttpTransport`
@@ -3154,6 +3606,21 @@ pub struct Media {
     pub data: Option<Vec<u8>>,
 }
 
+/// `antigravity.localharness.ModalityTokenCount`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModalityTokenCount {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modality: Option<Modality>,
+    #[serde(
+        alias = "token_count",
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "crate::wire::opt_int"
+    )]
+    pub token_count: Option<u64>,
+}
+
 /// `antigravity.localharness.ModelAPIRetryConfig`
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -3300,6 +3767,22 @@ pub struct MultipleChoiceAnswer {
     pub freeform_response: Option<String>,
 }
 
+/// `antigravity.localharness.OnCompactionArgs`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnCompactionArgs {
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
+    #[serde(alias = "step_index", default, skip_serializing_if = "Option::is_none")]
+    pub step_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+}
+
 /// `antigravity.localharness.OnToolErrorArgs`
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -3320,6 +3803,14 @@ pub struct OnToolErrorArgs {
     pub server_name: Option<String>,
     #[serde(alias = "call_id", default, skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
+    #[serde(alias = "step_index", default, skip_serializing_if = "Option::is_none")]
+    pub step_index: Option<u32>,
 }
 
 /// `antigravity.localharness.OnToolErrorResult`
@@ -3500,6 +3991,12 @@ pub struct PlaceCitation {
 pub struct PolicyConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rules: Vec<PolicyRule>,
+    #[serde(
+        alias = "workspace_containment",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub workspace_containment: Option<PolicyConfigWorkspaceContainment>,
 }
 
 /// `antigravity.localharness.PolicyDecisionRequest`
@@ -3576,6 +4073,14 @@ pub struct PostToolArgs {
     pub server_name: Option<String>,
     #[serde(alias = "call_id", default, skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
+    #[serde(alias = "step_index", default, skip_serializing_if = "Option::is_none")]
+    pub step_index: Option<u32>,
 }
 
 /// `antigravity.localharness.PostTurnArgs`
@@ -3588,6 +4093,12 @@ pub struct PostTurnArgs {
         skip_serializing_if = "Option::is_none"
     )]
     pub response_text: Option<String>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
 }
 
 /// `antigravity.localharness.PreToolArgs`
@@ -3610,6 +4121,14 @@ pub struct PreToolArgs {
     pub server_name: Option<String>,
     #[serde(alias = "call_id", default, skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
+    #[serde(alias = "step_index", default, skip_serializing_if = "Option::is_none")]
+    pub step_index: Option<u32>,
 }
 
 /// `antigravity.localharness.PreToolResult`
@@ -3634,6 +4153,12 @@ pub struct PreToolResult {
 pub struct PreTurnArgs {
     #[serde(alias = "user_input", default, skip_serializing_if = "Option::is_none")]
     pub user_input: Option<UserInput>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
 }
 
 /// `antigravity.localharness.PreTurnResult`
@@ -3686,6 +4211,26 @@ pub struct ReviewSnippet {
 pub struct RunCommandToolConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(
+        alias = "max_timeout_ms",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_timeout_ms: Option<u32>,
+    #[serde(
+        alias = "enable_daemon_commands",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enable_daemon_commands: Option<bool>,
+}
+
+/// `antigravity.localharness.ScheduleToolConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleToolConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
 }
 
 /// `antigravity.localharness.SearchWebToolConfig`
@@ -3708,6 +4253,12 @@ pub struct StepUpdate {
         skip_serializing_if = "Option::is_none"
     )]
     pub trajectory_id: Option<String>,
+    #[serde(
+        alias = "parent_trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub parent_trajectory_id: Option<String>,
     #[serde(alias = "step_index", default, skip_serializing_if = "Option::is_none")]
     pub step_index: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3826,12 +4377,107 @@ pub struct Struct {
     pub fields: Vec<Field>,
 }
 
+/// `antigravity.localharness.SubagentSkillsConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentSkillsConfig {
+    #[serde(
+        alias = "inherit_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub inherit_config: Option<SubagentSkillsConfigInheritConfig>,
+    #[serde(
+        alias = "none_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub none_config: Option<SubagentSkillsConfigNoneConfig>,
+    #[serde(
+        alias = "override_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub override_config: Option<SubagentSkillsConfigOverrideConfig>,
+}
+
+/// The `mode` oneof of [`SubagentSkillsConfig`], as an owned value.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SubagentSkillsConfigMode {
+    InheritConfig(SubagentSkillsConfigInheritConfig),
+    NoneConfig(SubagentSkillsConfigNoneConfig),
+    OverrideConfig(SubagentSkillsConfigOverrideConfig),
+}
+
+impl SubagentSkillsConfig {
+    /// Takes the set arm of the `mode` oneof, if any.
+    pub fn into_mode(self) -> Option<SubagentSkillsConfigMode> {
+        if let Some(v) = self.inherit_config {
+            return Some(SubagentSkillsConfigMode::InheritConfig(v));
+        }
+        if let Some(v) = self.none_config {
+            return Some(SubagentSkillsConfigMode::NoneConfig(v));
+        }
+        if let Some(v) = self.override_config {
+            return Some(SubagentSkillsConfigMode::OverrideConfig(v));
+        }
+        None
+    }
+
+    /// True when any arm of the `mode` oneof is set.
+    pub fn has_mode(&self) -> bool {
+        self.inherit_config.is_some()
+            || self.none_config.is_some()
+            || self.override_config.is_some()
+    }
+}
+
+/// `antigravity.localharness.SubagentSkillsConfig.InheritConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentSkillsConfigInheritConfig {
+    #[serde(
+        alias = "extra_skills_paths",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub extra_skills_paths: Vec<String>,
+    #[serde(alias = "skill_names", default, skip_serializing_if = "Vec::is_empty")]
+    pub skill_names: Vec<String>,
+}
+
+/// `antigravity.localharness.SubagentSkillsConfig.NoneConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentSkillsConfigNoneConfig {}
+
+/// `antigravity.localharness.SubagentSkillsConfig.OverrideConfig`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentSkillsConfigOverrideConfig {
+    #[serde(alias = "skills_paths", default, skip_serializing_if = "Vec::is_empty")]
+    pub skills_paths: Vec<String>,
+}
+
 /// `antigravity.localharness.SubagentsConfig`
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubagentsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    /// Proto default: `1`.
+    #[serde(
+        alias = "max_nesting_depth",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_nesting_depth: Option<i32>,
+    #[serde(
+        alias = "allowed_subagents",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub allowed_subagents: Vec<String>,
 }
 
 /// `antigravity.localharness.SystemInstructions`
@@ -4382,10 +5028,24 @@ pub struct TrajectoryStateUpdate {
         skip_serializing_if = "Option::is_none"
     )]
     pub trajectory_id: Option<String>,
+    #[serde(
+        alias = "parent_trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub parent_trajectory_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<TrajectoryStateUpdateState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(
+        alias = "stop_reason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stop_reason: Option<TrajectoryStateUpdateStopReason>,
 }
 
 /// `antigravity.localharness.TrajectoryUsageEntry`
@@ -4493,6 +5153,30 @@ pub struct UsageMetadata {
         skip_serializing_if = "Option::is_none"
     )]
     pub service_tier: Option<String>,
+    #[serde(
+        alias = "prompt_tokens_details",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub prompt_tokens_details: Vec<ModalityTokenCount>,
+    #[serde(
+        alias = "cache_tokens_details",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub cache_tokens_details: Vec<ModalityTokenCount>,
+    #[serde(
+        alias = "candidates_tokens_details",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub candidates_tokens_details: Vec<ModalityTokenCount>,
+    #[serde(
+        alias = "tool_use_prompt_tokens_details",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub tool_use_prompt_tokens_details: Vec<ModalityTokenCount>,
 }
 
 /// `antigravity.localharness.UsageUpdate`
@@ -4826,6 +5510,8 @@ pub struct VertexEndpoint {
     pub location: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub options: Option<GeminiModelOptions>,
+    #[serde(alias = "api_key", default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
 }
 
 /// `genai.VideoContent`
@@ -4840,8 +5526,31 @@ pub struct VideoContent {
     pub data: Option<Vec<u8>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(alias = "mime_type", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        alias = "processing_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub processing_type: Option<VideoContentProcessing>,
+    #[serde(
+        alias = "processing_config",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub processing_config: Option<VideoContentMediaProcessing>,
+    #[serde(
+        rename = "legacy_mime_type_enum",
+        alias = "mime_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub mime_type: Option<VideoContentMimeType>,
+    #[serde(
+        alias = "mime_type_string",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mime_type_string: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolution: Option<MediaResolution>,
 }
@@ -4869,6 +5578,76 @@ impl VideoContent {
     pub fn has_data_or_uri(&self) -> bool {
         self.data.is_some() || self.uri.is_some()
     }
+}
+
+/// The `processing` oneof of [`VideoContent`], as an owned value.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VideoContentProcessingOneof {
+    ProcessingType(VideoContentProcessing),
+    ProcessingConfig(VideoContentMediaProcessing),
+}
+
+impl VideoContent {
+    /// Takes the set arm of the `processing` oneof, if any.
+    pub fn into_processing(self) -> Option<VideoContentProcessingOneof> {
+        if let Some(v) = self.processing_type {
+            return Some(VideoContentProcessingOneof::ProcessingType(v));
+        }
+        if let Some(v) = self.processing_config {
+            return Some(VideoContentProcessingOneof::ProcessingConfig(v));
+        }
+        None
+    }
+
+    /// True when any arm of the `processing` oneof is set.
+    pub fn has_processing(&self) -> bool {
+        self.processing_type.is_some() || self.processing_config.is_some()
+    }
+}
+
+/// `genai.VideoContent.MediaProcessing`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoContentMediaProcessing {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#static: Option<VideoContentStaticMediaProcessing>,
+}
+
+/// The `type` oneof of [`VideoContentMediaProcessing`], as an owned value.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VideoContentMediaProcessingType {
+    Static(VideoContentStaticMediaProcessing),
+}
+
+impl VideoContentMediaProcessing {
+    /// Takes the set arm of the `type` oneof, if any.
+    pub fn into_type(self) -> Option<VideoContentMediaProcessingType> {
+        if let Some(v) = self.r#static {
+            return Some(VideoContentMediaProcessingType::Static(v));
+        }
+        None
+    }
+
+    /// True when any arm of the `type` oneof is set.
+    pub fn has_type(&self) -> bool {
+        self.r#static.is_some()
+    }
+}
+
+/// `genai.VideoContent.StaticMediaProcessing`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoContentStaticMediaProcessing {
+    #[serde(
+        alias = "start_offset",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub start_offset: Option<String>,
+    #[serde(alias = "end_offset", default, skip_serializing_if = "Option::is_none")]
+    pub end_offset: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fps: Option<f64>,
 }
 
 /// `antigravity.localharness.ViewFileToolConfig`

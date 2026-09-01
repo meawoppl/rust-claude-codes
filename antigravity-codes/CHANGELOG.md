@@ -5,6 +5,42 @@ All notable changes to `antigravity-codes` are documented here.
 The version tracks the `google-antigravity` release whose harness the crate was
 generated from and tested against.
 
+## [0.1.15] - 2026-09-01
+
+Re-baseline against `google-antigravity` 0.1.15: types regenerated from the
+0.1.15 wheel's descriptors (165 messages, 27 enums — up from 154/22), and the
+full live integration suite passes against its bundled harness, including a
+real model turn.
+
+### Changed
+
+- **Breaking (wire-mandated)**: `InputEvent.user_input` is now a structured
+  `UserInput` message (text / media / slash-command parts) instead of a bare
+  string — upstream removed the string field and renamed `complexUserInput` to
+  `userInput`. `InputEvent::user(text)` still takes a string and wraps it in a
+  single text part.
+- `AudioContent` / `DocumentContent` / `ImageContent` / `VideoContent` gained
+  `mime_type_string`; the old `mime_type` enums now serialize under upstream's
+  `legacy_mime_type_enum` wire name.
+- A protobuf nested type and a `oneof` on the same message can now flatten to
+  the same Rust name (`VideoContent.Processing` vs the new `processing`
+  oneof); the generated `oneof` view enum takes an `Oneof` suffix when that
+  happens (`VideoContentProcessingOneof`).
+
+### Added
+
+- New config surface: `BudgetConfig`, `ManageTaskToolConfig`,
+  `ScheduleToolConfig`, `SubagentSkillsConfig`, `AgentBehavior`, and
+  `PolicyConfig.workspace_containment`; `RunCommandToolConfig` gains
+  `max_timeout_ms` + `enable_daemon_commands`, `SubagentsConfig` gains
+  `max_nesting_depth` + `allowed_subagents`.
+- Subagent attribution: `trajectory_id` / `step_index` on the hook arg
+  messages, `parent_trajectory_id` + `depth` + `stop_reason` on trajectory
+  updates, and the `on_compaction` lifecycle hook (`OnCompactionArgs`).
+- Per-modality token detail on `UsageMetadata` (`ModalityTokenCount`),
+  `ActionViewFile.content_offset`, `ActionGenerateImage.output_path`,
+  `VideoContent` processing config, and `VertexEndpoint.api_key`.
+
 ## [0.1.10] - 2026-08-08
 
 Initial release. Tested against `google-antigravity` 0.1.10.

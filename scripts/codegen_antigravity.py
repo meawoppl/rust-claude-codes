@@ -433,6 +433,12 @@ def emit_field(reg: Registry, m: Message, f: Field) -> list[str]:
 
 def emit_oneof(reg: Registry, m: Message, oneof: str, arms: list[Field]) -> list[str]:
     ename = rust_type_name(m.full_name) + pascal(oneof)
+    # A nested proto type can flatten to the same Rust name as the oneof view
+    # enum (e.g. `VideoContent.Processing` vs the `processing` oneof); suffix
+    # the synthetic view enum to keep the real type's name.
+    taken = {rust_type_name(n) for n in (*reg.messages, *reg.enums)}
+    if ename in taken:
+        ename += "Oneof"
     mname = rust_type_name(m.full_name)
     lines = [
         f"/// The `{oneof}` oneof of [`{mname}`], as an owned value.",

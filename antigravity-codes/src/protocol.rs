@@ -30,10 +30,19 @@
 pub use crate::protocol_generated::types::*;
 
 impl InputEvent {
-    /// A plain text turn: `InputEvent { user_input: Some(text) }`.
+    /// A plain text turn: one [`UserInput`] with a single text part.
+    ///
+    /// Since google-antigravity 0.1.15, `userInput` carries a structured
+    /// [`UserInput`] message (text / media / slash-command parts) instead of a
+    /// bare string.
     pub fn user(text: impl Into<String>) -> Self {
         Self {
-            user_input: Some(text.into()),
+            user_input: Some(UserInput {
+                parts: vec![UserInputPart {
+                    text: Some(text.into()),
+                    ..Default::default()
+                }],
+            }),
             ..Default::default()
         }
     }
@@ -154,9 +163,11 @@ impl HarnessSideTools {
             }),
             run_command: Some(RunCommandToolConfig {
                 enabled: Some(true),
+                ..Default::default()
             }),
             subagents: Some(SubagentsConfig {
                 enabled: Some(true),
+                ..Default::default()
             }),
             user_questions: Some(UserQuestionsConfig {
                 enabled: Some(true),
