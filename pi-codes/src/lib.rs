@@ -28,9 +28,10 @@
 //!   errors, so CLI upgrades degrade soft.
 //! - Unmodeled commands can be sent via [`rpc::RpcCommand::Raw`].
 //!
-//! The version convention matches the sibling crates: the crate version
-//! names the pi release the live suite last passed against
-//! ([`version::tested_cli_version`]).
+//! **Alpha**: unlike the sibling crates, the crate version does not yet
+//! name the tested pi release — it stays 0.0.x while the API settles.
+//! The tested release is still machine-readable via
+//! [`version::tested_cli_version`].
 
 pub mod cli;
 pub mod error;

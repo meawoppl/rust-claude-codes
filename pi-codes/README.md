@@ -5,8 +5,11 @@ Typed Rust SDK for the [pi coding agent](https://github.com/earendil-works/pi)
 `pi --mode json` JSONL event stream and the `pi --mode rpc` stdin/stdout
 command protocol, plus an async (Tokio) RPC client.
 
-Tested against pi 0.84.4. The crate version may carry a patch offset
-above the CLI release for crate-side additions.
+**Alpha.** Tested against pi 0.84.4 — but unlike the sibling crates,
+the crate version does **not** yet follow the version-means-tested
+convention: it starts at 0.0.1 while the API settles, and will jump to
+the tested pi release once pinned forward. Expect breaking changes
+between 0.0.x releases.
 
 ## What's covered
 
