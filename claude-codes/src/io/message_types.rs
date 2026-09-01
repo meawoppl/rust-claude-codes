@@ -662,6 +662,9 @@ pub struct UserMessage {
     pub is_replay: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_attachments: Option<Vec<Value>>,
+    /// Desktop host only: the host's own seeded summon (CLI 2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seeded_summon: Option<bool>,
 }
 
 impl UserMessage {
@@ -1249,6 +1252,12 @@ pub struct ModelRefusalFallbackMessage {
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_refusal_category: Option<String>,
+    /// Present when any hop of this banner's multi-hop episode was a cyber
+    /// refusal — not only the origin hop `api_refusal_category` describes.
+    /// Re-arm evidence for the CLI's cyber-exclusion header on session
+    /// restore; absent on cyber-free episodes and older CLIs (2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saw_cyber_refusal: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_refusal_explanation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1711,6 +1720,20 @@ pub struct InitMessage {
     /// Plugin load warnings.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugin_warnings: Vec<PluginDiagnostic>,
+
+    /// The effort level the session will send on its next request — after env
+    /// overrides, session state, org caps, and model-support downgrades
+    /// (`"low"` | `"medium"` | `"high"` | `"xhigh"` | `"max"`). `None` when no
+    /// effort parameter will be sent, or on CLIs before 2.1.239.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+
+    /// Only on init frames written by the headless stream-json client of a
+    /// cloud-hosted session: a per-frame snapshot of the cloud session's id,
+    /// view URL, device binding, and directory-sync state. Absent in every
+    /// other mode. Stored as raw JSON (the shape is internal and evolving).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cloud_session: Option<Value>,
 }
 
 /// Status system message - sent during operations like context compaction
@@ -1956,6 +1979,18 @@ pub struct TaskStartedMessage {
     /// `Explore`). Absent for `local_bash` tasks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subagent_type: Option<String>,
+    /// Whether the task was registered in the background (`true`) or in the
+    /// foreground with the spawning tool call blocking on it (`false`). A
+    /// later move to the background arrives as `task_updated`
+    /// `patch.is_backgrounded`. Set for `local_agent` and `local_bash` tasks
+    /// (CLI 2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_backgrounded: Option<bool>,
+    /// Nesting depth of a spawned subagent (`local_agent`) task: 1 for a
+    /// top-level spawn, N+1 when spawned from inside a depth-N agent. Not set
+    /// on other tasks (CLI 2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spawn_depth: Option<u32>,
     /// The prompt handed to the subagent. Present for `local_agent` tasks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
@@ -2138,6 +2173,15 @@ pub struct CodeChangePublishedMessage {
     pub repo: String,
     /// Provider-native change identifier — the PR/MR number as a string.
     pub identifier: String,
+    /// What the session did that produced this announcement: the flag-aware
+    /// `gh pr` verb it ran (`"created"`, `"edited"`, `"merged"`,
+    /// `"commented"`, `"closed"`, `"reopened"`, `"ready"`, `"draft"`,
+    /// `"auto-merge-enabled"`, `"auto-merge-disabled"`), `"pushed"` for a
+    /// push to a branch that has a PR, or `"checked-out"` for `gh pr
+    /// checkout`. Always sent by current producers (CLI 2.1.239+), absent
+    /// only from older ones. Open set — treat unknown values as valid.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
     pub uuid: String,
     pub session_id: String,
 }
@@ -2154,6 +2198,12 @@ pub struct VcsStateChangedMessage {
     /// The session's working directory — a hint, not necessarily the mutated
     /// repo's path (`git -C` or an inner `cd` mutates elsewhere).
     pub cwd: String,
+    /// The branch a commit landed on or a push updated. Commit and push
+    /// events carry it; a command that pushed several branches emits one push
+    /// event per branch. A best-effort hint: absent whenever attribution is
+    /// uncertain, and never a required key (CLI 2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     pub uuid: String,
     pub session_id: String,
 }
@@ -2227,6 +2277,111 @@ pub struct FeedbackDraftQueuedMessage {
     pub extra: serde_json::Map<String, Value>,
 }
 
+/// `{id, name}` of an original `Batch*` tool_use block, carried in
+/// [`AssistantMessage::batch_tool_uses`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BatchToolUse {
+    pub id: String,
+    pub name: String,
+}
+
+/// Structured twin of the `/context` report, carried as
+/// [`AssistantMessage::context_usage`] — the data a client needs to render
+/// the context-usage card without parsing the markdown table. Evolves
+/// additively; a breaking reshape would ship as a sibling field.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextUsage {
+    /// Main-loop model the usage was computed for.
+    pub model: String,
+    /// Estimated tokens in use, unclamped — may exceed `raw_max_tokens` when
+    /// over limit.
+    pub total_tokens: u64,
+    /// The window usage is measured against: the resolved autocompact window —
+    /// the model's believed limit, or a smaller compaction-policy window.
+    pub raw_max_tokens: u64,
+    /// Rounded `total_tokens / raw_max_tokens`, 0–100+.
+    pub percentage: u64,
+    /// Present when `total_tokens` exceeds `raw_max_tokens`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub over_limit: Option<ContextOverLimit>,
+    /// Usage-by-category rows (`Messages`, `System prompt`, …).
+    #[serde(default)]
+    pub categories: Vec<ContextCategory>,
+    /// Per-tool token contributions of MCP tools.
+    #[serde(default)]
+    pub mcp_tools: Vec<ContextMcpTool>,
+    /// Per-file token contributions of memory files.
+    #[serde(default)]
+    pub memory_files: Vec<ContextMemoryFile>,
+    /// Per-agent token contributions of agent definitions.
+    #[serde(default)]
+    pub agents: Vec<ContextAgent>,
+    /// Per-skill token contributions. Omitted when no skills contribute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skills: Option<Vec<ContextSkill>>,
+}
+
+/// Why and by how much a [`ContextUsage`] exceeds its window.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextOverLimit {
+    pub tokens_over: u64,
+    /// How the window was resolved: `"hard_limit"` (the model's believed
+    /// limit) or `"compaction_window"` (a compaction-policy window).
+    pub kind: String,
+}
+
+/// One row of the `/context` usage-by-category breakdown.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextCategory {
+    /// Display name of the row as the CLI renders it, e.g. `"Messages"`.
+    /// Use `kind` (not this name) to classify the row.
+    pub name: String,
+    pub tokens: u64,
+    /// What the row is: `"used"` content occupies the window; `"free"` is the
+    /// remaining window; `"buffer"` is the compaction reserve; `"deferred"`
+    /// rows are out-of-window tool schemas, excluded from usage math.
+    pub kind: String,
+}
+
+/// An MCP tool's token contribution, in [`ContextUsage::mcp_tools`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextMcpTool {
+    /// Wire name, e.g. `"mcp__linear__create_issue"`.
+    pub name: String,
+    pub server_name: String,
+    pub tokens: u64,
+}
+
+/// A memory file's token contribution, in [`ContextUsage::memory_files`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextMemoryFile {
+    pub path: String,
+    /// Display label of the memory-file source, e.g. `"Project"` or `"User"`.
+    #[serde(rename = "type")]
+    pub file_type: String,
+    pub tokens: u64,
+}
+
+/// An agent definition's token contribution, in [`ContextUsage::agents`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextAgent {
+    pub agent_type: String,
+    /// Raw source identifier, e.g. `"projectSettings"`, `"plugin"`.
+    pub source: String,
+    pub tokens: u64,
+}
+
+/// A skill's token contribution, in [`ContextUsage::skills`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextSkill {
+    pub name: String,
+    /// Raw source identifier, e.g. `"userSettings"`, `"plugin"`.
+    pub source: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_name: Option<String>,
+    pub tokens: u64,
+}
+
 /// Display metadata for a tool-use block carried on the assistant wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolUseMeta {
@@ -2277,6 +2432,17 @@ pub struct AssistantMessage {
     pub timestamp: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_use_meta: Vec<ToolUseMeta>,
+    /// `{id, name}` of the original `Batch*` tool_use block(s) for a message
+    /// whose content was decomposed into synthetic v1 tool_use blocks.
+    /// Round-tripped so a replayed history reassembles the batch block on the
+    /// wire. Wrapper-level sibling — never inside `message.content`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub batch_tool_uses: Vec<BatchToolUse>,
+    /// Structured twin of the `/context` report, carried on the synthetic
+    /// assistant message that delivers the markdown table. Present only on
+    /// `/context` results from CLIs new enough to attach it (2.1.239+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_usage: Option<ContextUsage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub is_meta: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

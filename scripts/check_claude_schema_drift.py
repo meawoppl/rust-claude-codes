@@ -59,17 +59,17 @@ SNAPSHOT = ROOT / "claude-codes" / "tests" / "schemas" / "claude_stream_json_sna
 _KEY = re.compile(r"[A-Za-z_$][\w$]*")
 
 
-def top_level_keys(body: str, zod: str) -> list[str]:
-    """The direct object keys of a schema's outermost `<zod>.object({...})`.
+def top_level_keys(body: str, opener: str) -> list[str]:
+    """The direct object keys of a schema's outermost object combinator.
 
-    `zod` is the minified zod-namespace alias the extractor discovered from
-    the binary (`E` on CLI 2.1.205) — it changes between releases.
+    `opener` is the exact object-schema opening text the extractor discovered
+    from the binary (`E.object({` on CLI 2.1.205, `_e({` on 2.1.239) — it
+    changes between releases.
     String-literal aware (so colons/braces inside `.describe("...")` prose are
-    skipped) and bracket-depth aware (so nested `<zod>.object(...)` keys aren't
+    skipped) and bracket-depth aware (so nested object combinator keys aren't
     counted). Only bare-identifier keys are recognized — all Claude wire
     schemas use them.
     """
-    opener = zod + ".object({"
     start = body.find(opener)
     if start < 0:
         return []
@@ -124,7 +124,7 @@ def build_fingerprint(data: bytes) -> tuple[int, dict[str, list[str]]]:
     for _name, label, body in extraction.results:
         if label in ("(nested)", "NOT FOUND"):
             continue
-        keys = sorted(set(top_level_keys(body, extraction.zod)))
+        keys = sorted(set(top_level_keys(body, extraction.object_open)))
         # First definition wins on the rare label collision; keep it deterministic.
         labeled.setdefault(label, keys)
     return members, labeled

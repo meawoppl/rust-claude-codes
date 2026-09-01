@@ -73,6 +73,7 @@ impl ClaudeInput {
             inbound_origin: None,
             is_replay: None,
             file_attachments: None,
+            seeded_summon: None,
         })
     }
 
@@ -108,6 +109,7 @@ impl ClaudeInput {
             inbound_origin: None,
             is_replay: None,
             file_attachments: None,
+            seeded_summon: None,
         })
     }
 

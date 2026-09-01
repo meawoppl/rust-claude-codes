@@ -46,13 +46,27 @@ _IDENT = rb"[A-Za-z_$][\w$]{1,6}"
 # A minified alias can be a single character (`E` is the zod alias on 2.1.205).
 _ALIAS = rb"[A-Za-z_$][\w$]{0,6}"
 
-# Discovers the alias pair from the anchor schema. Captures:
+# Discovers the alias pair from the anchor schema (zod-namespace bundle
+# style, CLI <= 2.1.23x). Captures:
 #   1. the anchor schema's minified name
 #   2. the lazy-schema wrapper alias (`Se` on CLI 2.1.205)
 #   3. the zod-namespace alias (`E` on CLI 2.1.205)
 ALIAS_DISCOVERY = re.compile(
     rb"(" + _IDENT + rb")=(" + _ALIAS + rb")\(\(\)=>"
     rb"(" + _ALIAS + rb')\.object\(\{type:\3\.literal\("rate_limit_event"\)'
+)
+
+# Same discovery for the free-function bundle style (CLI 2.1.239+): the zod
+# combinators are destructured into standalone minified functions, so the
+# anchor reads `P3b=ve(()=>_e({type:Tt("rate_limit_event"),...}))` instead of
+# `NAME=Se(()=>E.object({type:E.literal("rate_limit_event"),...}))`. Captures:
+#   1. the anchor schema's minified name
+#   2. the lazy-schema wrapper alias (`ve` on 2.1.239)
+#   3. the object-combinator function (`_e` on 2.1.239)
+#   4. the literal-combinator function (`Tt` on 2.1.239)
+FREEFN_DISCOVERY = re.compile(
+    rb"(" + _IDENT + rb")=(" + _ALIAS + rb")\(\(\)=>"
+    rb"(" + _ALIAS + rb')\(\{type:(' + _ALIAS + rb')\("rate_limit_event"\)'
 )
 
 # Calls to other lazy schemas inside a definition body: `ref()`. A plain \b
@@ -65,25 +79,61 @@ REF_CALL = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]{1,6})\(\)")
 
 
 class WirePatterns(NamedTuple):
-    """Byte-regexes rebuilt from a discovered (lazy, zod) alias pair."""
+    """Byte-regexes rebuilt from a discovered alias set.
+
+    `object_open` is the exact text that opens an object schema body
+    (`E.object({` in the zod-namespace style, `_e({` in the free-function
+    style) and `literal` the callable producing a literal (`E.literal` /
+    `Tt`) — consumers use them to parse bodies without caring which bundle
+    style the binary uses.
+    """
 
     lazy: str
-    zod: str
+    object_open: str
+    literal: str
     def_start: re.Pattern[bytes]
     boundary: re.Pattern[bytes]
     union: re.Pattern[bytes]
 
 
+def _shared_patterns(lazy: bytes) -> tuple[re.Pattern[bytes], re.Pattern[bytes]]:
+    lz = re.escape(lazy)
+    return (
+        # A schema definition starts at `NAME=<lazy>(` and ends where the next begins.
+        re.compile(rb"[^\w$](" + _IDENT + rb")=" + lz + rb"\("),
+        re.compile(rb"[,;({\[]\s*" + _IDENT + rb"=" + lz + rb"\("),
+    )
+
+
 def build_patterns(lazy: bytes, zod: bytes) -> WirePatterns:
     lz, zd = re.escape(lazy), re.escape(zod)
+    def_start, boundary = _shared_patterns(lazy)
     return WirePatterns(
         lazy=lazy.decode(),
-        zod=zod.decode(),
-        # A schema definition starts at `NAME=<lazy>(` and ends where the next begins.
-        def_start=re.compile(rb"[^\w$](" + _IDENT + rb")=" + lz + rb"\("),
-        boundary=re.compile(rb"[,;({\[]\s*" + _IDENT + rb"=" + lz + rb"\("),
+        object_open=zod.decode() + ".object({",
+        literal=zod.decode() + ".literal",
+        def_start=def_start,
+        boundary=boundary,
         union=re.compile(
-            _IDENT + rb"=" + lz + rb"\(\(\)=>" + zd + rb"\.union\(\[[^\]]*\]\)\)"
+            _IDENT + rb"=" + lz + rb"\(\(\)=>" + zd + rb"\.union\(\[[^\]]*\]\)"
+        ),
+    )
+
+
+def build_freefn_patterns(lazy: bytes, objfn: bytes, litfn: bytes) -> WirePatterns:
+    lz = re.escape(lazy)
+    def_start, boundary = _shared_patterns(lazy)
+    return WirePatterns(
+        lazy=lazy.decode(),
+        object_open=objfn.decode() + "({",
+        literal=litfn.decode(),
+        def_start=def_start,
+        boundary=boundary,
+        # The union combinator's minified name isn't recoverable from the
+        # anchor, so accept any `fn([...])` — the caller keeps only the match
+        # that references the anchor schema.
+        union=re.compile(
+            _IDENT + rb"=" + lz + rb"\(\(\)=>" + _ALIAS + rb"\(\[[^\]]*\]\)"
         ),
     )
 
@@ -94,9 +144,10 @@ class Extraction(NamedTuple):
     union_text: str
     # (minified_name, label, body_text) in BFS order from the union members.
     results: list[tuple[str, str, str]]
-    # The discovered zod-namespace alias — needed by consumers that parse the
-    # bodies (e.g. the drift check's top-level-key scan).
-    zod: str
+    # The discovered object-schema opener (`E.object({` / `_e({`) — needed by
+    # consumers that parse the bodies (e.g. the drift check's top-level-key
+    # scan).
+    object_open: str
     # Referenced names with no definition under the schema wrapper — module
     # initializer thunks and helper functions whose call sites happen to
     # match the `ref()` shape, not schemas. Reported for transparency; they
@@ -117,16 +168,18 @@ def resolve_binary(arg: str | None) -> Path:
     return Path(on_path).resolve()
 
 
-def discover_aliases(data: bytes) -> list[tuple[re.Match[bytes], bytes, bytes]]:
-    """All `(anchor_match, lazy_alias, zod_alias)` candidates in the binary.
+def discover_aliases(data: bytes) -> list[tuple[re.Match[bytes], WirePatterns]]:
+    """All `(anchor_match, patterns)` candidates in the binary, both styles.
 
     Anchored on the stable `"rate_limit_event"` literal; the aliases are read
     from the surrounding bytes rather than assumed. Multiple candidates can
     appear when the bundle carries more than one zod copy — callers try each.
     """
-    out = []
+    out: list[tuple[re.Match[bytes], WirePatterns]] = []
     for m in ALIAS_DISCOVERY.finditer(data):
-        out.append((m, m.group(2), m.group(3)))
+        out.append((m, build_patterns(m.group(2), m.group(3))))
+    for m in FREEFN_DISCOVERY.finditer(data):
+        out.append((m, build_freefn_patterns(m.group(2), m.group(3), m.group(4))))
     return out
 
 
@@ -156,10 +209,10 @@ def pick_definition(cands: list[tuple[int, bytes]], anchor: int) -> bytes | None
 
 
 
-def label_of(body: str, zod: str) -> str:
-    z = re.escape(zod)
-    t = re.search(r"type:" + z + r'\.literal\("([a-z_]+)"\)', body)
-    s = re.search(r"subtype:" + z + r'\.literal\("([a-z_0-9]+)"\)', body)
+def label_of(body: str, literal: str) -> str:
+    lit = re.escape(literal)
+    t = re.search(r"type:" + lit + r'\("([a-z_]+)"\)', body)
+    s = re.search(r"subtype:" + lit + r'\("([a-z_0-9]+)"\)', body)
     if t and s:
         return f"{t.group(1)}/{s.group(1)}"
     if t:
@@ -201,11 +254,11 @@ def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> E
             unresolved.append(name)
             continue
         text = body.decode("utf-8", "replace")
-        results.append((name, label_of(text, pats.zod), text))
+        results.append((name, label_of(text, pats.literal), text))
         for ref in REF_CALL.findall(text):
             if ref not in seen and ref not in queue:
                 queue.append(ref)
-    return Extraction(union_text, results, pats.zod, unresolved)
+    return Extraction(union_text, results, pats.object_open, unresolved)
 
 
 def extract_schemas(data: bytes) -> Extraction:
@@ -222,12 +275,11 @@ def extract_schemas(data: bytes) -> Extraction:
         )
 
     failures = []
-    for anchor, lazy, zod in candidates:
-        pats = build_patterns(lazy, zod)
+    for anchor, pats in candidates:
         try:
             return _extract_with(data, anchor, pats)
         except SchemaExtractionError as e:
-            failures.append(f"aliases lazy={pats.lazy} zod={pats.zod}: {e}")
+            failures.append(f"aliases lazy={pats.lazy} object={pats.object_open}: {e}")
     raise SchemaExtractionError(
         "no candidate alias pair yielded the SDK output union: " + "; ".join(failures)
     )
@@ -251,7 +303,7 @@ def main() -> None:
     union_text, results = extraction.union_text, extraction.results
     print(
         f"# union: {len(REF_CALL.findall(union_text))} members"
-        f" (aliases: zod={extraction.zod})",
+        f" (object schema opener: {extraction.object_open!r})",
         file=sys.stderr,
     )
     if extraction.unresolved:

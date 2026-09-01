@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.239] - 2026-09-01
+
+Re-baseline against Claude CLI **2.1.239**: the full live integration suite
+(28 tests) passes, so the tested pin (`TESTED_VERSION`, both README
+`Tested against:` lines) and the crate version move to 2.1.239. Models the
+2.1.232 → 2.1.239 stream-json drift (all additive) and repairs the schema
+extractor against the CLI's new bundle style.
+
+### Added
+
+- `AssistantMessage.context_usage` (`ContextUsage` + `ContextCategory`,
+  `ContextOverLimit`, `ContextMcpTool`, `ContextMemoryFile`, `ContextAgent`,
+  `ContextSkill`) — the structured twin of the `/context` report — and
+  `AssistantMessage.batch_tool_uses` (`BatchToolUse`).
+- `ResultMessage.subagent_stats` (`SubagentStats` + `SubagentSpawnRequests`,
+  `SubagentKillCounts`, `SubagentRefusalCounts`) — running totals for
+  subagents started through the Agent tool.
+- `InitMessage.effort` (the session's resolved effort level) and
+  `InitMessage.cloud_session` (raw JSON snapshot on cloud-hosted sessions).
+- `TaskStartedMessage.{is_backgrounded, spawn_depth}`,
+  `CodeChangePublishedMessage.action`, `VcsStateChangedMessage.branch`,
+  `ModelRefusalFallbackMessage.saw_cyber_refusal`, and
+  `UserMessage.seeded_summon`.
+
+### Fixed
+
+- `scripts/extract_claude_sdk_schemas.py` (and with it the nightly drift
+  check, which had been soft-skipping since the CLI's bundler switched
+  styles): schemas are now also discovered in the free-function zod style
+  (`ve(()=>_e({type:Tt("…")}))`) used by CLI 2.1.239+, alongside the
+  zod-namespace style (`Se(()=>E.object({type:E.literal("…")}))`) of older
+  binaries. The snapshot is re-baselined against 2.1.239 (43 wire labels).
+
 ## [2.1.234] - 2026-08-19
 
 ### Added
