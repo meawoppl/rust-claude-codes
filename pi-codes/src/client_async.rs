@@ -29,7 +29,11 @@ impl PiRpcClient {
     pub async fn spawn(builder: PiCliBuilder) -> Result<Self> {
         let program = which::which("pi").map_err(|_| Error::BinaryNotFound)?;
         let mut cmd = tokio::process::Command::new(program);
-        cmd.args(builder.mode(Mode::Rpc).assembled_args())
+        let builder = builder.mode(Mode::Rpc);
+        if let Some(dir) = builder.get_working_directory() {
+            cmd.current_dir(dir);
+        }
+        cmd.args(builder.assembled_args())
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

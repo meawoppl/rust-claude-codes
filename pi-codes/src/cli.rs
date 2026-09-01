@@ -55,6 +55,10 @@ pub struct PiCliBuilder {
     exclude_tools: Option<String>,
     thinking: Option<String>,
     print: bool,
+    approve: bool,
+    no_approve: bool,
+    offline: bool,
+    working_directory: Option<PathBuf>,
     extra_args: Vec<OsString>,
     prompt: Option<String>,
 }
@@ -162,6 +166,40 @@ impl PiCliBuilder {
         self
     }
 
+    /// `--approve` — trust project-local files (extensions, AGENTS.md)
+    /// for this run. Note pi has NO tool-approval gate: read/bash/edit/
+    /// write always run without prompting; this flag is only about
+    /// trusting local config.
+    pub fn approve(mut self, enabled: bool) -> Self {
+        self.approve = enabled;
+        self
+    }
+
+    /// `--no-approve` — ignore project-local files for this run.
+    pub fn no_approve(mut self, enabled: bool) -> Self {
+        self.no_approve = enabled;
+        self
+    }
+
+    /// `--offline` — disable startup network operations.
+    pub fn offline(mut self, enabled: bool) -> Self {
+        self.offline = enabled;
+        self
+    }
+
+    /// Working directory for the spawned process (not a pi flag — pi's
+    /// tools operate relative to its cwd). Used by
+    /// [`crate::client_async::PiRpcClient::spawn`].
+    pub fn working_directory(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.working_directory = Some(dir.into());
+        self
+    }
+
+    /// The configured working directory, if any.
+    pub fn get_working_directory(&self) -> Option<&std::path::Path> {
+        self.working_directory.as_deref()
+    }
+
     /// Escape hatch: raw args appended after every typed flag, before
     /// the positional prompt.
     pub fn extra_args<I, S>(mut self, args: I) -> Self
@@ -214,6 +252,15 @@ impl PiCliBuilder {
         }
         if self.print {
             a.push("--print".into());
+        }
+        if self.approve {
+            a.push("--approve".into());
+        }
+        if self.no_approve {
+            a.push("--no-approve".into());
+        }
+        if self.offline {
+            a.push("--offline".into());
         }
         a.extend(self.extra_args.iter().cloned());
         if let Some(p) = &self.prompt {
