@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-09-01
+
+### Fixed
+
+- `ModelConfigured.profile_id` is now `Option<String>`: Muse Code 1.0.1
+  sends an explicit `null` on `run.model.configured` when no profile
+  applies (0.2.1 always sent a string). Serialized as `null`, not
+  omitted, to round-trip the 1.0.1 wire. Surfaced by wirecheck's live
+  `meta_typed_audit` after hosts auto-rolled 0.2.1 → 1.0.1.
+
+### Added
+
+- Corpus capture `meta_hello_1_0_1.jsonl` from Muse Code 1.0.1
+  (`1.0.1-R2006.1`) pinning the null `profile_id` and the 1.0.1 hello
+  vocabulary. Note the 1.0.1 TUI dropped the bare `-p` flag; `muse exec
+  --json` (what this crate drives) is unchanged. Tested pin stays 0.2.1
+  until a full 1.0.1 re-baseline.
+
 ## [0.2.1] - 2026-08-19
 
 ### Changed

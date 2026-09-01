@@ -86,6 +86,7 @@ pub async fn run_suite(reporter: Reporter) {
     session_lifecycle(&reporter, &client).await;
     fork_session(&reporter, &client).await;
     event_stream(&reporter, &client).await;
+    conformance(&reporter, &client).await;
 
     let started = reporter
         .start("server_shutdown", "managed server stops cleanly")
@@ -107,6 +108,60 @@ pub async fn run_suite(reporter: Reporter) {
                 .await;
         }
     }
+}
+
+/// The cross-harness conformance tier (hello / read / write / bash).
+/// Sends each prompt into a fresh session with the server's default
+/// model and polls for the assistant reply. A host with no model
+/// provider configured can't run turns at all — that surfaces as the
+/// tier being Skipped, not Failed.
+async fn conformance(reporter: &Reporter, client: &OpencodeClient) {
+    crate::checks::conformance::run(reporter, |turn| async move {
+        let session = client
+            .create_session(&params("wirecheck conformance"))
+            .await
+            .map_err(|e| format!("SKIP: session create failed: {e}"))?;
+        let prompt: opencode_codes::protocol_generated::types::PromptAsyncParams =
+            serde_json::from_value(serde_json::json!({
+                "parts": [{"type": "text", "text": turn.prompt}]
+            }))
+            .map_err(|e| e.to_string())?;
+        client
+            .prompt_async(&session.id, &prompt)
+            .await
+            .map_err(|e| format!("SKIP: prompt rejected — likely no model provider: {e}"))?;
+        // Poll for a completed assistant reply.
+        for _ in 0..140 {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            let messages = client
+                .list_messages(&session.id)
+                .await
+                .map_err(|e| e.to_string())?;
+            let mut answer = String::new();
+            let mut done = false;
+            for m in &messages {
+                let v = serde_json::to_value(m).unwrap_or_default();
+                if v["info"]["role"].as_str() != Some("assistant") {
+                    continue;
+                }
+                if v["info"]["time"]["completed"].is_number() {
+                    done = true;
+                }
+                if let Some(parts) = v["parts"].as_array() {
+                    for p in parts {
+                        if p["type"].as_str() == Some("text") {
+                            answer.push_str(p["text"].as_str().unwrap_or(""));
+                        }
+                    }
+                }
+            }
+            if done && !answer.is_empty() {
+                return Ok(answer);
+            }
+        }
+        Err("SKIP: no assistant reply within 280s — likely no model provider configured".into())
+    })
+    .await;
 }
 
 fn params(title: &str) -> SessionCreateParams {

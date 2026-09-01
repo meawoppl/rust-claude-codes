@@ -77,6 +77,71 @@ pub async fn run_suite(reporter: Reporter) {
     live_turn(&reporter).await;
     thread_fork(&reporter).await;
     account_read_family(&reporter).await;
+    conformance(&reporter).await;
+}
+
+/// The cross-harness conformance tier (hello / read / write / bash).
+/// Runs each prompt as one app-server turn with cwd set to the harness
+/// workdir; approval requests are auto-accepted (capability, not policy,
+/// is under test).
+async fn conformance(reporter: &Reporter) {
+    crate::checks::conformance::run(reporter, |turn| async move {
+        let mut client = codex_codes::AsyncClient::start()
+            .await
+            .map_err(|e| e.to_string())?;
+        let thread = client
+            .thread_start(&ThreadStartParams::default())
+            .await
+            .map_err(|e| e.to_string())?;
+        client
+            .turn_start(&TurnStartParams {
+                thread_id: thread.thread.id.clone(),
+                cwd: Some(turn.workdir.display().to_string()),
+                input: vec![UserInput::Text {
+                    text: turn.prompt.clone(),
+                    text_elements: None,
+                }],
+                approval_policy: None,
+                approvals_reviewer: None,
+                client_user_message_id: None,
+                effort: None,
+                model: None,
+                output_schema: None,
+                personality: None,
+                sandbox_policy: None,
+                service_tier: None,
+                service_tier_for_turn: None,
+                summary: None,
+                tool_output: None,
+                turn_trigger: None,
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        let mut answer = String::new();
+        let mut n = 0usize;
+        while let Some(msg) = client.next_message().await.map_err(|e| e.to_string())? {
+            n += 1;
+            match msg {
+                ServerMessage::Notification(Notification::AgentMessageDelta(d)) => {
+                    answer.push_str(&d.delta);
+                }
+                ServerMessage::Notification(Notification::TurnCompleted(_)) => break,
+                ServerMessage::Notification(_) => {}
+                ServerMessage::Request { id, .. } => {
+                    client
+                        .respond(id, &serde_json::json!({"decision": "accept"}))
+                        .await
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            if n > 2000 {
+                return Err("turn did not complete within 2000 messages".to_string());
+            }
+        }
+        client.shutdown().await.map_err(|e| e.to_string())?;
+        Ok(answer)
+    })
+    .await;
 }
 
 /// A fork gets a NEW thread id after a seeded turn — the history-carrying

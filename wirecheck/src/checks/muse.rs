@@ -29,6 +29,7 @@ pub async fn run_suite(reporter: Reporter) {
 
     if muse_codes::auth::credentials_present() {
         live_meta_checks(&reporter).await;
+        conformance(&reporter).await;
     } else {
         let started = reporter
             .start(
@@ -658,6 +659,37 @@ async fn meta_only_flags_rejected(reporter: &Reporter) {
     }
     finish_list(reporter, "flag_constraints", started, problems, || {
         "both meta-only flags fail fast under echo, as documented".to_string()
+    })
+    .await;
+}
+
+/// The cross-harness conformance tier (hello / read / write / bash).
+/// One meta-provider exec per prompt, side effects auto-approved via
+/// `--yolo` (capability, not approval policy, is under test); the reply
+/// is the terminal record's text, per the SDK's documented contract.
+async fn conformance(reporter: &Reporter) {
+    crate::checks::conformance::run(reporter, |turn| async move {
+        let records = capture(
+            MuseExecBuilder::new(&turn.prompt)
+                .provider(Provider::Meta)
+                .yolo(true)
+                .working_directory(&turn.workdir),
+            300,
+        )
+        .await?;
+        let text = records
+            .iter()
+            .filter(|r| r.payload_type.starts_with("run.terminal."))
+            .filter_map(|r| {
+                r.payload
+                    .get("text")
+                    .and_then(|t| t.as_str())
+                    .filter(|t| !t.trim().is_empty())
+                    .or_else(|| r.payload.get("reason").and_then(|t| t.as_str()))
+            })
+            .next_back()
+            .unwrap_or("");
+        Ok(text.to_string())
     })
     .await;
 }

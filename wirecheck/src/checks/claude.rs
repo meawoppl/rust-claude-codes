@@ -82,6 +82,27 @@ pub async fn run_suite(reporter: Reporter) {
     fork_carries_history(&reporter).await;
     tool_use_blocks(&reporter).await;
     approval_handshake(&reporter).await;
+    conformance(&reporter).await;
+}
+
+/// The cross-harness conformance tier (hello / read / write / bash),
+/// driven through the typed async client. Permissions are skipped for
+/// these turns — the checks assert tool CAPABILITY, and the paths are
+/// harness-owned temp files.
+async fn conformance(reporter: &Reporter) {
+    crate::checks::conformance::run(reporter, |turn| async move {
+        let builder = claude_codes::ClaudeCliBuilder::new().dangerously_skip_permissions(true);
+        let mut client = claude_codes::AsyncClient::from_builder(builder)
+            .await
+            .map_err(|e| e.to_string())?;
+        let outputs = client
+            .query(&turn.prompt)
+            .await
+            .map_err(|e| e.to_string())?;
+        client.shutdown().await.map_err(|e| e.to_string())?;
+        Ok(assistant_text(&outputs))
+    })
+    .await;
 }
 
 /// Control-protocol liveness: a running client answers a ping.
