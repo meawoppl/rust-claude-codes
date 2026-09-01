@@ -8,7 +8,7 @@ Typed Rust interface for the [Google Antigravity](https://antigravity.google)
 agent runtime — the `localharness` binary that ships inside the
 [`google-antigravity`](https://pypi.org/project/google-antigravity/) wheels.
 
-Tested against **google-antigravity 0.1.10**.
+Tested against **google-antigravity 0.1.15**.
 
 > **Maturity warning**: this crate is new and should be considered **highly
 > untested**. Upstream is alpha (`0.1.x`) and reserves protobuf extension

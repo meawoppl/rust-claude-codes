@@ -119,8 +119,8 @@ impl Client {
     /// Sends an arbitrary input frame and treats it as the start of a turn.
     ///
     /// Use this for multimodal input
-    /// ([`complex_user_input`](crate::protocol::InputEvent::complex_user_input))
-    /// or to fire an
+    /// ([`user_input`](crate::protocol::InputEvent::user_input) with media or
+    /// slash-command parts) or to fire an
     /// [`automated_trigger`](crate::protocol::InputEvent::automated_trigger).
     pub async fn send_event(&mut self, event: InputEvent) -> Result<Turn<'_>> {
         self.raw.send(&event).await?;

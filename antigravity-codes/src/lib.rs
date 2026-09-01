@@ -120,7 +120,7 @@ pub use error::{Error, Result};
 /// handshake reply carries only a port and a key — so the wheel version is the
 /// only handle there is. Mismatches are not detectable at runtime; unknown enum
 /// values and unknown `oneof` arms are absorbed by design instead.
-pub const TESTED_SDK_VERSION: &str = "0.1.10";
+pub const TESTED_SDK_VERSION: &str = "0.1.15";
 
 #[cfg(feature = "async-client")]
 mod client;
