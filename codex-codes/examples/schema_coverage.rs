@@ -562,6 +562,7 @@ mod samples {
             methods::ACCOUNT_USAGE_READ,
             methods::PERMISSION_PROFILE_LIST,
             methods::PLUGIN_INSTALLED,
+            methods::PLUGIN_RECONCILE,
             methods::SKILLS_EXTRA_ROOTS_SET,
             methods::THREAD_GOAL_GET,
             methods::THREAD_GOAL_SET,

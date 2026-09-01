@@ -321,6 +321,7 @@ pub fn client_request_samples() -> Vec<(&'static str, Value)> {
         ("plugin/installed", json!({})),
         ("plugin/list", json!({})),
         ("plugin/read", json!({"pluginName": "x"})),
+        ("plugin/reconcile", json!({})),
         ("plugin/share/checkout", json!({"remotePluginId": "x"})),
         ("plugin/share/delete", json!({"remotePluginId": "x"})),
         ("plugin/share/list", json!({})),
