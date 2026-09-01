@@ -38,6 +38,29 @@ Model-turn coverage additionally needs a configured provider
 
 Note: pi requires **Node 22+** (`fs.globSync`).
 
+The model tier (gated on `OPENAI_API_KEY`) adds a streamed model turn
+plus a conformance trio mirroring wirecheck's cross-harness checks:
+the model reads a planted nonce file, writes a requested nonce to a
+requested path, and runs a shell command with a disk-visible side
+effect — write/bash verified on disk, never from the transcript.
+
+## Measured wire notes (pi 0.84.4)
+
+- **pi has no tool-approval gate.** read/bash/edit/write run without
+  prompting; there is no `--yolo` equivalent because nothing needs
+  bypassing. `--approve`/`--no-approve` only control trusting
+  project-local config files (extensions, AGENTS.md).
+- **`tool_execution_end` carries no `args` field** in RPC mode, though
+  the documented `AgentEvent` type includes it. Pinned by the corpus;
+  the decoder tolerates both.
+- **`--mode json` hangs headless**: with no TTY it produced no output
+  and never exited in our probes (with and without `--print`). Use
+  `--mode rpc` for headless work — that is what `PiRpcClient` drives.
+- The model may issue parallel tool calls in one assistant message; a
+  racing read can fail with ENOENT and recover next turn. Tool errors
+  arrive as `tool_execution_end { isError: true }` with the error text
+  in `result.content`, not as stream errors.
+
 ## Framing contract
 
 RPC mode is strict JSONL: split records on `\n` only and tolerate a
