@@ -95,6 +95,12 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none", rename = "modelUsage")]
     pub model_usage: Option<std::collections::BTreeMap<String, ModelUsageEntry>>,
 
+    /// Subagents started through the Agent tool in this session, as running
+    /// totals. Cumulative like `modelUsage`: read the latest result rather
+    /// than summing across results. Absent from CLIs before 2.1.239.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagent_stats: Option<SubagentStats>,
+
     /// Structured-output payload returned by the model, when enabled.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structured_output: Option<Value>,
@@ -142,6 +148,68 @@ pub struct DeferredToolUse {
     pub id: String,
     pub name: String,
     pub input: Value,
+}
+
+/// Running totals for subagents started through the Agent tool, carried on
+/// `result` frames (CLI 2.1.239+) as [`ResultMessage::subagent_stats`].
+///
+/// Cumulative for the session: a resumed session starts fresh, and a
+/// mid-session `/clear` zeroes it — though a background subagent that outlives
+/// the `/clear` still records its outcome, so `completed`, `failed`, and
+/// `killed` can then exceed `spawned`. Forked skills, workflows, teammates,
+/// and other internal agents are not counted.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SubagentStats {
+    /// Subagents actually started; a refused or failed launch is not counted.
+    pub spawned: u64,
+    /// Spawns by the `run_in_background` value the model passed; all count as
+    /// `unset` while the parameter is not offered.
+    pub requested: SubagentSpawnRequests,
+    /// Spawns that started in the background after defaults and session
+    /// settings; the rest blocked the spawning tool call.
+    pub started_in_background: u64,
+    /// Spawns by agent type.
+    #[serde(default)]
+    pub by_type: std::collections::BTreeMap<String, u64>,
+    /// Deepest spawn: 1 = started by the main thread, 2 = by a depth-1
+    /// subagent.
+    pub max_depth: u64,
+    /// Spawns made from inside another subagent (depth > 1).
+    pub spawned_by_subagents: u64,
+    pub completed: u64,
+    pub failed: u64,
+    /// Subagents stopped before finishing, by who stopped them.
+    pub killed: SubagentKillCounts,
+    /// Agent tool calls turned down because a limit was reached (other
+    /// denials, such as an unknown agent type, are not counted).
+    pub refused: SubagentRefusalCounts,
+}
+
+/// Spawn counts by the `run_in_background` value the model passed, carried in
+/// [`SubagentStats::requested`].
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SubagentSpawnRequests {
+    pub background: u64,
+    pub foreground: u64,
+    pub unset: u64,
+}
+
+/// Subagents stopped before finishing, carried in [`SubagentStats::killed`].
+/// `parent` = by another agent through TaskStop; `system` = by Claude Code
+/// itself; `user` = any other stop.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SubagentKillCounts {
+    pub parent: u64,
+    pub user: u64,
+    pub system: u64,
+}
+
+/// Agent tool calls refused at a limit, carried in [`SubagentStats::refused`].
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SubagentRefusalCounts {
+    pub depth_limit: u64,
+    pub concurrency_limit: u64,
+    pub budget: u64,
 }
 
 /// A record of a tool permission that was denied during the session.
