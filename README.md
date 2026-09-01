@@ -39,7 +39,7 @@ the least-bad scheme.)
 - **`claude-codes`** — currently `claude-codes 2.1.239`, tested against Claude CLI `2.1.239`.
 - **`codex-codes`** — currently `codex-codes 0.151.1`, tested against Codex CLI `0.151.0`.
 - **`opencode-codes`** — currently `opencode-codes 1.18.19` (tested CLI + 1 crate-side patch), tested against opencode `1.18.18`.
-- **`muse-codes`** — currently `muse-codes 0.2.2` (tested CLI + 1 crate-side patch), tested against Muse Code `0.2.1` (build `0.2.1-R1215.1`).
+- **`muse-codes`** — currently `muse-codes 1.0.1`, tested against Muse Code `1.0.1` (build `1.0.1-R2006.1`).
 - **`antigravity-codes`** — currently `antigravity-codes 0.1.15`, tested against google-antigravity `0.1.15` (the wheel its bundled harness was generated from).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed

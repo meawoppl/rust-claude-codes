@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-01
+
+### Changed
+
+- Re-baseline the tested pin: the full suite (unit + corpus + 8 live
+  echo-provider integration tests) plus wirecheck's live meta tier
+  (typed audit — 18/18 payload types, tool correlation, conformance
+  hello/read/write/bash) passes against Muse Code **1.0.1
+  (1.0.1-R2006.1)**. `TESTED_MUSE_VERSION`/`TESTED_MUSE_BUILD`, both
+  READMEs, and the crate version move to 1.0.1 per the
+  version-means-tested convention. The 0.1.0/0.2.1 captures remain
+  committed and still parse.
+
+### Added
+
+- Corpus capture `meta_tool_use_1_0_1.jsonl` (106 records): file tools
+  + shell tool on the live 1.0.1 Meta provider, reaching terminal.
+
 ## [0.2.2] - 2026-09-01
 
 ### Fixed
