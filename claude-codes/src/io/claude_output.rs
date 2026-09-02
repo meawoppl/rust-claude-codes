@@ -109,6 +109,14 @@ pub struct StreamEventMessage {
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttft_ms: Option<u64>,
+    /// Client uuid of the user message that triggered this turn, stamped on
+    /// the turn's first non-ping stream event (the partial-messages twin of
+    /// [`AssistantMessage::user_message_uuid`]). Absent on every later event
+    /// of the turn and on CLIs before 2.1.258.
+    ///
+    /// [`AssistantMessage::user_message_uuid`]: super::message_types::AssistantMessage::user_message_uuid
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

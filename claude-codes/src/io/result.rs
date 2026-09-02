@@ -43,6 +43,15 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_message_uuid: Option<String>,
 
+    /// User-initiated sends still waiting in the command queue when this
+    /// result was produced. Greater than 0 means at least one more user turn
+    /// (and result) follows without further input, barring cancellation.
+    /// Queued sends may coalesce into fewer turns, so this counts pending
+    /// sends, not remaining results. Absent on fatal startup results, on
+    /// surfaces without a command queue, and on CLIs before 2.1.258.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queued_turn_count: Option<u32>,
+
     pub num_turns: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -74,6 +74,7 @@ impl ClaudeInput {
             is_replay: None,
             file_attachments: None,
             seeded_summon: None,
+            client_composed: None,
         })
     }
 
@@ -110,6 +111,7 @@ impl ClaudeInput {
             is_replay: None,
             file_attachments: None,
             seeded_summon: None,
+            client_composed: None,
         })
     }
 

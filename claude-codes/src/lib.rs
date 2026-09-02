@@ -78,7 +78,7 @@
 //! ⚠️ **Important**: The Claude CLI protocol is unstable and evolving. This crate
 //! automatically checks your Claude CLI version and warns if it's newer than tested.
 //!
-//! Current tested version: **2.1.239**
+//! Current tested version: **2.1.258**
 //!
 //! Report compatibility issues at: <https://github.com/meawoppl/rust-claude-codes/pulls>
 //!
@@ -168,14 +168,14 @@ pub use io::{
     CommandsChangedMessage, CompactBoundaryMessage, CompactMetadata, CompactionTrigger,
     ContextAgent, ContextCategory, ContextMcpTool, ContextMemoryFile, ContextOverLimit,
     ContextSkill, ContextUsage, ControlRequestProgressMessage, ElicitationCompleteMessage,
-    FailedPersistedFile, FeedbackDraftQueuedMessage, FilesPersistedMessage, HookProgressMessage,
-    HookResponseMessage, HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode,
-    KnownSystemEvent, LocalCommandOutputMessage, McpMeta, McpServerError, MemoryPaths,
-    MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey,
-    MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
+    FailedPersistedFile, FeedbackDraftQueuedMessage, FilesPersistedMessage, FooterIndicator,
+    HookProgressMessage, HookResponseMessage, HookStartedMessage, InformationalMessage,
+    InitMessage, InitPermissionMode, KnownSystemEvent, LocalCommandOutputMessage, McpMeta,
+    McpServerError, MemoryPaths, MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole,
+    MirrorErrorKey, MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
     NotificationMessage, OutputStyle, PermissionDeniedMessage, PersistedFile, PluginDiagnostic,
     PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, RefusalFallbackScope,
-    StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage,
+    ResourceLink, StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage,
     SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage,
     TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta,
     ToolUseMeta, VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
@@ -194,7 +194,8 @@ pub use io::{assert_fully_wrapped, audit_frame, FrameAudit};
 // Rate limit types
 pub use io::{
     OverageDisabledReason, OveragePeriodUtilization, OverageStatus, RateLimitErrorCode,
-    RateLimitEvent, RateLimitInfo, RateLimitStatus, RateLimitWindow,
+    RateLimitEvent, RateLimitInfo, RateLimitStatus, RateLimitWindow, UnifiedWindowUsage,
+    UnifiedWindows,
 };
 
 // Usage types

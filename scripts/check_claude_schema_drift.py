@@ -67,8 +67,10 @@ def top_level_keys(body: str, opener: str) -> list[str]:
     changes between releases.
     String-literal aware (so colons/braces inside `.describe("...")` prose are
     skipped) and bracket-depth aware (so nested object combinator keys aren't
-    counted). Only bare-identifier keys are recognized — all Claude wire
-    schemas use them.
+    counted). Backtick template literals are treated as plain strings — the
+    bundle's describe() prose uses them (interpolation-free) from CLI 2.1.258.
+    Only bare-identifier keys are recognized — all Claude wire schemas use
+    them.
     """
     start = body.find(opener)
     if start < 0:
@@ -79,7 +81,7 @@ def top_level_keys(body: str, opener: str) -> list[str]:
     keys: list[str] = []
     while i < n:
         c = body[i]
-        if c in "\"'":
+        if c in "\"'`":
             quote = c
             i += 1
             while i < n:

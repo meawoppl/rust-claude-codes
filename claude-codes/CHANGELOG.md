@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.258] - 2026-09-02
+
+Re-baseline against Claude CLI **2.1.258**: the full live integration suite
+passes, so the tested pin (`TESTED_VERSION`, both README `Tested against:`
+lines) and the crate version move to 2.1.258. Models the 2.1.239 → 2.1.258
+stream-json drift (all additive) and fixes the drift checker's fingerprint
+parser for the CLI's new bundle style.
+
+### Added
+
+- `AssistantMessage.user_message_uuid` and
+  `StreamEventMessage.user_message_uuid` — the client uuid of the user
+  message that triggered the turn, stamped on the turn's first reply frame
+  so a consumer can bind the reply to the send it answers without waiting
+  for the result.
+- `AssistantMessage.local_command_source` and
+  `AssistantMessage.wire_tool_inputs` (internal round-trip fields for
+  history replay).
+- `ResultMessage.queued_turn_count` — user-initiated sends still waiting in
+  the command queue when the result was produced; `> 0` means at least one
+  more turn follows without further input.
+- `InitMessage.footer_indicator` (new `FooterIndicator` type),
+  `InitMessage.powershell_path` (Windows only, nullable), and
+  `InitMessage.worker_epoch` (cloud workers only).
+- `TaskStartedMessage.ambient` and `TaskNotificationMessage.ambient` — true
+  for housekeeping tasks hosts should exclude from activity indicators —
+  plus `TaskNotificationMessage.resource_links` (new `ResourceLink` type):
+  the `resource_link` content blocks a backgrounded MCP task's final result
+  returned by reference.
+- `UserMessage.client_composed` — the client composed the turn from content
+  the user did not type.
+- `RateLimitInfo.unified_windows` (new `UnifiedWindows` /
+  `UnifiedWindowUsage` types) — per-window subscription usage
+  (`five_hour`, `seven_day`, `seven_day_overage_included`) from the
+  `anthropic-ratelimit-unified-*` headers, tracked on every observation
+  unlike the top-level currently-limiting-window fields.
+
+### Fixed
+
+- `scripts/check_claude_schema_drift.py` now treats backtick template
+  literals as strings when reading a schema's top-level keys; the 2.1.258
+  bundle's `.describe()` prose uses them, which previously corrupted the
+  fingerprint (phantom removed/added fields on `system/init`).
+
 ## [2.1.239] - 2026-09-01
 
 Re-baseline against Claude CLI **2.1.239**: the full live integration suite

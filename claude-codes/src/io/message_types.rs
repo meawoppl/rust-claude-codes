@@ -665,6 +665,10 @@ pub struct UserMessage {
     /// Desktop host only: the host's own seeded summon (CLI 2.1.239+).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seeded_summon: Option<bool>,
+    /// True when the client composed this turn from content the user did not
+    /// type; its text is delivered as written (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_composed: Option<bool>,
 }
 
 impl UserMessage {
@@ -1734,6 +1738,35 @@ pub struct InitMessage {
     /// other mode. Stored as raw JSON (the shape is internal and evolving).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cloud_session: Option<Value>,
+
+    /// The server-configured session indicator the terminal renders as a
+    /// `◆ <text>` footer pill — an opaque status note operators set per
+    /// cohort. Absent when nothing is configured (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footer_indicator: Option<FooterIndicator>,
+
+    /// Windows only: the absolute path of the PowerShell binary this session
+    /// runs PowerShell commands with (PowerShell 7 when installed, else
+    /// Windows PowerShell 5.1), or `Some(None)` when none was found. Absent
+    /// on other platforms and on CLIs before 2.1.258.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub powershell_path: Option<Option<String>>,
+
+    /// This cloud worker's life number (`CLAUDE_CODE_WORKER_EPOCH`): a new
+    /// number each time the session's worker is started, so a client that
+    /// latched an acknowledged epoch re-registers only when it changes.
+    /// Emitted only on cloud workers (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker_epoch: Option<u64>,
+}
+
+/// The server-configured session indicator carried on `system/init` (see
+/// [`InitMessage::footer_indicator`]).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FooterIndicator {
+    /// The label to show — already sanitized to a single line of plain text,
+    /// exactly as the terminal footer renders it after its `◆` glyph.
+    pub text: String,
 }
 
 /// Status system message - sent during operations like context compaction
@@ -1998,6 +2031,12 @@ pub struct TaskStartedMessage {
     pub workflow_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_transcript: Option<bool>,
+    /// True for housekeeping tasks the CLI does not surface as user work
+    /// (every `skip_transcript` task, plus auto-started live-update
+    /// watchers); hosts should exclude them from activity indicators
+    /// (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient: Option<bool>,
     pub uuid: String,
 }
 
@@ -2079,8 +2118,38 @@ pub struct TaskNotificationMessage {
     pub usage: Option<TaskUsage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_transcript: Option<bool>,
+    /// True for housekeeping tasks the CLI does not surface as user work;
+    /// hosts should exclude them from activity indicators (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient: Option<bool>,
+    /// For a completed backgrounded MCP task (`task_type` `mcp_task`), the
+    /// `resource_link` content blocks of its final result — the files it
+    /// returned by reference, collected from the raw result before the CLI
+    /// renders it as text. Join to the originating call via `tool_use_id`.
+    /// At most 50 links and 64 KiB serialized; absent when the result had
+    /// none or the task is any other type (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_links: Option<Vec<ResourceLink>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
+}
+
+/// An MCP `resource_link` content block echoed by the CLI — a file a tool
+/// returned by reference (see [`TaskNotificationMessage::resource_links`]).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResourceLink {
+    pub uri: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "mimeType", default, skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<serde_json::Map<String, Value>>,
 }
 
 /// API error category attached to assistant wrapper frames.
@@ -2467,6 +2536,30 @@ pub struct AssistantMessage {
     pub attribution_mcp_server: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attribution_mcp_tool: Option<String>,
+    /// Client uuid of the user message that triggered this turn (the
+    /// `submitMessage` options.uuid), stamped on the turn's FIRST reply frame
+    /// only — the first assistant message in complete-message mode (with
+    /// `--include-partial-messages` it normally rides the first non-ping
+    /// stream event instead) — so a consumer can bind the reply to the send
+    /// it answers without waiting for the result. Absent on every later frame
+    /// of the turn, on subagent frames, on synthetic/scheduled turns, and
+    /// from CLIs before 2.1.258.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
+    /// The originating `system`/`local_command` row's wire-form content
+    /// (escaped frames), carried on the loop-synthesized local-command twin
+    /// so a bridge/SDK history replay rebuilds the model-visible internal row
+    /// instead of replaying the twin's decoded display text. Wrapper-level
+    /// sibling — never inside `message.content` (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_command_source: Option<String>,
+    /// `tool_use.input` exactly as the API produced it, keyed by tool_use id,
+    /// for a message whose `message.content` carries the client-normalized
+    /// input. Round-tripped so a replayed history echoes each earlier tool
+    /// call back to the API as the API emitted it. Wrapper-level sibling —
+    /// never inside `message.content` (CLI 2.1.258+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire_tool_inputs: Option<serde_json::Map<String, Value>>,
 }
 
 /// Nested message content for assistant messages

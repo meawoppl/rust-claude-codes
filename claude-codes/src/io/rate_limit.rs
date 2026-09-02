@@ -378,6 +378,43 @@ pub struct RateLimitInfo {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_chargeable_saved_payment_method: Option<bool>,
+    /// Per-window usage for the subscription rate-limit windows, as read from
+    /// the `anthropic-ratelimit-unified-*` response headers. Unlike the
+    /// top-level `status`/`utilization` fields (which describe the currently
+    /// limiting window), every window is tracked on each observation, and
+    /// events are emitted when a window's rounded percentage or reset time
+    /// moves. Absent until the first response carrying the headers, and
+    /// always absent for API-key, Bedrock, and Vertex sessions (CLI 2.1.258+).
+    #[serde(rename = "unifiedWindows", skip_serializing_if = "Option::is_none")]
+    pub unified_windows: Option<UnifiedWindows>,
+}
+
+/// Per-window subscription usage carried on a rate limit event (see
+/// [`RateLimitInfo::unified_windows`]). Windows absent from the account
+/// state are absent here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnifiedWindows {
+    /// The session (5-hour) window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub five_hour: Option<UnifiedWindowUsage>,
+    /// The weekly (7-day) window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seven_day: Option<UnifiedWindowUsage>,
+    /// The overage-included weekly window (per-model bucket; present only
+    /// for accounts whose responses carry that window).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seven_day_overage_included: Option<UnifiedWindowUsage>,
+}
+
+/// Usage of a single subscription rate-limit window.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnifiedWindowUsage {
+    /// Fraction of the window used — usually 0.0 to 1.0, but values above 1
+    /// occur when usage legitimately runs past a window's cap.
+    pub utilization: f64,
+    /// Unix epoch seconds when the window resets.
+    #[serde(rename = "resetsAt")]
+    pub resets_at: u64,
 }
 
 /// Spend-cap utilization for an overage billing period.
