@@ -570,6 +570,17 @@ pub enum AskForApproval {
     },
 }
 
+/// A question the agent asks the user asynchronously alongside an
+/// `agentMessage` item (upstream `AsyncUserInputQuestion`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AsyncUserInputQuestion {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<String>>,
+    #[serde(default)]
+    pub title: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AttestationGenerateParams {
@@ -6978,6 +6989,10 @@ pub struct Thread {
     pub project_id: Option<String>,
     #[serde(default)]
     pub id: String,
+    /// Current configured model when loaded, otherwise the latest persisted
+    /// model. Null when unavailable. Not per-turn execution telemetry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(rename = "modelProvider", default)]
     pub model_provider: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6992,6 +7007,15 @@ pub struct Thread {
     pub path: Option<String>,
     #[serde(default)]
     pub preview: String,
+    /// Current configured reasoning effort when loaded, otherwise the latest
+    /// persisted effort. Null when unset or unavailable. Not per-turn
+    /// execution telemetry.
+    #[serde(
+        rename = "reasoningEffort",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub reasoning_effort: Option<ReasoningEffort>,
     #[serde(rename = "recencyAt", default, skip_serializing_if = "Option::is_none")]
     pub recency_at: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -7374,6 +7398,8 @@ pub enum ThreadItem {
         memory_citation: Option<MemoryCitation>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         phase: Option<MessagePhase>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        questions: Option<Vec<AsyncUserInputQuestion>>,
         text: String,
     },
     Plan {
