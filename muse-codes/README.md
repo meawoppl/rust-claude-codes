@@ -8,7 +8,7 @@ journal on stdout: envelope records covering command intake, run lifecycle,
 task lifecycle, and streamed output. This crate types that stream and ships
 an async Tokio client for driving headless runs.
 
-Tested against Muse Code 1.0.1 (`1.0.1-R2006.1`). The crate version may
+Tested against Muse Code 1.0.2 (`1.0.2-R2040.1`). The crate version may
 carry a patch offset above the CLI release for crate-side additions.
 
 ## Captured, not guessed
