@@ -685,6 +685,16 @@ impl LoginFlow {
                     .map(|(c, _)| c)
                     .or_else(|| reap_exit_code(&mut self.child));
                 let tail = strip_ansi(&guard.0[offset.min(guard.0.len())..]);
+                // CLI >= 2.1.25x no longer parks on the retry screen after a
+                // failed token exchange — it prints "Login failed: <reason>"
+                // and exits(1). That is a rejected code, not a driver
+                // failure: surface it as CodeRejected so callers show the
+                // reason instead of channel forensics. `self.rejected` stays
+                // false deliberately — retry_new_url drives the (now dead)
+                // child's PTY, so drop-and-restart is the only valid retry.
+                if let Some(message) = detect_login_failed_exit(&tail) {
+                    return Err(Error::CodeRejected { message });
+                }
                 return Err(Error::LoginChildExited {
                     code,
                     transcript: format!(
@@ -988,6 +998,22 @@ fn prepare_code_paste(code: &str) -> Result<Vec<u8>> {
 /// cursor-column escapes, so observed stripped output runs words together
 /// and even drops characters (`Requstfailed withstatus code 400` was
 /// captured live) — but every rejection parks on that prompt.
+/// The exit-path rejection signature: CLI >= 2.1.25x prints
+/// `Login failed: <reason>` (e.g. "Request failed with status code 400" for
+/// an expired / already-used / PKCE-mismatched code) and exits instead of
+/// parking on the retry screen. Returns the failure line, newline-collapsed
+/// and bounded like [`detect_oauth_error`]. ASCII anchor, so the lowercased
+/// byte offset indexes the original safely.
+fn detect_login_failed_exit(stripped: &str) -> Option<String> {
+    let start = stripped.to_lowercase().find("login failed")?;
+    let message: String = stripped[start..]
+        .chars()
+        .map(|c| if c == '\n' { ' ' } else { c })
+        .take(240)
+        .collect();
+    Some(message.trim().to_string())
+}
+
 fn detect_oauth_error(stripped: &str) -> Option<String> {
     let collapsed = collapsed_lower(stripped);
     let anchor = if collapsed.contains("oautherror") {
@@ -1173,6 +1199,24 @@ mod tests {
         assert!(msg.starts_with("OAuth error"));
         assert!(msg.contains("Press Enter to retry"));
         assert!(detect_oauth_error("Welcometo Claude Codev2.1.220").is_none());
+    }
+
+    /// Live-captured from claude 2.1.259: a rejected token exchange prints
+    /// `Login failed: <reason>` and the child exits(1) — no retry screen, no
+    /// "OAuth error" literal. The exit path must classify it as a rejected
+    /// code, not a driver failure.
+    #[test]
+    fn exit_path_login_failure_detected_and_bounded() {
+        let tail = "Login failed: Request failed with status code 400\n";
+        let msg = detect_login_failed_exit(tail).expect("detected");
+        assert_eq!(msg, "Login failed: Request failed with status code 400");
+        // Case-insensitive anchor, newlines collapsed, 240-char bound.
+        let long = format!("LOGIN FAILED: {}", "x".repeat(500));
+        let bounded = detect_login_failed_exit(&long).expect("detected");
+        assert!(bounded.chars().count() <= 240);
+        // Ordinary transcripts must not false-positive.
+        assert!(detect_login_failed_exit("Paste code here if prompted >").is_none());
+        assert!(detect_login_failed_exit("Welcome to Claude Code v2.1.259").is_none());
     }
 
     #[test]
