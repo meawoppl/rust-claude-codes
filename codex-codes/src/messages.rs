@@ -71,6 +71,7 @@ use serde_json::Value;
 /// variant captures methods this crate version doesn't model yet, preserving
 /// the raw payload for inspection.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)] // transient wire values, not stored in bulk
 pub enum Notification {
     /// `thread/started`
     ThreadStarted(ThreadStartedNotification),

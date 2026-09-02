@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.151.2] - 2026-09-02
+
+Resnapshots vs `openai/codex@main`.
+
+### Added
+
+- `AsyncUserInputQuestion` and the optional `questions` field on
+  `ThreadItem::AgentMessage` — questions the agent asks the user
+  asynchronously alongside an agent message.
+- `Thread.model` and `Thread.reasoning_effort`, the configured (or latest
+  persisted) model and reasoning effort for a thread. Both optional; not
+  per-turn execution telemetry.
+
+### Notes
+
+- Upstream also added per-account app-link approval settings
+  (`AppLinkConfig`/`AppLinksConfig` and `AppConfig.links`). Our `Config`
+  type intentionally does not model the `apps` subtree; those keys flow
+  through its flattened `additional` map unchanged.
+
 ## [0.151.1] - 2026-09-01
 
 Resnapshots vs `openai/codex@main`.
