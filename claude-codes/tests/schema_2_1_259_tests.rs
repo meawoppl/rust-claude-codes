@@ -8,6 +8,9 @@
 use claude_codes::{assert_fully_wrapped, ClaudeOutput};
 use serde_json::json;
 
+/// Pins that an `assistant` frame's 2.1.259 wrapper siblings
+/// (`user_message_uuid(s)`, `wire_tool_inputs`, `local_command_source`)
+/// round-trip without loss.
 #[test]
 fn assistant_carries_user_message_uuids_and_wire_tool_inputs() {
     let frame = json!({
@@ -45,6 +48,8 @@ fn assistant_carries_user_message_uuids_and_wire_tool_inputs() {
     assert!(msg.local_command_source.is_some());
 }
 
+/// Pins that a `stream_event` frame carries the 2.1.259 `user_message_uuid`
+/// / `user_message_uuids` send-binding keys.
 #[test]
 fn stream_event_carries_user_message_uuids() {
     let frame = json!({
@@ -59,6 +64,7 @@ fn stream_event_carries_user_message_uuids() {
     assert_fully_wrapped(&frame);
 }
 
+/// Pins that a `user` frame's 2.1.259 `client_composed` flag round-trips.
 #[test]
 fn user_carries_client_composed() {
     let frame = json!({
@@ -75,6 +81,8 @@ fn user_carries_client_composed() {
     assert_eq!(msg.client_composed, Some(true));
 }
 
+/// Pins that a `system/init` frame's 2.1.259 additions (`footer_indicator`,
+/// `worker_epoch`, `powershell_path`) are modeled and round-trip.
 #[test]
 fn system_init_carries_footer_indicator_worker_epoch_powershell() {
     let frame = json!({
@@ -89,6 +97,8 @@ fn system_init_carries_footer_indicator_worker_epoch_powershell() {
     assert_fully_wrapped(&frame);
 }
 
+/// Pins that a `system/init` frame with an explicit `powershell_path: null`
+/// (Windows-with-no-PowerShell) audits as fully wrapped.
 #[test]
 fn system_init_powershell_path_null_round_trips() {
     // Windows-with-no-PowerShell emits an explicit null; the typed model keeps
@@ -104,6 +114,8 @@ fn system_init_powershell_path_null_round_trips() {
     assert_fully_wrapped(&frame);
 }
 
+/// Pins that a `system/task_started` frame's 2.1.259 `ambient` flag
+/// round-trips.
 #[test]
 fn system_task_started_carries_ambient() {
     let frame = json!({
@@ -118,6 +130,8 @@ fn system_task_started_carries_ambient() {
     assert_fully_wrapped(&frame);
 }
 
+/// Pins that a `system/task_notification` frame's 2.1.259 `ambient` flag and
+/// `resource_links` block round-trip.
 #[test]
 fn system_task_notification_carries_ambient_and_resource_links() {
     let frame = json!({
@@ -137,6 +151,9 @@ fn system_task_notification_carries_ambient_and_resource_links() {
     assert_fully_wrapped(&frame);
 }
 
+/// Pins the nested 2.1.259 `rate_limit_info.unifiedWindows` /
+/// `rateLimitGraceActive` fields the coarse top-level drift checker cannot see
+/// — the drop the live wrapping audit surfaced.
 #[test]
 fn rate_limit_event_carries_unified_windows_and_grace() {
     // Reproduces the live-suite frame that surfaced the nested `unifiedWindows`
@@ -170,6 +187,8 @@ fn rate_limit_event_carries_unified_windows_and_grace() {
     assert_eq!(evt.rate_limit_info.rate_limit_grace_active, Some(true));
 }
 
+/// Pins that a `system/code_change_published` frame's 2.1.259 `branch` field
+/// (gerrit changes with no head branch) round-trips.
 #[test]
 fn system_code_change_published_carries_branch() {
     let frame = json!({
