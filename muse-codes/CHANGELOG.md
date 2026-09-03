@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-09-02
+
+### Added
+
+- **`MuseModel`** — model-id enum matching the ClaudeModel/CodexModel
+  pattern: `Spark13`/`Spark13Contributor` (released 2026-09-02;
+  contributor build is the new catalog default) and
+  `Spark12`/`Spark12Contributor`, with `Custom` passthrough,
+  `cli_arg()`, `catalog_default()`, and catalog metadata accessors
+  `context_limit()` / `output_limit()` (1,007,997 / 128,000 for all
+  four). `muse-spark-1.3-contributor` verified live: a real turn
+  configures it and reaches terminal.
+
+### Changed
+
+- Re-baseline the tested pin to Muse Code **1.0.2 (1.0.2-R2040.1)**
+  (hosts auto-rolled from 1.0.1): drift script clean (echo fingerprint
+  identical), full cargo tier green, and the 17-check wirecheck live
+  suite — including the typed meta audit and the conformance tier —
+  passes unchanged.
+
 ## [1.0.1] - 2026-09-01
 
 ### Changed

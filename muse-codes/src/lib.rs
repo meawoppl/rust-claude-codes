@@ -37,6 +37,7 @@
 // Core modules always available
 pub mod error;
 pub mod io;
+pub mod models;
 pub mod version;
 
 // Client modules
@@ -54,6 +55,7 @@ pub use io::{
     TaskLifecycle, TaskLifecycleEvent, TaskStreamLinked, ToolCorrelationFacts, ToolResult,
     TurnInputUser,
 };
+pub use models::MuseModel;
 
 #[cfg(feature = "async-client")]
 pub use cli::{MuseExecBuilder, Provider, WorktreeMode};
