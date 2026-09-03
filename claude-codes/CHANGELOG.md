@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.259] - 2026-09-03
+
+Re-baseline against Claude CLI **2.1.259**: the full live integration suite
+(28 tests) plus the live subagent-wrapping audit pass, so the tested pin
+(`TESTED_VERSION`, both README `Tested against:` lines) and the crate version
+move to 2.1.259. Models the 2.1.239 → 2.1.259 stream-json drift (all additive)
+reported by the nightly drift check on issue #354.
+
+### Added
+
+- `AssistantMessage.user_message_uuid` / `.user_message_uuids` — the client
+  uuid(s) that triggered the turn, stamped on the first reply frame so a
+  consumer can bind the reply to its send. Also added to `StreamEventMessage`
+  and `ResultMessage`.
+- `AssistantMessage.wire_tool_inputs` and `.local_command_source` —
+  round-trip-only wrapper siblings the CLI carries for history replay.
+- `ResultMessage.queued_turn_count` — user-initiated sends still queued when
+  the result was produced.
+- `UserMessage.client_composed` — the client composed the turn from content
+  the user did not type.
+- `McpMeta.resource_links` and `TaskNotificationMessage.resource_links`
+  (`ResourceLink`) — files an MCP tool returned by reference.
+- `TaskStartedMessage.ambient`, `TaskNotificationMessage.ambient`, and
+  `BackgroundTaskInfo.ambient` — housekeeping tasks hosts should hide from
+  activity indicators.
+- `CodeChangePublishedMessage.branch` — the working branch for providers
+  (`gerrit`) whose changes have no head branch of their own.
+- `InitMessage.footer_indicator` (`FooterIndicator`), `.worker_epoch`, and
+  `.powershell_path`.
+- `RateLimitInfo.unified_windows` (`UnifiedRateLimitWindows`,
+  `UnifiedWindowUsage`) and `.rate_limit_grace_active` — per-window
+  subscription usage and the latched grace signal. The nested
+  `unified_windows` drop was surfaced by the live subagent-wrapping audit,
+  not the coarse (top-level-only) drift checker.
+- `AssistantErrorKind::AccountOnHold` — a wire error value the enum was
+  missing.
+
+### Fixed
+
+- The schema drift checker's key scanner now skips backtick template literals
+  (and their `${...}` interpolations) in `.describe()` prose, which 2.1.259's
+  `system/init.footer_indicator` describe introduced — previously they
+  desynced the top-level field scan.
+
 ## [2.1.240] - 2026-09-02
 
 ### Fixed

@@ -109,6 +109,18 @@ pub struct StreamEventMessage {
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttft_ms: Option<u64>,
+    /// Client uuid of the user message that triggered this turn, stamped on
+    /// the turn's first non-ping stream event only so a consumer can bind the
+    /// reply stream to the send it answers. Absent on later stream events, on
+    /// synthetic/scheduled turns, and from CLIs before 2.1.259.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
+    /// Client uuids of every user message whose prompt this turn has consumed
+    /// so far, in consumption order. Always contains `user_message_uuid`; at
+    /// most 64 entries. Present exactly when `user_message_uuid` is; absent
+    /// from CLIs before 2.1.259 (fall back to `user_message_uuid`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_message_uuids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
