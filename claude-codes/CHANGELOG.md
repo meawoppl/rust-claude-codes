@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.240] - 2026-09-02
+
+### Fixed
+
+- Login flows: the login child exiting with `Login failed: <reason>`
+  (CLI >= 2.1.25x behavior after a rejected token exchange) now
+  classifies as `CodeRejected` instead of the `LoginChildExited`
+  forensics blob. Reproduced live on claude 2.1.259 by the agent-portal
+  consumer.
+
 ## [2.1.239] - 2026-09-01
 
 Re-baseline against Claude CLI **2.1.239**: the full live integration suite
