@@ -572,6 +572,31 @@ pub struct McpMeta {
     pub meta: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub structured_content: Option<Value>,
+    /// The `resource_link` content blocks the MCP tool returned, collected
+    /// from the raw result before the CLI rewrites each into the
+    /// `[Resource link: NAME] URI` text line the model reads. At most 50
+    /// links and 64 KiB serialized; absent when the result had none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resource_links: Vec<ResourceLink>,
+}
+
+/// A file an MCP tool returned by reference — a `resource_link` content block
+/// as carried on [`McpMeta::resource_links`] and
+/// [`TaskNotificationMessage::resource_links`] (CLI 2.1.259+).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResourceLink {
+    pub uri: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "mimeType")]
+    pub mime_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Value>,
 }
 
 /// Display metadata for a `tool_result` block carried on the user wrapper.
@@ -665,6 +690,10 @@ pub struct UserMessage {
     /// Desktop host only: the host's own seeded summon (CLI 2.1.239+).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seeded_summon: Option<bool>,
+    /// True when the client composed this turn from content the user did not
+    /// type; its text is delivered as written (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_composed: Option<bool>,
 }
 
 impl UserMessage {
@@ -1423,6 +1452,10 @@ pub struct BackgroundTaskInfo {
     pub task_id: String,
     pub task_type: String,
     pub description: String,
+    /// True for housekeeping tasks the CLI does not surface as user work;
+    /// hosts should exclude them from activity indicators (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1734,6 +1767,34 @@ pub struct InitMessage {
     /// other mode. Stored as raw JSON (the shape is internal and evolving).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cloud_session: Option<Value>,
+
+    /// The terminal's server-configured `◆ <text>` footer pill, carried so a
+    /// host UI can render the same pill. Absent when nothing is configured
+    /// (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footer_indicator: Option<FooterIndicator>,
+
+    /// This cloud worker's life (`CLAUDE_CODE_WORKER_EPOCH`): a new number
+    /// each time the session's worker is started. Absent outside cloud
+    /// workers and on CLIs before 2.1.259.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worker_epoch: Option<u64>,
+
+    /// Windows only: the absolute path of the PowerShell binary this session
+    /// runs PowerShell commands with, or `Some(None)` (wire `null`) when
+    /// none was found. Absent on other platforms and on CLIs before 2.1.259.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub powershell_path: Option<Option<String>>,
+}
+
+/// The server-configured session indicator that the terminal renders as a
+/// `◆ <text>` pill in the prompt footer, carried on `system/init` and the
+/// `initialize` response (CLI 2.1.259+).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FooterIndicator {
+    /// The label to show — already sanitized to a single line of plain text,
+    /// exactly as the terminal footer renders it after its `◆` glyph.
+    pub text: String,
 }
 
 /// Status system message - sent during operations like context compaction
@@ -1998,6 +2059,12 @@ pub struct TaskStartedMessage {
     pub workflow_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_transcript: Option<bool>,
+    /// True for housekeeping tasks the CLI does not surface as user work
+    /// (every `skip_transcript` task, plus auto-started live-update
+    /// watchers); hosts should exclude them from activity indicators
+    /// (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient: Option<bool>,
     pub uuid: String,
 }
 
@@ -2077,8 +2144,19 @@ pub struct TaskNotificationMessage {
     pub tool_use_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<TaskUsage>,
+    /// For a backgrounded MCP task that completed, the `resource_link`
+    /// content blocks of its final result — the files it returned by
+    /// reference — collected from the raw result before the CLI renders it
+    /// as text. Join to the originating call via `tool_use_id`. Absent when
+    /// the result had none or the task is any other type (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resource_links: Vec<ResourceLink>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip_transcript: Option<bool>,
+    /// True for housekeeping tasks the CLI does not surface as user work;
+    /// hosts should exclude them from activity indicators (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambient: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
 }
@@ -2088,6 +2166,7 @@ pub struct TaskNotificationMessage {
 pub enum AssistantErrorKind {
     AuthenticationFailed,
     OauthOrgNotAllowed,
+    AccountOnHold,
     BillingError,
     RateLimit,
     Overloaded,
@@ -2104,6 +2183,7 @@ impl AssistantErrorKind {
         match self {
             Self::AuthenticationFailed => "authentication_failed",
             Self::OauthOrgNotAllowed => "oauth_org_not_allowed",
+            Self::AccountOnHold => "account_on_hold",
             Self::BillingError => "billing_error",
             Self::RateLimit => "rate_limit",
             Self::Overloaded => "overloaded",
@@ -2128,6 +2208,7 @@ impl From<&str> for AssistantErrorKind {
         match s {
             "authentication_failed" => Self::AuthenticationFailed,
             "oauth_org_not_allowed" => Self::OauthOrgNotAllowed,
+            "account_on_hold" => Self::AccountOnHold,
             "billing_error" => Self::BillingError,
             "rate_limit" => Self::RateLimit,
             "overloaded" => Self::Overloaded,
@@ -2163,8 +2244,8 @@ impl<'de> Deserialize<'de> for AssistantErrorKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeChangePublishedMessage {
     /// Forge classification derived from the URL's shape (`github`,
-    /// `github-enterprise`, `gitlab`, `bitbucket` today). Open set — treat an
-    /// unknown value as a valid provider, never as an error.
+    /// `github-enterprise`, `gitlab`, `bitbucket`, `gerrit` today). Open set
+    /// — treat an unknown value as a valid provider, never as an error.
     pub provider: String,
     /// Web URL of the pull/merge request. Unverified.
     pub url: String,
@@ -2177,11 +2258,18 @@ pub struct CodeChangePublishedMessage {
     /// `gh pr` verb it ran (`"created"`, `"edited"`, `"merged"`,
     /// `"commented"`, `"closed"`, `"reopened"`, `"ready"`, `"draft"`,
     /// `"auto-merge-enabled"`, `"auto-merge-disabled"`), `"pushed"` for a
-    /// push to a branch that has a PR, or `"checked-out"` for `gh pr
-    /// checkout`. Always sent by current producers (CLI 2.1.239+), absent
-    /// only from older ones. Open set — treat unknown values as valid.
+    /// push to a branch that has a PR, `"checked-out"` for `gh pr checkout`,
+    /// or `"started"` for the open change on the branch a Claude Desktop
+    /// session began on. Always sent by current producers (CLI 2.1.239+),
+    /// absent only from older ones. Open set — treat unknown values as valid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
+    /// The session's working branch when it produced the change. Sent only
+    /// for providers whose changes have no head branch of their own
+    /// (`gerrit`), so a host can place the change on that checkout; absent
+    /// for every other provider (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     pub uuid: String,
     pub session_id: String,
 }
@@ -2406,6 +2494,20 @@ pub struct AssistantMessage {
     /// Anthropic API request id that produced this message (e.g. `req_...`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
+    /// Client uuid of the user message that triggered this turn, stamped on
+    /// the turn's first reply frame only so a consumer can bind the reply to
+    /// the send it answers without waiting for the result. Absent on every
+    /// later frame of the turn, on subagent frames, on synthetic/scheduled
+    /// (meta) turns, and from CLIs before 2.1.259.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
+    /// Client uuids of every user message whose prompt this turn has consumed
+    /// so far, in consumption order — all members of a prompt batch the host
+    /// merged into this one turn. Always contains `user_message_uuid`; at
+    /// most 64 entries. Present exactly when `user_message_uuid` is; absent
+    /// from CLIs before 2.1.259 (fall back to `user_message_uuid`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_message_uuids: Vec<String>,
     /// Subagent type, when this assistant message was produced inside a
     /// `local_agent` subagent (e.g. `general-purpose`, `Explore`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2438,6 +2540,20 @@ pub struct AssistantMessage {
     /// wire. Wrapper-level sibling — never inside `message.content`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub batch_tool_uses: Vec<BatchToolUse>,
+    /// `tool_use.input` exactly as the API produced it, keyed by `tool_use`
+    /// id, for a message whose `message.content` carries the
+    /// client-normalized input. Round-tripped so a replayed history echoes
+    /// each earlier tool call back to the API as the API emitted it.
+    /// Wrapper-level sibling — never inside `message.content` (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire_tool_inputs: Option<serde_json::Map<String, Value>>,
+    /// The originating `system/local_command` row's wire-form content,
+    /// carried on the loop-synthesized local-command twin so a bridge/SDK
+    /// history replay rebuilds the internal system row instead of dropping
+    /// the output. Wrapper-level sibling — never inside `message.content`
+    /// (CLI 2.1.259+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_command_source: Option<String>,
     /// Structured twin of the `/context` report, carried on the synthetic
     /// assistant message that delivers the markdown table. Present only on
     /// `/context` results from CLIs new enough to attach it (2.1.239+).

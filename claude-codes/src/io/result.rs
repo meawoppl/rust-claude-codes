@@ -43,6 +43,23 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_message_uuid: Option<String>,
 
+    /// Client uuids of every user message whose prompt this turn consumed, in
+    /// consumption order — all members of a prompt batch the host merged into
+    /// this one turn, plus any queued user message folded into the running
+    /// turn between tool rounds. Always contains `user_message_uuid`; at most
+    /// 64 entries. Absent on delivery-failure/zeroed results and from CLIs
+    /// before 2.1.259 (fall back to `user_message_uuid`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub user_message_uuids: Vec<String>,
+
+    /// User-initiated sends still waiting in the command queue when this
+    /// result was produced. Greater than 0 means at least one more user turn
+    /// follows without further input, barring cancellation. Absent on fatal
+    /// startup results, on surfaces without a command queue, and from CLIs
+    /// before 2.1.259.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queued_turn_count: Option<u64>,
+
     pub num_turns: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -808,5 +825,44 @@ mod tests {
 
         let reserialized = serde_json::to_string(&output).unwrap();
         assert!(reserialized.contains("\"user_message_uuid\":\"um-1\""));
+    }
+
+    #[test]
+    fn test_result_queued_turn_count_and_user_message_uuids() {
+        // CLI 2.1.259 additive fields on the result frame.
+        let json = r#"{
+            "type":"result","subtype":"success","is_error":false,
+            "duration_ms":100,"duration_api_ms":80,"num_turns":1,
+            "session_id":"s1","total_cost_usd":0.01,
+            "user_message_uuid":"um-2",
+            "user_message_uuids":["um-1","um-2"],
+            "queued_turn_count":3
+        }"#;
+        let output: crate::ClaudeOutput = serde_json::from_str(json).unwrap();
+        let crate::ClaudeOutput::Result(res) = &output else {
+            panic!("expected Result");
+        };
+        assert_eq!(res.user_message_uuids, vec!["um-1", "um-2"]);
+        assert_eq!(res.queued_turn_count, Some(3));
+
+        let reserialized = serde_json::to_string(&output).unwrap();
+        assert!(reserialized.contains("\"user_message_uuids\":[\"um-1\",\"um-2\"]"));
+        assert!(reserialized.contains("\"queued_turn_count\":3"));
+
+        // Both fields are absent from older producers and must default cleanly.
+        let old = r#"{
+            "type":"result","subtype":"success","is_error":false,
+            "duration_ms":100,"duration_api_ms":80,"num_turns":1,
+            "session_id":"s1","total_cost_usd":0.01
+        }"#;
+        let output: crate::ClaudeOutput = serde_json::from_str(old).unwrap();
+        let crate::ClaudeOutput::Result(res) = &output else {
+            panic!("expected Result");
+        };
+        assert!(res.user_message_uuids.is_empty());
+        assert_eq!(res.queued_turn_count, None);
+        let reserialized = serde_json::to_string(&output).unwrap();
+        assert!(!reserialized.contains("user_message_uuids"));
+        assert!(!reserialized.contains("queued_turn_count"));
     }
 }

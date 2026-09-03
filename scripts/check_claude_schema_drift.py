@@ -59,6 +59,41 @@ SNAPSHOT = ROOT / "claude-codes" / "tests" / "schemas" / "claude_stream_json_sna
 _KEY = re.compile(r"[A-Za-z_$][\w$]*")
 
 
+def _skip_string(body: str, i: int) -> int:
+    """Given `body[i]` at an opening quote (`"`, `'`, or a backtick template
+    literal), return the index just past the closing quote. Template literals
+    additionally skip `${...}` interpolations (brace-depth aware) so a brace
+    or quote inside one can't desync the scan."""
+    quote = body[i]
+    n = len(body)
+    i += 1
+    while i < n:
+        c = body[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == quote:
+            return i + 1
+        if quote == "`" and c == "$" and i + 1 < n and body[i + 1] == "{":
+            i += 2
+            brace_depth = 1
+            while i < n and brace_depth:
+                if body[i] == "\\":
+                    i += 2
+                    continue
+                if body[i] in "\"'`":
+                    i = _skip_string(body, i)
+                    continue
+                if body[i] == "{":
+                    brace_depth += 1
+                elif body[i] == "}":
+                    brace_depth -= 1
+                i += 1
+            continue
+        i += 1
+    return n
+
+
 def top_level_keys(body: str, opener: str) -> list[str]:
     """The direct object keys of a schema's outermost object combinator.
 
@@ -66,9 +101,10 @@ def top_level_keys(body: str, opener: str) -> list[str]:
     from the binary (`E.object({` on CLI 2.1.205, `_e({` on 2.1.239) — it
     changes between releases.
     String-literal aware (so colons/braces inside `.describe("...")` prose are
-    skipped) and bracket-depth aware (so nested object combinator keys aren't
-    counted). Only bare-identifier keys are recognized — all Claude wire
-    schemas use them.
+    skipped — including backtick template literals, which 2.1.259's
+    `system/init.footer_indicator` describe introduced) and bracket-depth
+    aware (so nested object combinator keys aren't counted). Only
+    bare-identifier keys are recognized — all Claude wire schemas use them.
     """
     start = body.find(opener)
     if start < 0:
@@ -79,17 +115,8 @@ def top_level_keys(body: str, opener: str) -> list[str]:
     keys: list[str] = []
     while i < n:
         c = body[i]
-        if c in "\"'":
-            quote = c
-            i += 1
-            while i < n:
-                if body[i] == "\\":
-                    i += 2
-                    continue
-                if body[i] == quote:
-                    i += 1
-                    break
-                i += 1
+        if c in "\"'`":
+            i = _skip_string(body, i)
             continue
         if c in "{[(":
             depth += 1

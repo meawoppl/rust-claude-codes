@@ -330,6 +330,15 @@ pub struct RateLimitInfo {
     /// Utilization of the rate limit (0.0 to 1.0)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization: Option<f64>,
+    /// Per-window usage for the 5-hour, weekly, and overage-included weekly
+    /// subscription windows, read from the `anthropic-ratelimit-unified-*`
+    /// response headers. Unlike the top-level `status`/`utilization` (which
+    /// describe the currently limiting window), every window here is tracked
+    /// on each observation. Absent until the first response carrying these
+    /// headers, and always absent for API-key/Bedrock/Vertex sessions
+    /// (CLI 2.1.259+).
+    #[serde(rename = "unifiedWindows", skip_serializing_if = "Option::is_none")]
+    pub unified_windows: Option<UnifiedRateLimitWindows>,
     /// Overage status (e.g., rejected, allowed)
     #[serde(skip_serializing_if = "Option::is_none", rename = "overageStatus")]
     pub overage_status: Option<OverageStatus>,
@@ -351,6 +360,16 @@ pub struct RateLimitInfo {
     /// Utilization warning threshold that was crossed (0.0 to 1.0)
     #[serde(rename = "surpassedThreshold", skip_serializing_if = "Option::is_none")]
     pub surpassed_threshold: Option<f64>,
+    /// Latched usage-limit grace signal, observed on responses to requests
+    /// that sent `anthropic-usage-limit: extended`. While set, an
+    /// `overageStatus` of allowed/allowed_warning means paid extra usage
+    /// covers the overflow; combine with `status` rather than reading this
+    /// alone as "still usable" (CLI 2.1.259+).
+    #[serde(
+        rename = "rateLimitGraceActive",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub rate_limit_grace_active: Option<bool>,
     /// Monthly service spend-cap utilization (Claude-in-Slack surface)
     #[serde(
         rename = "overagePeriodMonthly",
@@ -385,6 +404,35 @@ pub struct RateLimitInfo {
 pub struct OveragePeriodUtilization {
     /// Fraction of the spend cap consumed (0.0 to 1.0)
     pub utilization: f64,
+}
+
+/// Per-window subscription usage, from
+/// [`RateLimitInfo::unified_windows`] (CLI 2.1.259+). Each window is present
+/// only when the account state carries it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct UnifiedRateLimitWindows {
+    /// The 5-hour rolling window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub five_hour: Option<UnifiedWindowUsage>,
+    /// The 7-day rolling window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day: Option<UnifiedWindowUsage>,
+    /// The overage-included 7-day window (per-model bucket; present only for
+    /// accounts whose responses carry that window).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seven_day_overage_included: Option<UnifiedWindowUsage>,
+}
+
+/// Usage for a single unified rate-limit window, carried in
+/// [`UnifiedRateLimitWindows`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnifiedWindowUsage {
+    /// Fraction of the window used (usually 0.0–1.0; values above 1.0 occur
+    /// when usage legitimately runs past a window's cap).
+    pub utilization: f64,
+    /// Unix epoch seconds when this window resets.
+    #[serde(rename = "resetsAt")]
+    pub resets_at: u64,
 }
 
 /// Error code carried on a rate limit event when a request was refused.
