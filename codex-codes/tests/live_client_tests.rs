@@ -919,7 +919,7 @@ async fn test_account_read_family() {
     // assertion is "typed request goes out, typed response OR a well-formed
     // JSON-RPC error comes back" — not that this box's token can fetch
     // usage.
-    match client.account_rate_limits_read().await {
+    match client.account_rate_limits_read(Default::default()).await {
         Ok(_) => {}
         Err(codex_codes::Error::JsonRpc { code, .. }) => {
             assert_eq!(code, -32603, "unexpected rpc error class");

@@ -1,7 +1,10 @@
 use codex_codes::io::items::{
     CommandExecutionStatus, FileChangeItem, PatchApplyStatus, PatchChangeKind, ThreadItem,
 };
-use codex_codes::protocol::{ConfigReadResponse, GetAccountRateLimitsResponse};
+use codex_codes::protocol::{
+    ConfigReadResponse, GetAccountRateLimitsParams, GetAccountRateLimitsResponse, McpServerStatus,
+    Thread, ThreadListParams,
+};
 use codex_codes::{
     JsonRpcMessage, JsonRpcNotification, McpServerElicitationRequestParams, Notification,
     ParseError, ThreadEvent, ThreadItemsListResponse, ThreadRevertResponse,
@@ -82,6 +85,101 @@ fn account_rate_limits_include_account_and_upsell() {
         serde_json::to_value(response).expect("serialize rate limits response"),
         original
     );
+}
+
+/// GetAccountRateLimitsParams omits false capability flags (default is `{}`) and writes set ones in camelCase.
+#[test]
+fn account_rate_limits_params_omit_false_capabilities() {
+    assert_eq!(
+        serde_json::to_value(GetAccountRateLimitsParams::default()).unwrap(),
+        serde_json::json!({})
+    );
+
+    let params = GetAccountRateLimitsParams {
+        supports_luna_reserve: true,
+        exclude_reset_credit_details: true,
+    };
+    let wire = serde_json::to_value(&params).unwrap();
+    assert_eq!(
+        wire,
+        serde_json::json!({
+            "supportsLunaReserve": true,
+            "excludeResetCreditDetails": true
+        })
+    );
+    let back: GetAccountRateLimitsParams = serde_json::from_value(wire).unwrap();
+    assert_eq!(back, params);
+}
+
+/// GetAccountRateLimitsResponse decodes ordinaryUsageAllowed and RateLimitSnapshot.normalModelSlug, round-tripping both.
+#[test]
+fn account_rate_limits_decode_usage_permission_and_model_slug() {
+    let original = serde_json::json!({
+        "ordinaryUsageAllowed": false,
+        "rateLimits": {
+            "limitId": "codex",
+            "normalModelSlug": "gpt-5-codex"
+        }
+    });
+
+    let response: GetAccountRateLimitsResponse = serde_json::from_value(original.clone()).unwrap();
+    assert_eq!(response.ordinary_usage_allowed, Some(false));
+    assert_eq!(
+        serde_json::to_value(&response).unwrap()["rateLimits"]["normalModelSlug"],
+        "gpt-5-codex"
+    );
+    assert_eq!(serde_json::to_value(response).unwrap(), original);
+}
+
+/// Thread.originator and ThreadListParams.originators round-trip and stay absent when unset.
+#[test]
+fn thread_originator_fields_round_trip() {
+    let thread: Thread = serde_json::from_value(serde_json::json!({
+        "id": "thr-1",
+        "originator": "codex_cli_rs"
+    }))
+    .unwrap();
+    assert_eq!(thread.originator.as_deref(), Some("codex_cli_rs"));
+
+    let bare: Thread = serde_json::from_value(serde_json::json!({"id": "thr-2"})).unwrap();
+    assert!(serde_json::to_value(bare)
+        .unwrap()
+        .get("originator")
+        .is_none());
+
+    let params = ThreadListParams {
+        originators: Some(vec!["codex_vscode".to_string()]),
+        ..ThreadListParams::default()
+    };
+    assert_eq!(
+        serde_json::to_value(params).unwrap(),
+        serde_json::json!({"originators": ["codex_vscode"]})
+    );
+}
+
+/// McpServerStatus.toolsError decodes the discovery failure message and is omitted when a catalog was returned.
+#[test]
+fn mcp_server_status_decodes_tools_error() {
+    let status: McpServerStatus = serde_json::from_value(serde_json::json!({
+        "authStatus": "unsupported",
+        "name": "broken",
+        "toolsError": "transport closed during tools/list"
+    }))
+    .unwrap();
+    assert_eq!(
+        status.tools_error.as_deref(),
+        Some("transport closed during tools/list")
+    );
+
+    let healthy: McpServerStatus = serde_json::from_value(serde_json::json!({
+        "authStatus": "unsupported",
+        "name": "ok"
+    }))
+    .unwrap();
+    assert!(serde_json::to_value(healthy)
+        .unwrap()
+        .get("toolsError")
+        .is_none());
 }
 
 /// MCP elicitation requests with the newer camelCase "openaiForm" mode decode to the OpenAiElicitationForm arm.

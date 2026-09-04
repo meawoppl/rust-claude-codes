@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.151.3] - 2026-09-04
+
+Resnapshots vs `openai/codex@main` (fixes #359).
+
+### Added
+
+- `GetAccountRateLimitsParams` (`supportsLunaReserve`,
+  `excludeResetCreditDetails`), the client's usage-read capabilities for
+  `account/rateLimits/read`. Both flags are omitted when `false`, so the
+  default serializes as `{}`.
+- `GetAccountRateLimitsResponse.ordinary_usage_allowed`, the backend's
+  permission for ordinary included usage. `None` means unavailable.
+- `RateLimitSnapshot.normal_model_slug`, the normal model whose display name
+  and reasoning options describe a quota alias.
+- `McpServerStatus.tools_error`, set when tool discovery failed and no catalog
+  was returned.
+- `Thread.originator`, the originator recorded when the thread was created,
+  and `ThreadListParams.originators`, a hosted-backend-only originator
+  allowlist.
+
+### Changed
+
+- **Breaking**: `AsyncClient::account_rate_limits_read` now takes a
+  `GetAccountRateLimitsParams`; pass `Default::default()` for the previous
+  behaviour.
+- **Breaking**: `PermissionsRequestApprovalParams.cwd` is a
+  `LegacyAppPathString` rather than an `AbsolutePathBuf`, mirroring
+  upstream. Both are transparent `String` newtypes, so the wire shape is
+  unchanged.
+
+### Notes
+
+- Upstream also added a `configuration_update` `ResponseItem` variant
+  (`ConfigurationReasoning`) and the `ThreadEnvironment` /
+  `ApplicationRequirements` definitions. The raw `ResponseItem` stream is not
+  typed by this crate, and the two new definitions are unreachable from any
+  published method in this schema revision (they back experimental
+  `Thread.environments` / `Config.application` fields upstream), so none are
+  modeled yet.
+- `review/start` detached delivery is now deprecated upstream and emits a
+  `deprecationNotice`; start a thread and run an inline review instead.
+
 ## [0.151.2] - 2026-09-02
 
 Resnapshots vs `openai/codex@main`.
