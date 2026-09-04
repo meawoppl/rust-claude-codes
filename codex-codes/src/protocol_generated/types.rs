@@ -2680,11 +2680,46 @@ pub struct GetAccountParams {
     pub refresh_token: Option<bool>,
 }
 
+/// Usage-read capabilities of the requesting client, never inferred from its
+/// experiment arm. Both flags are omitted from the wire when `false`, so the
+/// default value serializes as `{}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GetAccountRateLimitsParams {
+    /// Skip the separate reset-credit detail lookup for background usage
+    /// polls. The usage response still includes the available count;
+    /// omitted/false preserves detailed reads.
+    #[serde(
+        rename = "excludeResetCreditDetails",
+        default,
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub exclude_reset_credit_details: bool,
+    /// The client supports automatic Luna Reserve fallback. For eligible
+    /// ChatGPT CLI users, allow the backend to record experiment exposure
+    /// after ordinary usage is blocked.
+    #[serde(
+        rename = "supportsLunaReserve",
+        default,
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub supports_luna_reserve: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountRateLimitsResponse {
     #[serde(rename = "accountId", default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
+    /// Backend permission for ordinary included usage, validated against the
+    /// active account. `None` means unavailable; clients must not infer
+    /// recovery from percentages or reset times.
+    #[serde(
+        rename = "ordinaryUsageAllowed",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ordinary_usage_allowed: Option<bool>,
     #[serde(
         rename = "rateLimitResetCredits",
         default,
@@ -4190,6 +4225,14 @@ pub struct McpServerStatus {
     pub server_info: Option<McpServerInfo>,
     #[serde(default)]
     pub tools: std::collections::BTreeMap<String, Tool>,
+    /// Tool discovery failed and no catalog was returned. `None` when a
+    /// catalog is returned, including cached or empty catalogs.
+    #[serde(
+        rename = "toolsError",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tools_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -4845,7 +4888,7 @@ pub struct PermissionProfileSummary {
 #[serde(rename_all = "camelCase")]
 pub struct PermissionsRequestApprovalParams {
     #[serde()]
-    pub cwd: AbsolutePathBuf,
+    pub cwd: LegacyAppPathString,
     #[serde(
         rename = "environmentId",
         default,
@@ -5822,6 +5865,14 @@ pub struct RateLimitSnapshot {
     pub limit_id: Option<String>,
     #[serde(rename = "limitName", default, skip_serializing_if = "Option::is_none")]
     pub limit_name: Option<String>,
+    /// Normal model whose display name and reasoning options describe this
+    /// quota alias.
+    #[serde(
+        rename = "normalModelSlug",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub normal_model_slug: Option<String>,
     #[serde(rename = "planType", default, skip_serializing_if = "Option::is_none")]
     pub plan_type: Option<PlanType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6997,6 +7048,11 @@ pub struct Thread {
     pub model_provider: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Originator recorded when the thread was created, independent of its
+    /// current client or executor. `None` when the recorded originator is
+    /// unavailable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub originator: Option<String>,
     #[serde(
         rename = "parentThreadId",
         default,
@@ -7635,6 +7691,11 @@ pub struct ThreadListParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub model_providers: Option<Vec<String>>,
+    /// Optional originator allowlist, matching any supplied value exactly.
+    /// Supported by hosted backends only; the local app-server rejects a
+    /// nonempty list. Omitted or empty lists leave originators unrestricted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub originators: Option<Vec<String>>,
     #[serde(
         rename = "searchTerm",
         default,

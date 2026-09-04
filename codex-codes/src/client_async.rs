@@ -58,8 +58,8 @@ use crate::protocol::{
 };
 use crate::protocol_generated::types::{
     CancelLoginAccountParams, CancelLoginAccountResponse, GetAccountParams,
-    GetAccountRateLimitsResponse, GetAccountResponse, GetAccountTokenUsageResponse,
-    LoginAccountParams, LoginAccountResponse, LogoutAccountResponse,
+    GetAccountRateLimitsParams, GetAccountRateLimitsResponse, GetAccountResponse,
+    GetAccountTokenUsageResponse, LoginAccountParams, LoginAccountResponse, LogoutAccountResponse,
 };
 use log::{debug, error, warn};
 use serde::de::DeserializeOwned;
@@ -515,12 +515,16 @@ impl AsyncClient {
     }
 
     /// `account/rateLimits/read` — current rate-limit windows.
-    pub async fn account_rate_limits_read(&mut self) -> Result<GetAccountRateLimitsResponse> {
-        self.request(
-            crate::protocol::methods::ACCOUNT_RATELIMITS_READ,
-            &serde_json::json!({}),
-        )
-        .await
+    ///
+    /// `params` declares the client's usage-read capabilities;
+    /// `GetAccountRateLimitsParams::default()` serializes as `{}` and matches
+    /// the pre-capability wire shape.
+    pub async fn account_rate_limits_read(
+        &mut self,
+        params: GetAccountRateLimitsParams,
+    ) -> Result<GetAccountRateLimitsResponse> {
+        self.request(crate::protocol::methods::ACCOUNT_RATELIMITS_READ, &params)
+            .await
     }
 
     /// `account/usage/read` — token-usage summary for the account.

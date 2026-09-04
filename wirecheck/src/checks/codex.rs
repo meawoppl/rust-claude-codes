@@ -260,7 +260,10 @@ async fn account_read_family(reporter: &Reporter) {
         for (name, result) in [
             (
                 "rateLimits",
-                client.account_rate_limits_read().await.map(|_| ()),
+                client
+                    .account_rate_limits_read(Default::default())
+                    .await
+                    .map(|_| ()),
             ),
             ("usage", client.account_usage_read().await.map(|_| ())),
         ] {
