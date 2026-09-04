@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.151.4] - 2026-09-04
+
+### Added
+
+- `CodexModel`: `Gpt6Astra` (`gpt-6-astra`, first GPT-6-family catalog
+  entry, 272k context) and the cyber-access pair `DaybreakBlue` /
+  `DaybreakRed` (`gpt-daybreak-{blue,red}-latest`; Red carries a 372k
+  context) from `openai/codex@main`'s models-manager catalog.
+  Live-probed: the backend recognizes `gpt-6-astra` but rejects it for
+  ChatGPT-plan auth — server-side gated, noted on the variant.
+
 ## [0.151.3] - 2026-09-04
 
 Resnapshots vs `openai/codex@main` (fixes #359).

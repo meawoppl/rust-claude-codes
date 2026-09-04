@@ -16,6 +16,17 @@ use std::fmt;
 /// A model slug accepted by the Codex CLI and app-server.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CodexModel {
+    /// GPT-6-Astra (`gpt-6-astra`) — first GPT-6-family model in the
+    /// catalog (272k context). Live-probed 2026-09-04: the backend
+    /// recognizes the slug but rejects it for ChatGPT-plan auth
+    /// ("not supported when using Codex with a ChatGPT account").
+    Gpt6Astra,
+    /// Daybreak Blue (`gpt-daybreak-blue-latest`) — the cyber-access
+    /// program models (see `CyberAccessProgram`); server-side gated.
+    DaybreakBlue,
+    /// Daybreak Red (`gpt-daybreak-red-latest`) — cyber-access program,
+    /// 372k context; server-side gated.
+    DaybreakRed,
     /// GPT-5.6-Sol (`gpt-5.6-sol`).
     Gpt56Sol,
     /// GPT-5.6-Terra (`gpt-5.6-terra`).
@@ -42,6 +53,9 @@ impl CodexModel {
     /// The slug to pass to `codex -m` / `ThreadStartParams.model`.
     pub fn cli_arg(&self) -> &str {
         match self {
+            Self::Gpt6Astra => "gpt-6-astra",
+            Self::DaybreakBlue => "gpt-daybreak-blue-latest",
+            Self::DaybreakRed => "gpt-daybreak-red-latest",
             Self::Gpt56Sol => "gpt-5.6-sol",
             Self::Gpt56Terra => "gpt-5.6-terra",
             Self::Gpt56Luna => "gpt-5.6-luna",
@@ -63,6 +77,9 @@ impl CodexModel {
     /// Human-friendly display name, matching the catalog's `display_name`.
     pub fn display_name(&self) -> &str {
         match self {
+            Self::Gpt6Astra => "GPT-6-Astra",
+            Self::DaybreakBlue => "Daybreak Blue",
+            Self::DaybreakRed => "Daybreak Red",
             Self::Gpt56Sol => "GPT-5.6-Sol",
             Self::Gpt56Terra => "GPT-5.6-Terra",
             Self::Gpt56Luna => "GPT-5.6-Luna",
@@ -78,6 +95,9 @@ impl CodexModel {
     /// Every model known to this version of the crate.
     pub fn known() -> &'static [CodexModel] {
         &[
+            Self::Gpt6Astra,
+            Self::DaybreakBlue,
+            Self::DaybreakRed,
             Self::Gpt56Sol,
             Self::Gpt56Terra,
             Self::Gpt56Luna,
@@ -99,6 +119,9 @@ impl fmt::Display for CodexModel {
 impl From<&str> for CodexModel {
     fn from(s: &str) -> Self {
         match s {
+            "gpt-6-astra" => Self::Gpt6Astra,
+            "gpt-daybreak-blue-latest" => Self::DaybreakBlue,
+            "gpt-daybreak-red-latest" => Self::DaybreakRed,
             "gpt-5.6-sol" => Self::Gpt56Sol,
             "gpt-5.6-terra" => Self::Gpt56Terra,
             "gpt-5.6-luna" => Self::Gpt56Luna,
