@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.151.5] - 2026-09-05
+
+Resnapshots vs `openai/codex@main` (ddf04ad, 2026-09-05).
+
+### Added
+
+- `BrowserUseRequirements.allow_webmcp`, the managed WebMCP policy the app
+  server now exposes (upstream #42823). Omitted when `None`.
+
+### Changed
+
+- `GuardianApprovalReviewAction::Command.cwd`, `::ApplyPatch.cwd`, and
+  `::ApplyPatch.files` are now `LegacyAppPathString` instead of
+  `AbsolutePathBuf`, mirroring upstream's "preserve executor paths in
+  Guardian approval reviews" (#42838). `Execve.cwd` stays `AbsolutePathBuf`.
+
 ## [0.151.4] - 2026-09-04
 
 ### Added
