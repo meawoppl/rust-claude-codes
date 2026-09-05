@@ -78,7 +78,7 @@
 //! ⚠️ **Important**: The Claude CLI protocol is unstable and evolving. This crate
 //! automatically checks your Claude CLI version and warns if it's newer than tested.
 //!
-//! Current tested version: **2.1.239**
+//! Current tested version: **2.1.261**
 //!
 //! Report compatibility issues at: <https://github.com/meawoppl/rust-claude-codes/pulls>
 //!
@@ -163,22 +163,23 @@ pub use io::{
 
 // System message and assistant message types
 pub use io::{
-    ApiKeySource, ApiRetryMessage, AssistantErrorKind, BackgroundTaskInfo,
-    BackgroundTasksChangedMessage, BatchToolUse, CodeChangePublishedMessage, CommandInfo,
-    CommandsChangedMessage, CompactBoundaryMessage, CompactMetadata, CompactionTrigger,
-    ContextAgent, ContextCategory, ContextMcpTool, ContextMemoryFile, ContextOverLimit,
-    ContextSkill, ContextUsage, ControlRequestProgressMessage, ElicitationCompleteMessage,
-    FailedPersistedFile, FeedbackDraftQueuedMessage, FilesPersistedMessage, HookProgressMessage,
-    HookResponseMessage, HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode,
-    KnownSystemEvent, LocalCommandOutputMessage, McpMeta, McpServerError, MemoryPaths,
-    MemoryRecallItem, MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey,
-    MirrorErrorMessage, ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage,
-    NotificationMessage, OutputStyle, PermissionDeniedMessage, PersistedFile, PluginDiagnostic,
-    PluginInfo, PluginInstallMessage, PreservedMessages, PreservedSegment, RefusalFallbackScope,
-    StatusMessage, StatusMessageStatus, StopReason, SummarizeMetadata, SystemMessage,
-    SystemSubtype, TaskNotificationMessage, TaskPatch, TaskProgressMessage, TaskStartedMessage,
-    TaskStatus, TaskType, TaskUpdatedMessage, TaskUsage, ThinkingTokensMessage, ToolResultMeta,
-    ToolUseMeta, VcsMutationKind, VcsStateChangedMessage, WorkerShuttingDownMessage,
+    ApiKeySource, ApiRetryMessage, ApiRetryNoResponse, AssistantErrorKind, BackgroundTaskInfo,
+    BackgroundTasksChangedMessage, BatchToolUse, CloudSessionDeltaMessage,
+    CodeChangePublishedMessage, CommandInfo, CommandsChangedMessage, CompactBoundaryMessage,
+    CompactMetadata, CompactionTrigger, ContextAgent, ContextCategory, ContextMcpTool,
+    ContextMemoryFile, ContextOverLimit, ContextSkill, ContextUsage, ControlRequestProgressMessage,
+    ElicitationCompleteMessage, FailedPersistedFile, FeedbackDraftQueuedMessage,
+    FilesPersistedMessage, HookProgressMessage, HookResponseMessage, HookStartedMessage,
+    InformationalMessage, InitMessage, InitPermissionMode, KnownSystemEvent,
+    LocalCommandOutputMessage, McpMeta, McpServerError, MemoryPaths, MemoryRecallItem,
+    MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage,
+    ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle,
+    PermissionDeniedMessage, PersistedFile, PluginDiagnostic, PluginInfo, PluginInstallMessage,
+    PreservedMessages, PreservedSegment, RefusalFallbackScope, StatusMessage, StatusMessageStatus,
+    StopReason, SummarizeMetadata, SystemMessage, SystemSubtype, TaskNotificationMessage,
+    TaskPatch, TaskProgressMessage, TaskStartedMessage, TaskStatus, TaskType, TaskUpdatedMessage,
+    TaskUsage, ThinkingTokensMessage, ToolResultMeta, ToolUseMeta, VcsMutationKind,
+    VcsStateChangedMessage, WorkerShuttingDownMessage,
 };
 
 // Additional top-level output message wrappers

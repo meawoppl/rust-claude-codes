@@ -6,7 +6,7 @@ use std::process::Command;
 use std::sync::Once;
 
 /// The latest Claude CLI version we've tested against
-const TESTED_VERSION: &str = "2.1.259";
+const TESTED_VERSION: &str = "2.1.261";
 
 /// The Claude CLI release this crate's live integration suite last passed
 /// against — the machine-readable form of the crate's version convention

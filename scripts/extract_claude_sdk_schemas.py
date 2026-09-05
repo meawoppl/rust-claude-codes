@@ -183,20 +183,42 @@ def discover_aliases(data: bytes) -> list[tuple[re.Match[bytes], WirePatterns]]:
     return out
 
 
-def index_definitions(data: bytes, pats: WirePatterns) -> dict[str, list[tuple[int, bytes]]]:
-    """One pass over the binary → {name: [(offset, body-bytes), ...]}.
+# Bun separates the bundled JS chunks with a `// @bun` banner. Minified names
+# are only unique within one chunk, so schema references are resolved inside
+# the chunk that holds the SDK output union.
+CHUNK_MARKER = b"// @bun"
+
+
+def chunk_bounds(data: bytes, offset: int) -> tuple[int, int]:
+    """`(start, end)` of the bundle chunk containing `offset`."""
+    lo = data.rfind(CHUNK_MARKER, 0, offset)
+    hi = data.find(CHUNK_MARKER, offset)
+    return (0 if lo < 0 else lo, len(data) if hi < 0 else hi)
+
+
+def index_definitions(
+    data: bytes, pats: WirePatterns, lo: int = 0, hi: int | None = None
+) -> dict[str, list[tuple[int, bytes]]]:
+    """One pass over `data[lo:hi]` → {name: [(offset, body-bytes), ...]}.
 
     Minified names collide across bundle modules, so each name maps to every
     candidate definition; callers pick the one nearest the union with
     [`pick_definition`]. Indexing once turns per-name full-binary scans into
     O(1) lookups — the difference between minutes and seconds on a ~250 MB ELF.
+
+    `lo`/`hi` bound the scan to one bundle chunk (see [`chunk_bounds`]). A
+    name that is a plain helper in the union's chunk (`se()` is `z.unknown()`
+    on CLI 2.1.261) can be a lazy schema in another chunk; resolving it there
+    crawled that chunk's whole module graph.
     """
+    if hi is None:
+        hi = len(data)
     idx: dict[str, list[tuple[int, bytes]]] = {}
-    for m in pats.def_start.finditer(data):
+    for m in pats.def_start.finditer(data, lo, hi):
         name = m.group(1).decode()
         start = m.start() + 1
-        nxt = pats.boundary.search(data, m.end())
-        end = nxt.start() + 1 if nxt else m.end() + 20_000
+        nxt = pats.boundary.search(data, m.end(), hi)
+        end = nxt.start() + 1 if nxt else min(m.end() + 20_000, hi)
         idx.setdefault(name, []).append((start, data[start:end]))
     return idx
 
@@ -233,7 +255,7 @@ def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> E
     union_text = union.group(0).decode()
     members = REF_CALL.findall(union_text)
 
-    idx = index_definitions(data, pats)
+    idx = index_definitions(data, pats, *chunk_bounds(data, union.start()))
     results: list[tuple[str, str, str]] = []
     unresolved: list[str] = []
     seen: set[str] = set()
@@ -245,7 +267,7 @@ def _extract_with(data: bytes, anchor: re.Match[bytes], pats: WirePatterns) -> E
         seen.add(name)
         body = pick_definition(idx.get(name, []), union.start())
         if body is None:
-            # Not defined under the schema wrapper anywhere in the bundle —
+            # Not defined under the schema wrapper anywhere in this chunk —
             # a module-initializer thunk (`NAME=S(()=>{...})`) or helper
             # function whose call site happens to match the `ref()` shape,
             # not a schema. Verified empirically: every such name in CLI
@@ -308,7 +330,7 @@ def main() -> None:
     )
     if extraction.unresolved:
         print(
-            "# non-schema refs skipped (no lazy definition anywhere): "
+            "# non-schema refs skipped (no lazy definition in the union chunk): "
             + ", ".join(extraction.unresolved),
             file=sys.stderr,
         )
