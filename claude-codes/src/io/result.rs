@@ -39,6 +39,26 @@ pub struct ResultMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_sent_wall_ms: Option<f64>,
 
+    /// Time until the first content frame of the stream arrived, in
+    /// milliseconds (CLI 2.1.260+ timing instrumentation).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_content_frame_ms: Option<u64>,
+
+    /// Time until the first stream POST was issued, in milliseconds
+    /// (CLI 2.1.260+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_stream_post_ms: Option<u64>,
+
+    /// Time until the first stream POST was acknowledged, in milliseconds
+    /// (CLI 2.1.260+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_stream_post_ack_ms: Option<u64>,
+
+    /// Wall-clock epoch milliseconds when the first stream POST was issued
+    /// (fractional; CLI 2.1.260+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_stream_post_wall_ms: Option<f64>,
+
     /// Wire uuid of the user message this result answers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_message_uuid: Option<String>,

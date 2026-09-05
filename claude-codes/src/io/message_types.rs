@@ -44,6 +44,7 @@ pub enum SystemSubtype {
     CodeChangePublished,
     VcsStateChanged,
     FeedbackDraftQueued,
+    CloudSessionDelta,
     /// A subtype not yet known to this version of the crate.
     Unknown(String),
 }
@@ -82,6 +83,7 @@ impl SystemSubtype {
             Self::CodeChangePublished => "code_change_published",
             Self::VcsStateChanged => "vcs_state_changed",
             Self::FeedbackDraftQueued => "feedback_draft_queued",
+            Self::CloudSessionDelta => "cloud_session_delta",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -127,6 +129,7 @@ impl From<&str> for SystemSubtype {
             "code_change_published" => Self::CodeChangePublished,
             "vcs_state_changed" => Self::VcsStateChanged,
             "feedback_draft_queued" => Self::FeedbackDraftQueued,
+            "cloud_session_delta" => Self::CloudSessionDelta,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -1044,6 +1047,19 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Check if this is a cloud_session_delta message.
+    pub fn is_cloud_session_delta(&self) -> bool {
+        self.subtype == SystemSubtype::CloudSessionDelta
+    }
+
+    /// Try to parse as a cloud_session_delta message.
+    pub fn as_cloud_session_delta(&self) -> Option<CloudSessionDeltaMessage> {
+        if self.subtype != SystemSubtype::CloudSessionDelta {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
     /// Parse any typed system subtype known to this crate version.
     pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
         macro_rules! parse {
@@ -1105,6 +1121,9 @@ impl SystemMessage {
             SystemSubtype::VcsStateChanged => parse!(VcsStateChanged, VcsStateChangedMessage),
             SystemSubtype::FeedbackDraftQueued => {
                 parse!(FeedbackDraftQueued, FeedbackDraftQueuedMessage)
+            }
+            SystemSubtype::CloudSessionDelta => {
+                parse!(CloudSessionDelta, CloudSessionDeltaMessage)
             }
             SystemSubtype::Unknown(_) => None,
         }
@@ -1182,6 +1201,9 @@ impl SystemMessage {
             SystemSubtype::FeedbackDraftQueued => {
                 reserialize(parse_system::<FeedbackDraftQueuedMessage>(self))
             }
+            SystemSubtype::CloudSessionDelta => {
+                reserialize(parse_system::<CloudSessionDeltaMessage>(self))
+            }
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1230,6 +1252,7 @@ pub enum KnownSystemEvent {
     CodeChangePublished(CodeChangePublishedMessage),
     VcsStateChanged(VcsStateChangedMessage),
     FeedbackDraftQueued(FeedbackDraftQueuedMessage),
+    CloudSessionDelta(CloudSessionDeltaMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1239,10 +1262,26 @@ pub struct ApiRetryMessage {
     pub retry_delay_ms: u64,
     pub error_status: Option<u16>,
     pub error: String,
+    /// Present only when the API sent no response headers within the
+    /// first-byte window (`CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`). For this
+    /// cause `max_retries` is its own cap (normally one retry), not the
+    /// session budget (CLI 2.1.261+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_response: Option<ApiRetryNoResponse>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+}
+
+/// Timing of a first-byte-timeout retry, carried as
+/// [`ApiRetryMessage::no_response`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApiRetryNoResponse {
+    /// How long the failed attempt waited for response headers.
+    pub waited_ms: u64,
+    /// How long the retry will wait for them.
+    pub retry_wait_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2108,6 +2147,14 @@ pub struct ThinkingTokensMessage {
     pub estimated_tokens: u64,
     /// Increase in the estimate since the previous `thinking_tokens` event.
     pub estimated_tokens_delta: u64,
+    /// Client uuid of the user message that triggered this turn, stamped on
+    /// every `thinking_tokens` frame of a headless turn so a consumer can
+    /// attribute thinking progress to the send it answers before any reply
+    /// frame arrives. Absent on synthetic/scheduled (meta) turns, on turns
+    /// without a client uuid, on Remote Control sessions, and from CLIs
+    /// before 2.1.261.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_message_uuid: Option<String>,
     pub uuid: String,
 }
 
@@ -2365,6 +2412,33 @@ pub struct FeedbackDraftQueuedMessage {
     pub extra: serde_json::Map<String, Value>,
 }
 
+/// `system/cloud_session_delta` — written only by the headless stream-json
+/// client of a cloud-hosted session (the same client that puts
+/// `cloud_session` on its init frames): the session's status changed between
+/// two inits. Only after the first init; at most a few per second; none when
+/// nothing differs. An init is always a complete snapshot, so a host that
+/// (re)attaches resynchronises from the first init it reads and applies
+/// these on top. Display-only (CLI 2.1.260+).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloudSessionDeltaMessage {
+    /// Rises by one with each of these frames this client writes (1 for the
+    /// first); never reset by an init. A reader keeps the highest it has
+    /// applied and drops a lower one.
+    pub seq: u64,
+    /// The top-level keys of `cloud_session` whose value differs from the
+    /// last block this client wrote, e.g. `["serving"]`; never empty. A hint
+    /// for what to redraw — the block is complete either way.
+    pub changed: Vec<String>,
+    /// The whole block exactly as the next init would carry it (see
+    /// [`InitMessage::cloud_session`]): replace the held copy, do not merge.
+    /// Stored as raw JSON (the shape is internal and evolving).
+    pub cloud_session: Value,
+    pub uuid: String,
+    pub session_id: String,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
 /// `{id, name}` of an original `Batch*` tool_use block, carried in
 /// [`AssistantMessage::batch_tool_uses`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -2554,6 +2628,16 @@ pub struct AssistantMessage {
     /// (CLI 2.1.259+).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_command_source: Option<String>,
+    /// Ascending zero-based indexes into `message.content` of the thinking
+    /// blocks whose signature the server tagged as narration (server
+    /// summaries of the prose between tool calls, not the model's own
+    /// reasoning), so a renderer can label them as summaries without decoding
+    /// the signature envelope. Fail-closed: an unparseable or legacy
+    /// signature is not listed. Omitted when the frame has no such block and
+    /// by CLIs before 2.1.260; treat unlisted thinking blocks as ordinary
+    /// thinking. Wrapper-level sibling — never inside `message.content`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub narration_block_indexes: Vec<usize>,
     /// Structured twin of the `/context` report, carried on the synthetic
     /// assistant message that delivers the markdown table. Present only on
     /// `/context` results from CLIs new enough to attach it (2.1.239+).
@@ -3485,6 +3569,47 @@ mod tests {
             panic!("expected FeedbackDraftQueued event");
         };
         assert_eq!(known.title, "Tool output was truncated");
+        assert_eq!(
+            sys.typed_value().expect("typed value")["future_field"],
+            "preserved"
+        );
+    }
+
+    #[test]
+    fn test_cloud_session_delta_fully_wrapped() {
+        use super::{KnownSystemEvent, SystemSubtype};
+        use serde_json::Value;
+
+        let raw: Value = serde_json::from_str(
+            r#"{
+            "type":"system","subtype":"cloud_session_delta",
+            "seq":3,"changed":["serving","connection"],
+            "cloud_session":{"id":"session_abc","view_url":"https://example.invalid/s/abc",
+                "serving":{"state":"on"},"connection":{"state":"live"}},
+            "uuid":"u1","session_id":"s1","future_field":"preserved"
+        }"#,
+        )
+        .unwrap();
+        crate::io::assert_fully_wrapped(&raw);
+
+        let output: ClaudeOutput = serde_json::from_value(raw).unwrap();
+        let ClaudeOutput::System(sys) = output else {
+            panic!("expected System");
+        };
+        assert_eq!(sys.subtype, SystemSubtype::CloudSessionDelta);
+        assert!(sys.is_cloud_session_delta());
+        assert!(!sys.is_feedback_draft_queued());
+
+        let direct = sys.as_cloud_session_delta().expect("direct typed accessor");
+        assert_eq!(direct.seq, 3);
+        assert_eq!(direct.changed, vec!["serving", "connection"]);
+        assert_eq!(direct.cloud_session["id"], "session_abc");
+        assert_eq!(direct.extra["future_field"], "preserved");
+
+        let Some(KnownSystemEvent::CloudSessionDelta(known)) = sys.as_known_system_event() else {
+            panic!("expected CloudSessionDelta event");
+        };
+        assert_eq!(known.session_id, "s1");
         assert_eq!(
             sys.typed_value().expect("typed value")["future_field"],
             "preserved"

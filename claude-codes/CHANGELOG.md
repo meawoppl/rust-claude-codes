@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.261] - 2026-09-05
+
+Re-baseline against Claude CLI **2.1.261**: the tested pin (`TESTED_VERSION`,
+both README `Tested against:` lines) and the crate version move to 2.1.261.
+Models the 2.1.259 → 2.1.261 stream-json drift (all additive) reported by the
+nightly drift check on issue #361, plus the one field 2.1.261 added on top of
+the 2.1.260 report.
+
+### Added
+
+- `SystemSubtype::CloudSessionDelta` / `CloudSessionDeltaMessage` /
+  `KnownSystemEvent::CloudSessionDelta` — the new `system/cloud_session_delta`
+  frame the headless client of a cloud-hosted session writes when the
+  session's status changes between two inits (`seq`, `changed`, and the
+  whole `cloud_session` block as raw JSON, matching `InitMessage`).
+- `AssistantMessage.narration_block_indexes` — indexes into
+  `message.content` of the thinking blocks the server tagged as narration.
+- `ResultMessage.first_content_frame_ms`, `.first_stream_post_ms`,
+  `.first_stream_post_ack_ms`, `.first_stream_post_wall_ms` — stream-timing
+  instrumentation on `result/success`.
+- `ApiRetryMessage.no_response` (`ApiRetryNoResponse`) — present only on
+  first-byte-timeout retries, with how long the attempt waited and how long
+  the retry will wait.
+- `ThinkingTokensMessage.user_message_uuid` — the client uuid of the send the
+  thinking progress belongs to.
+
+### Fixed
+
+- `scripts/extract_claude_sdk_schemas.py` now resolves schema references only
+  inside the bundle chunk that holds the SDK output union. On 2.1.261 the
+  assistant schema calls a plain `se()` helper (`z.unknown()`) whose only
+  lazy definition lives in another chunk; following it crawled that chunk's
+  module graph and inflated the extraction to 667 "schemas" (and the drift
+  report to 89 phantom wire labels). The 2.1.239 and 2.1.259 extractions are
+  byte-identical before and after.
+
 ## [2.1.259] - 2026-09-03
 
 Re-baseline against Claude CLI **2.1.259**: the full live integration suite
