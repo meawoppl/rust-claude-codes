@@ -665,6 +665,14 @@ pub struct AutoReviewRequirements {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserUseRequirements {
+    /// Managed WebMCP policy: whether the app may use WebMCP-exposed page
+    /// tools. `None` leaves the default in place.
+    #[serde(
+        rename = "allowWebmcp",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allow_webmcp: Option<bool>,
     #[serde(
         rename = "allowGlobalPersistentApproval",
         default,
@@ -2916,7 +2924,7 @@ pub struct GuardianApprovalReview {
 pub enum GuardianApprovalReviewAction {
     Command {
         command: String,
-        cwd: AbsolutePathBuf,
+        cwd: LegacyAppPathString,
         source: GuardianCommandSource,
     },
     Execve {
@@ -2936,8 +2944,8 @@ pub enum GuardianApprovalReviewAction {
     },
     #[serde(rename = "applyPatch")]
     ApplyPatch {
-        cwd: AbsolutePathBuf,
-        files: Vec<AbsolutePathBuf>,
+        cwd: LegacyAppPathString,
+        files: Vec<LegacyAppPathString>,
     },
     #[serde(rename = "networkAccess")]
     NetworkAccess {
