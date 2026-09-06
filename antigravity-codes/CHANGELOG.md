@@ -5,6 +5,37 @@ All notable changes to `antigravity-codes` are documented here.
 The version tracks the `google-antigravity` release whose harness the crate was
 generated from and tested against.
 
+## [0.1.16] - 2026-09-06
+
+Re-baseline against `google-antigravity` 0.1.16: types regenerated from the
+0.1.16 wheel's descriptors (168 messages, 28 enums — up from 165/27). Regen
+against the committed 0.1.15 descriptors was verified as a byte-identical
+no-op first, so nothing hand-maintained was clobbered.
+
+### Added
+
+- `LIFECYCLE_HOOK_STOP` lifecycle hook: `LifecycleHook::Stop`, its
+  `StopArgs` payload (`response_text`, `trajectory_id`, `continuation_count`,
+  `stop_reason`, `error_message`) on `CallHookRequest.stop_args`, and the
+  `StopResult { decision, reason }` reply on `CallHookResponse.stop_result`
+  with `StopResultDecision::{AllowStop, Continue}`. Both `oneof` view enums
+  gained the matching variant.
+- `CallHookRequest.client_id`.
+- `AgentBehavior::Minimal` (`AGENT_BEHAVIOR_MINIMAL`).
+- `RunCommandToolConfig.enable_sandbox`.
+- `genai.Function` (`name`, `description`, `parameters`, `response`,
+  `defer_loading`, `short_description`) and `Value.function_value` /
+  `ValueKind::FunctionValue`.
+- `VideoContent.name`, `AudioContentMimeType::TypeWebm`.
+
+### Removed
+
+- **Breaking (wire-mandated)**: `GoogleSearchSearchType::EnterpriseWebSearch`
+  — upstream dropped `SEARCH_TYPE_ENTERPRISE_WEB_SEARCH`. A harness that still
+  sends it decodes as `GoogleSearchSearchType::Unknown`.
+- Upstream also removed the `genai.FunctionContent` message; it was never
+  reachable from the harness surface, so no generated type changes.
+
 ## [0.1.15] - 2026-09-01
 
 Re-baseline against `google-antigravity` 0.1.15: types regenerated from the
