@@ -80,6 +80,7 @@ pub enum AgentBehavior {
     Unspecified,
     Autonomous,
     Interactive,
+    Minimal,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -95,6 +96,7 @@ impl AgentBehavior {
             Self::Unspecified => "AGENT_BEHAVIOR_UNSPECIFIED",
             Self::Autonomous => "AGENT_BEHAVIOR_AUTONOMOUS",
             Self::Interactive => "AGENT_BEHAVIOR_INTERACTIVE",
+            Self::Minimal => "AGENT_BEHAVIOR_MINIMAL",
             Self::Unknown(s) => s,
         }
     }
@@ -122,9 +124,11 @@ impl<'de> Deserialize<'de> for AgentBehavior {
             crate::wire::EnumRepr::Name(n) if n == "AGENT_BEHAVIOR_INTERACTIVE" => {
                 Self::Interactive
             }
+            crate::wire::EnumRepr::Name(n) if n == "AGENT_BEHAVIOR_MINIMAL" => Self::Minimal,
             crate::wire::EnumRepr::Number(0) => Self::Unspecified,
             crate::wire::EnumRepr::Number(1) => Self::Autonomous,
             crate::wire::EnumRepr::Number(2) => Self::Interactive,
+            crate::wire::EnumRepr::Number(3) => Self::Minimal,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -150,6 +154,7 @@ pub enum AudioContentMimeType {
     TypeAlaw,
     TypeMulaw,
     TypeVideoAudioS16le,
+    TypeWebm,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -177,6 +182,7 @@ impl AudioContentMimeType {
             Self::TypeAlaw => "TYPE_ALAW",
             Self::TypeMulaw => "TYPE_MULAW",
             Self::TypeVideoAudioS16le => "TYPE_VIDEO_AUDIO_S16LE",
+            Self::TypeWebm => "TYPE_WEBM",
             Self::Unknown(s) => s,
         }
     }
@@ -214,6 +220,7 @@ impl<'de> Deserialize<'de> for AudioContentMimeType {
             crate::wire::EnumRepr::Name(n) if n == "TYPE_VIDEO_AUDIO_S16LE" => {
                 Self::TypeVideoAudioS16le
             }
+            crate::wire::EnumRepr::Name(n) if n == "TYPE_WEBM" => Self::TypeWebm,
             crate::wire::EnumRepr::Number(0) => Self::TypeUnspecified,
             crate::wire::EnumRepr::Number(1) => Self::TypeWav,
             crate::wire::EnumRepr::Number(2) => Self::TypeMp3,
@@ -229,6 +236,7 @@ impl<'de> Deserialize<'de> for AudioContentMimeType {
             crate::wire::EnumRepr::Number(12) => Self::TypeAlaw,
             crate::wire::EnumRepr::Number(13) => Self::TypeMulaw,
             crate::wire::EnumRepr::Number(14) => Self::TypeVideoAudioS16le,
+            crate::wire::EnumRepr::Number(15) => Self::TypeWebm,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -346,7 +354,6 @@ pub enum GoogleSearchSearchType {
     Unspecified,
     WebSearch,
     ImageSearch,
-    EnterpriseWebSearch,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -362,7 +369,6 @@ impl GoogleSearchSearchType {
             Self::Unspecified => "SEARCH_TYPE_UNSPECIFIED",
             Self::WebSearch => "SEARCH_TYPE_WEB_SEARCH",
             Self::ImageSearch => "SEARCH_TYPE_IMAGE_SEARCH",
-            Self::EnterpriseWebSearch => "SEARCH_TYPE_ENTERPRISE_WEB_SEARCH",
             Self::Unknown(s) => s,
         }
     }
@@ -386,13 +392,9 @@ impl<'de> Deserialize<'de> for GoogleSearchSearchType {
             crate::wire::EnumRepr::Name(n) if n == "SEARCH_TYPE_UNSPECIFIED" => Self::Unspecified,
             crate::wire::EnumRepr::Name(n) if n == "SEARCH_TYPE_WEB_SEARCH" => Self::WebSearch,
             crate::wire::EnumRepr::Name(n) if n == "SEARCH_TYPE_IMAGE_SEARCH" => Self::ImageSearch,
-            crate::wire::EnumRepr::Name(n) if n == "SEARCH_TYPE_ENTERPRISE_WEB_SEARCH" => {
-                Self::EnterpriseWebSearch
-            }
             crate::wire::EnumRepr::Number(0) => Self::Unspecified,
             crate::wire::EnumRepr::Number(1) => Self::WebSearch,
             crate::wire::EnumRepr::Number(2) => Self::ImageSearch,
-            crate::wire::EnumRepr::Number(3) => Self::EnterpriseWebSearch,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -560,6 +562,7 @@ pub enum LifecycleHook {
     PostTool,
     OnToolError,
     OnCompaction,
+    Stop,
     /// A value this crate does not know about yet.
     ///
     /// The harness is versioned independently of this crate, so an
@@ -581,6 +584,7 @@ impl LifecycleHook {
             Self::PostTool => "LIFECYCLE_HOOK_POST_TOOL",
             Self::OnToolError => "LIFECYCLE_HOOK_ON_TOOL_ERROR",
             Self::OnCompaction => "LIFECYCLE_HOOK_ON_COMPACTION",
+            Self::Stop => "LIFECYCLE_HOOK_STOP",
             Self::Unknown(s) => s,
         }
     }
@@ -620,6 +624,7 @@ impl<'de> Deserialize<'de> for LifecycleHook {
             crate::wire::EnumRepr::Name(n) if n == "LIFECYCLE_HOOK_ON_COMPACTION" => {
                 Self::OnCompaction
             }
+            crate::wire::EnumRepr::Name(n) if n == "LIFECYCLE_HOOK_STOP" => Self::Stop,
             crate::wire::EnumRepr::Number(0) => Self::Unspecified,
             crate::wire::EnumRepr::Number(1) => Self::OnSessionStart,
             crate::wire::EnumRepr::Number(2) => Self::OnSessionEnd,
@@ -629,6 +634,7 @@ impl<'de> Deserialize<'de> for LifecycleHook {
             crate::wire::EnumRepr::Number(6) => Self::PostTool,
             crate::wire::EnumRepr::Number(7) => Self::OnToolError,
             crate::wire::EnumRepr::Number(8) => Self::OnCompaction,
+            crate::wire::EnumRepr::Number(9) => Self::Stop,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -1379,6 +1385,60 @@ impl<'de> Deserialize<'de> for StepUpdateTarget {
             crate::wire::EnumRepr::Number(1) => Self::User,
             crate::wire::EnumRepr::Number(2) => Self::Model,
             crate::wire::EnumRepr::Number(3) => Self::Environment,
+            crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
+            crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
+        })
+    }
+}
+
+/// `antigravity.localharness.StopResult.Decision`
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum StopResultDecision {
+    #[default]
+    Unspecified,
+    AllowStop,
+    Continue,
+    /// A value this crate does not know about yet.
+    ///
+    /// The harness is versioned independently of this crate, so an
+    /// unrecognised enum value is treated as forward compatibility rather
+    /// than as a decode error.
+    Unknown(String),
+}
+
+impl StopResultDecision {
+    /// The protobuf-JSON spelling of this value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unspecified => "DECISION_UNSPECIFIED",
+            Self::AllowStop => "ALLOW_STOP",
+            Self::Continue => "CONTINUE",
+            Self::Unknown(s) => s,
+        }
+    }
+}
+
+impl std::fmt::Display for StopResultDecision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for StopResultDecision {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for StopResultDecision {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(match crate::wire::EnumRepr::deserialize(d)? {
+            crate::wire::EnumRepr::Name(n) if n == "DECISION_UNSPECIFIED" => Self::Unspecified,
+            crate::wire::EnumRepr::Name(n) if n == "ALLOW_STOP" => Self::AllowStop,
+            crate::wire::EnumRepr::Name(n) if n == "CONTINUE" => Self::Continue,
+            crate::wire::EnumRepr::Number(0) => Self::Unspecified,
+            crate::wire::EnumRepr::Number(1) => Self::AllowStop,
+            crate::wire::EnumRepr::Number(2) => Self::Continue,
             crate::wire::EnumRepr::Name(n) => Self::Unknown(n),
             crate::wire::EnumRepr::Number(n) => Self::Unknown(n.to_string()),
         })
@@ -2210,12 +2270,16 @@ pub struct CallHookRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub on_compaction_args: Option<OnCompactionArgs>,
+    #[serde(alias = "stop_args", default, skip_serializing_if = "Option::is_none")]
+    pub stop_args: Option<StopArgs>,
     #[serde(alias = "request_id", default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r#type: Option<LifecycleHook>,
+    #[serde(alias = "client_id", default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
 }
 
 /// The `args` oneof of [`CallHookRequest`], as an owned value.
@@ -2227,6 +2291,7 @@ pub enum CallHookRequestArgs {
     PostToolArgs(PostToolArgs),
     OnToolErrorArgs(OnToolErrorArgs),
     OnCompactionArgs(OnCompactionArgs),
+    StopArgs(StopArgs),
 }
 
 impl CallHookRequest {
@@ -2250,6 +2315,9 @@ impl CallHookRequest {
         if let Some(v) = self.on_compaction_args {
             return Some(CallHookRequestArgs::OnCompactionArgs(v));
         }
+        if let Some(v) = self.stop_args {
+            return Some(CallHookRequestArgs::StopArgs(v));
+        }
         None
     }
 
@@ -2261,6 +2329,7 @@ impl CallHookRequest {
             || self.post_tool_args.is_some()
             || self.on_tool_error_args.is_some()
             || self.on_compaction_args.is_some()
+            || self.stop_args.is_some()
     }
 }
 
@@ -2298,6 +2367,12 @@ pub struct CallHookResponse {
         skip_serializing_if = "Option::is_none"
     )]
     pub on_tool_error_result: Option<OnToolErrorResult>,
+    #[serde(
+        alias = "stop_result",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stop_result: Option<StopResult>,
     #[serde(alias = "request_id", default, skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
 }
@@ -2310,6 +2385,7 @@ pub enum CallHookResponseResult {
     EmptyResult(EmptyResult),
     ErrorMessage(String),
     OnToolErrorResult(OnToolErrorResult),
+    StopResult(StopResult),
 }
 
 impl CallHookResponse {
@@ -2330,6 +2406,9 @@ impl CallHookResponse {
         if let Some(v) = self.on_tool_error_result {
             return Some(CallHookResponseResult::OnToolErrorResult(v));
         }
+        if let Some(v) = self.stop_result {
+            return Some(CallHookResponseResult::StopResult(v));
+        }
         None
     }
 
@@ -2340,6 +2419,7 @@ impl CallHookResponse {
             || self.empty_result.is_some()
             || self.error_message.is_some()
             || self.on_tool_error_result.is_some()
+            || self.stop_result.is_some()
     }
 }
 
@@ -2731,6 +2811,32 @@ pub struct FilesystemWorkspace {
 pub struct FindToolConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+}
+
+/// `genai.Function`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Function {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Box<Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response: Option<Box<Value>>,
+    #[serde(
+        alias = "defer_loading",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub defer_loading: Option<bool>,
+    #[serde(
+        alias = "short_description",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub short_description: Option<String>,
 }
 
 /// `genai.FunctionCallContent`
@@ -4223,6 +4329,12 @@ pub struct RunCommandToolConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub enable_daemon_commands: Option<bool>,
+    #[serde(
+        alias = "enable_sandbox",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enable_sandbox: Option<bool>,
 }
 
 /// `antigravity.localharness.ScheduleToolConfig`
@@ -4367,6 +4479,52 @@ pub struct StepUpdate {
         skip_serializing_if = "Option::is_none"
     )]
     pub questions_request: Option<UserQuestionsRequest>,
+}
+
+/// `antigravity.localharness.StopArgs`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopArgs {
+    #[serde(
+        alias = "response_text",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub response_text: Option<String>,
+    #[serde(
+        alias = "trajectory_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trajectory_id: Option<String>,
+    #[serde(
+        alias = "continuation_count",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub continuation_count: Option<i32>,
+    #[serde(
+        alias = "stop_reason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stop_reason: Option<TrajectoryStateUpdateStopReason>,
+    #[serde(
+        alias = "error_message",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub error_message: Option<String>,
+}
+
+/// `antigravity.localharness.StopResult`
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision: Option<StopResultDecision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// `genai.Struct`
@@ -5439,6 +5597,12 @@ pub struct Value {
         skip_serializing_if = "Option::is_none"
     )]
     pub content_value: Option<Content>,
+    #[serde(
+        alias = "function_value",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub function_value: Option<Box<Function>>,
 }
 
 /// The `kind` oneof of [`Value`], as an owned value.
@@ -5451,6 +5615,7 @@ pub enum ValueKind {
     StructValue(Struct),
     ListValue(ListValue),
     ContentValue(Content),
+    FunctionValue(Box<Function>),
 }
 
 impl Value {
@@ -5477,6 +5642,9 @@ impl Value {
         if let Some(v) = self.content_value {
             return Some(ValueKind::ContentValue(v));
         }
+        if let Some(v) = self.function_value {
+            return Some(ValueKind::FunctionValue(v));
+        }
         None
     }
 
@@ -5489,6 +5657,7 @@ impl Value {
             || self.struct_value.is_some()
             || self.list_value.is_some()
             || self.content_value.is_some()
+            || self.function_value.is_some()
     }
 }
 
@@ -5553,6 +5722,8 @@ pub struct VideoContent {
     pub mime_type_string: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resolution: Option<MediaResolution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// The `data_or_uri` oneof of [`VideoContent`], as an owned value.
