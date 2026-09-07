@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.263] - 2026-09-07
+
+### Changed
+
+- Re-baseline the tested pin to Claude CLI **2.1.263**: `TESTED_VERSION`,
+  both README `Tested against:` lines and the crate version move to 2.1.263.
+  A full field-by-field diff of the extracted stream-json schemas
+  (2.1.261 → 2.1.263) shows only renamed minified identifiers; every wire
+  label, field and enum is unchanged, and the committed snapshot is
+  byte-identical after `--update`. The integration suite passes unchanged
+  against 2.1.263. No code changes beyond the pin.
+
 ## [2.1.261] - 2026-09-05
 
 Re-baseline against Claude CLI **2.1.261**: the tested pin (`TESTED_VERSION`,
