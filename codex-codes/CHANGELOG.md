@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.153.4] - 2026-09-06
+
+### Changed
+
+- Re-baseline the tested pin to Codex CLI **0.153.4**: the full
+  integration suite (27 capture-corpus + 14 live app-server tests,
+  including the strict typed-message audit) and wirecheck's live tier
+  pass unchanged. Crate version follows per the version-means-tested
+  convention; no code changes beyond the pin.
+
 ## [0.151.5] - 2026-09-05
 
 Resnapshots vs `openai/codex@main` (ddf04ad, 2026-09-05).

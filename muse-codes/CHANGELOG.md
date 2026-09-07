@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-06
+
+### Changed
+
+- Re-baseline the tested pin to Muse Code **1.0.3 (1.0.3-R2198.1)**
+  (hosts auto-rolled from 1.0.2): echo fingerprint identical to the
+  snapshot and the full cargo tier (14 unit + 4 corpus + 8 live echo
+  integration) passes unchanged. Pin-only release.
+
 ## [1.0.2] - 2026-09-02
 
 ### Added

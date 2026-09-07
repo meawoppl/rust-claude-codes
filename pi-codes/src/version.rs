@@ -6,7 +6,7 @@
 /// credential-free RPC surface (state, models, bash, session commands)
 /// and the full deserialization suite; model-turn coverage requires a
 /// configured provider and is gated the same way.
-pub const TESTED_PI_VERSION: &str = "0.84.4";
+pub const TESTED_PI_VERSION: &str = "0.85.1";
 
 /// The pi release this crate's live suite last passed against — the
 /// machine-readable form of the crate's version convention. Kept in

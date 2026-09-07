@@ -38,11 +38,11 @@ metadata can't distinguish published versions — so explicit offset notes are
 the least-bad scheme.)
 
 - **`claude-codes`** — currently `claude-codes 2.1.261`, tested against Claude CLI `2.1.261`.
-- **`codex-codes`** — currently `codex-codes 0.151.5`, tested against Codex CLI `0.151.0`.
-- **`opencode-codes`** — currently `opencode-codes 1.18.19` (tested CLI + 1 crate-side patch), tested against opencode `1.18.18`.
-- **`muse-codes`** — currently `muse-codes 1.0.2`, tested against Muse Code `1.0.2` (build `1.0.2-R2040.1`).
+- **`codex-codes`** — currently `codex-codes 0.153.4`, tested against Codex CLI `0.153.4`.
+- **`opencode-codes`** — currently `opencode-codes 1.18.29`, tested against opencode `1.18.29`.
+- **`muse-codes`** — currently `muse-codes 1.0.3`, tested against Muse Code `1.0.3` (build `1.0.3-R2198.1`).
 - **`antigravity-codes`** — currently `antigravity-codes 0.1.16`, tested against google-antigravity `0.1.16` (the wheel its bundled harness was generated from).
-- **`pi-codes`** — currently `pi-codes 0.84.4`, tested against pi `0.84.4` (`@earendil-works/pi-coding-agent`; live tier: credential-free RPC surface + model turns and tool conformance when a provider key is present).
+- **`pi-codes`** — currently `pi-codes 0.85.1`, tested against pi `0.85.1` (`@earendil-works/pi-coding-agent`; live tier: credential-free RPC surface + model turns and tool conformance when a provider key is present).
 
 `claude-codes` and `codex-codes` warn (or fail gracefully) when the installed
 CLI version diverges from the tested version. `opencode-codes` tracks the
