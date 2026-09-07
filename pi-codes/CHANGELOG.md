@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.85.1] - 2026-09-06
+
+### Changed
+
+- Re-baseline the tested pin to pi **0.85.1** (from 0.84.4): the full
+  live tier passes unchanged — six credential-free RPC checks, a
+  streamed model turn, the model-tool conformance trio (disk-verified),
+  and the 5 corpus tests over the committed 0.84.4 tool-use capture,
+  which still parses fully typed. Pin-only release.
+
 ## [0.84.4] - 2026-09-02
 
 ### Changed

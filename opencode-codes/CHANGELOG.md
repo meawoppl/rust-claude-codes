@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.29] - 2026-09-06
+
+### Changed
+
+- Re-baseline the tested pin to opencode **1.18.29** (from 1.18.18):
+  the managed-server live tier (session lifecycle, fork, SSE event
+  stream, hello/bash conformance) passes unchanged; the read/write
+  conformance checks remain provider-gated on this host. Pin-only
+  release.
+
 ## [Unreleased]
 
 ## [1.18.19] - 2026-08-19
