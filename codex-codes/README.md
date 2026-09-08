@@ -95,6 +95,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+#### Cancellation safety
+
+`AsyncClient::request()` and `AsyncClient::next_message()` share a persistent
+newline decoder. If either future is cancelled while waiting for the remainder
+of an inbound JSON frame, the next call resumes from the retained bytes; the
+frame's bytes are neither lost nor decoded twice. This guarantee applies to inbound
+framing after a request has been sent. Cancelling a request does not recover
+that abandoned RPC's eventual response or make request submission retry-safe.
+
 ### Sync Client (Multi-Turn)
 
 ```rust

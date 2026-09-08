@@ -79,11 +79,18 @@ const STDOUT_BUFFER_SIZE: usize = 10 * 1024 * 1024;
 /// correlation and buffers incoming notifications that arrive while
 /// waiting for RPC responses.
 ///
+/// Reads performed by [`AsyncClient::request`] and [`AsyncClient::next_message`]
+/// are cancellation-safe. If either future is dropped while a JSON line is
+/// only partially available, the partial frame is retained and completed by
+/// the next read operation.
+///
 /// The client automatically kills the app-server process when dropped.
 pub struct AsyncClient {
     child: Child,
     writer: BufWriter<tokio::process::ChildStdin>,
     reader: BufReader<tokio::process::ChildStdout>,
+    /// Bytes read from stdout for the current, not-yet-decoded frame.
+    inbound_frame: Vec<u8>,
     /// Handle to the background task draining the child's stderr pipe.
     /// Kept alive for the lifetime of the client; the task exits on EOF
     /// when the child is killed.
@@ -125,6 +132,7 @@ impl AsyncClient {
             child,
             writer: BufWriter::new(stdin),
             reader: BufReader::with_capacity(STDOUT_BUFFER_SIZE, stdout),
+            inbound_frame: Vec::new(),
             _stderr_drain: stderr_drain,
             next_id: AtomicI64::new(1),
             buffered: VecDeque::new(),
@@ -185,6 +193,8 @@ impl AsyncClient {
     ///
     /// Any notifications or server requests that arrive before the response
     /// are buffered and can be retrieved via [`AsyncClient::next_message`].
+    /// Dropping this future during a partial inbound frame preserves that frame
+    /// for the next call to `request` or [`AsyncClient::next_message`].
     ///
     /// # Errors
     ///
@@ -401,6 +411,8 @@ impl AsyncClient {
     /// an [`AsyncClient::request`] call), then reads from the wire.
     ///
     /// Returns `Ok(None)` when the app-server closes the connection (EOF).
+    /// Dropping this future during a partial inbound frame preserves that frame
+    /// for the next call to `next_message` or [`AsyncClient::request`].
     ///
     /// # Typical notification methods
     ///
@@ -578,26 +590,49 @@ impl AsyncClient {
     }
 
     async fn read_message_opt(&mut self) -> Result<Option<JsonRpcMessage>> {
-        let mut line = String::new();
-
         loop {
-            line.clear();
-            let bytes_read = self.reader.read_line(&mut line).await.map_err(Error::Io)?;
+            // `read_until` is cancellation-safe: bytes consumed from `reader`
+            // are appended to the persistent buffer before the await can be
+            // cancelled. Do not clear that buffer until a full frame exists.
+            let bytes_read = self
+                .reader
+                .read_until(b'\n', &mut self.inbound_frame)
+                .await
+                .map_err(Error::Io)?;
 
             if bytes_read == 0 {
                 debug!("[CLIENT] Stream closed (EOF)");
-                return Ok(None);
+                if self.inbound_frame.is_empty() {
+                    return Ok(None);
+                }
             }
 
+            if !self.inbound_frame.ends_with(b"\n") && bytes_read != 0 {
+                continue;
+            }
+
+            let line = match std::str::from_utf8(&self.inbound_frame) {
+                Ok(line) => line,
+                Err(error) => {
+                    let error = std::io::Error::new(std::io::ErrorKind::InvalidData, error);
+                    self.inbound_frame.clear();
+                    return Err(Error::Io(error));
+                }
+            };
             let trimmed = line.trim();
             if trimmed.is_empty() {
+                self.inbound_frame.clear();
                 continue;
             }
 
             debug!("[CLIENT] Received: {}", trimmed);
 
-            match serde_json::from_str::<JsonRpcMessage>(trimmed) {
-                Ok(msg) => return Ok(Some(msg)),
+            let decoded = serde_json::from_str::<JsonRpcMessage>(trimmed);
+            match decoded {
+                Ok(msg) => {
+                    self.inbound_frame.clear();
+                    return Ok(Some(msg));
+                }
                 Err(e) => {
                     warn!(
                         "[CLIENT] Failed to deserialize message. \
@@ -605,7 +640,9 @@ impl AsyncClient {
                     );
                     warn!("[CLIENT] Parse error: {}", e);
                     warn!("[CLIENT] Raw: {}", trimmed);
-                    return Err(Error::Deserialization(ParseError::from_line(trimmed, e)));
+                    let parse_error = ParseError::from_line(trimmed, e);
+                    self.inbound_frame.clear();
+                    return Err(Error::Deserialization(parse_error));
                 }
             }
         }
@@ -650,9 +687,272 @@ impl EventStream<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Stdio;
+    use tokio::process::Command;
+
+    #[cfg(unix)]
+    fn scripted_client(script: &str) -> AsyncClient {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg(script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        AsyncClient::new(command.spawn().expect("spawn scripted app-server"))
+            .expect("construct async client")
+    }
+
+    fn unknown_method(message: ServerMessage) -> String {
+        match message {
+            ServerMessage::Notification(Notification::Unknown { method, .. }) => method,
+            other => panic!("expected unknown notification, got {other:?}"),
+        }
+    }
 
     #[test]
     fn test_buffer_size() {
         assert_eq!(STDOUT_BUFFER_SIZE, 10 * 1024 * 1024);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelled_next_message_resumes_partial_frame_exactly_once() {
+        const PARTIAL: &[u8] = br#"{"method":"test/first","params":{"part":"#;
+        let mut client = scripted_client(
+            r#"printf '%s' '{"method":"test/first","params":{"part":'; IFS= read -r release; printf '%s\n' '1}}'; printf '%s\n' '{"method":"test/second","params":{}}'"#,
+        );
+
+        assert_eq!(
+            client
+                .reader
+                .fill_buf()
+                .await
+                .expect("buffer partial frame"),
+            PARTIAL
+        );
+        let mut pending_read = Box::pin(client.next_message());
+        tokio::select! {
+            biased;
+            result = &mut pending_read => panic!("partial frame completed unexpectedly: {result:?}"),
+            _ = async {} => {}
+        }
+        drop(pending_read);
+        // A pipe may split one write across reads, so require the bytes that
+        // reached the decoder to be a nonempty prefix, not the entire write.
+        assert!(!client.inbound_frame.is_empty());
+        assert!(PARTIAL.starts_with(&client.inbound_frame));
+        client
+            .writer
+            .write_all(b"release\n")
+            .await
+            .expect("release remaining frame");
+        client.writer.flush().await.expect("flush release");
+
+        let first = client
+            .next_message()
+            .await
+            .expect("resume first frame")
+            .expect("first message");
+        let second = client
+            .next_message()
+            .await
+            .expect("read second frame")
+            .expect("second message");
+
+        assert_eq!(unknown_method(first), "test/first");
+        assert_eq!(unknown_method(second), "test/second");
+        assert!(client.next_message().await.expect("read EOF").is_none());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelled_request_preserves_shared_decoder_framing() {
+        const PARTIAL: &[u8] = br#"{"id":1,"result":{"abandoned":"#;
+        let mut client = scripted_client(
+            r#"printf '%s' '{"id":1,"result":{"abandoned":'; IFS= read -r first; IFS= read -r release; printf '%s\n' 'true}}' '{"method":"test/between","params":{}}'; IFS= read -r second; printf '%s\n' '{"id":2,"result":{"ok":true}}' '{"method":"test/after","params":{}}'"#,
+        );
+
+        assert_eq!(
+            client
+                .reader
+                .fill_buf()
+                .await
+                .expect("buffer partial response"),
+            PARTIAL
+        );
+        let params = serde_json::json!({});
+        let mut pending_request =
+            Box::pin(client.request::<_, serde_json::Value>("test/abandoned", &params));
+        tokio::select! {
+            biased;
+            result = &mut pending_request => panic!("partial response completed unexpectedly: {result:?}"),
+            _ = async {} => {}
+        }
+        drop(pending_request);
+        // A pipe may split one write across reads, so require the bytes that
+        // reached the decoder to be a nonempty prefix, not the entire write.
+        assert!(!client.inbound_frame.is_empty());
+        assert!(PARTIAL.starts_with(&client.inbound_frame));
+        client
+            .writer
+            .write_all(b"release\n")
+            .await
+            .expect("release remaining response");
+        client.writer.flush().await.expect("flush release");
+
+        let response: serde_json::Value = client
+            .request("test/resumed", &serde_json::json!({}))
+            .await
+            .expect("second request should resume the shared decoder");
+        assert_eq!(response, serde_json::json!({"ok": true}));
+
+        let between = client
+            .next_message()
+            .await
+            .expect("read buffered notification")
+            .expect("between message");
+        let after = client
+            .next_message()
+            .await
+            .expect("read trailing notification")
+            .expect("after message");
+        assert_eq!(unknown_method(between), "test/between");
+        assert_eq!(unknown_method(after), "test/after");
+        assert!(client.next_message().await.expect("read EOF").is_none());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn next_message_resumes_notification_partially_read_by_cancelled_request() {
+        const PARTIAL: &[u8] = br#"{"method":"test/during-request","params":{"part":"#;
+        let mut client = scripted_client(
+            r#"printf '%s' '{"method":"test/during-request","params":{"part":'; IFS= read -r request; IFS= read -r release; printf '%s\n' '1}}' '{"id":1,"result":{}}'"#,
+        );
+
+        assert_eq!(
+            client
+                .reader
+                .fill_buf()
+                .await
+                .expect("buffer partial notification"),
+            PARTIAL
+        );
+        let params = serde_json::json!({});
+        let mut pending_request =
+            Box::pin(client.request::<_, serde_json::Value>("test/abandoned", &params));
+        tokio::select! {
+            biased;
+            result = &mut pending_request => panic!("partial notification completed unexpectedly: {result:?}"),
+            _ = async {} => {}
+        }
+        drop(pending_request);
+        // A pipe may split one write across reads, so require the bytes that
+        // reached the decoder to be a nonempty prefix, not the entire write.
+        assert!(!client.inbound_frame.is_empty());
+        assert!(PARTIAL.starts_with(&client.inbound_frame));
+        client
+            .writer
+            .write_all(b"release\n")
+            .await
+            .expect("release remaining notification");
+        client.writer.flush().await.expect("flush release");
+
+        let notification = client
+            .next_message()
+            .await
+            .expect("resume partial notification")
+            .expect("notification");
+        assert_eq!(unknown_method(notification), "test/during-request");
+        assert!(client.next_message().await.expect("read EOF").is_none());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn request_resumes_notification_partially_read_by_cancelled_next_message() {
+        const PARTIAL: &[u8] = br#"{"method":"test/before-request","params":{"part":"#;
+        let mut client = scripted_client(
+            r#"printf '%s' '{"method":"test/before-request","params":{"part":'; IFS= read -r release; printf '%s\n' '1}}'; IFS= read -r request; printf '%s\n' '{"id":1,"result":{"ok":true}}'"#,
+        );
+
+        assert_eq!(
+            client
+                .reader
+                .fill_buf()
+                .await
+                .expect("buffer partial notification"),
+            PARTIAL
+        );
+        let mut pending_read = Box::pin(client.next_message());
+        tokio::select! {
+            biased;
+            result = &mut pending_read => panic!("partial notification completed unexpectedly: {result:?}"),
+            _ = async {} => {}
+        }
+        drop(pending_read);
+        // A pipe may split one write across reads, so require the bytes that
+        // reached the decoder to be a nonempty prefix, not the entire write.
+        assert!(!client.inbound_frame.is_empty());
+        assert!(PARTIAL.starts_with(&client.inbound_frame));
+        client
+            .writer
+            .write_all(b"release\n")
+            .await
+            .expect("release remaining notification");
+        client.writer.flush().await.expect("flush release");
+
+        let response: serde_json::Value = client
+            .request("test/resumed", &serde_json::json!({}))
+            .await
+            .expect("request should resume the shared decoder");
+        assert_eq!(response, serde_json::json!({"ok": true}));
+
+        let notification = client
+            .next_message()
+            .await
+            .expect("read buffered notification")
+            .expect("notification");
+        assert_eq!(unknown_method(notification), "test/before-request");
+        assert!(client.next_message().await.expect("read EOF").is_none());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn request_directly_resumes_response_partially_read_by_cancelled_next_message() {
+        const PARTIAL: &[u8] = br#"{"id":1,"result":{"ok":"#;
+        // The fixture knows the client's initial request id, but withholds the
+        // rest of the response until it has received that request.
+        let mut client = scripted_client(
+            r#"printf '%s' '{"id":1,"result":{"ok":'; IFS= read -r request; printf '%s\n' 'true}}'"#,
+        );
+
+        assert_eq!(
+            client
+                .reader
+                .fill_buf()
+                .await
+                .expect("buffer partial response"),
+            PARTIAL
+        );
+        let mut pending_read = Box::pin(client.next_message());
+        tokio::select! {
+            biased;
+            result = &mut pending_read => panic!("partial response completed unexpectedly: {result:?}"),
+            _ = async {} => {}
+        }
+        drop(pending_read);
+        // A pipe may split one write across reads, so require the bytes that
+        // reached the decoder to be a nonempty prefix, not the entire write.
+        assert!(!client.inbound_frame.is_empty());
+        assert!(PARTIAL.starts_with(&client.inbound_frame));
+        assert!(client.buffered.is_empty());
+
+        let response: serde_json::Value = client
+            .request("test/resumed", &serde_json::json!({}))
+            .await
+            .expect("request should directly resume the partial response");
+        assert_eq!(response, serde_json::json!({"ok": true}));
+        assert!(client.buffered.is_empty());
+        assert!(client.next_message().await.expect("read EOF").is_none());
     }
 }
