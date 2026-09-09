@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.266] - 2026-09-09
+
+Re-baseline against Claude CLI **2.1.266**. Models the 2.1.263 → 2.1.266
+stream-json drift, all additive (no removals or required/optional flips).
+
+### Added
+
+- `SystemSubtype::DevIntent` / `DevIntentMessage` / `DevIntentKind` /
+  `KnownSystemEvent::DevIntent`, plus `SystemMessage::is_dev_intent` /
+  `as_dev_intent` — the new `system/dev_intent` frame the CLI emits once per
+  recognized kind of development work per conversation (e.g. `ios_app`, which
+  Claude Code Desktop keys its iOS Simulator entry point on). `kind` is an
+  open enum with an `Unknown` fallback, matching the CLI's "ignore a kind you
+  do not recognize" contract.
+- `AssistantMessage.historical` and `AssistantMessage.wire_ingest_context` —
+  the Remote Control replay flag and the input-normalization provenance map
+  that rides alongside `wire_tool_inputs`.
+- `ResultMessage.runner_exit` (`RunnerExit` with an open `RunnerExitPhase`
+  enum) — set by the self-hosted runner on a synthesized failure result when
+  the session process fails to start or exits abnormally.
+- `InitMessage.startup_timing` — cold-start telemetry (named phases and
+  resume-hydration counters) on hosted-session init frames, stored as raw
+  JSON.
+- `CompactBoundaryMessage.historical` and `UserMessage.historical` — the same
+  Remote Control replay flag on those two frames.
+
+### Changed
+
+- The committed schema snapshot moves to 2.1.266. Between 2.1.263 and 2.1.266
+  the CLI also tightened the assistant/user `message` field from `z.unknown()`
+  to a concrete Anthropic-Messages-API schema, so the extractor now reaches
+  the API content-block schemas (`text`, `image`, `thinking`, `tool_use`,
+  `tool_result`, `document`, `search_result`, `redacted_thinking`,
+  `tool_reference`, `file`, `url`, `message`) and the snapshot records them.
+  These are passthrough shapes the crate already types via `ContentBlock`
+  (with an `Unknown` fallback), so no new content-block modeling is required;
+  the wire JSON is unchanged. The full live integration suite passes against
+  2.1.266.
+
 ## [2.1.263] - 2026-09-07
 
 ### Changed

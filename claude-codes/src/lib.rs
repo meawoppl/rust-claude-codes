@@ -78,7 +78,7 @@
 //! ⚠️ **Important**: The Claude CLI protocol is unstable and evolving. This crate
 //! automatically checks your Claude CLI version and warns if it's newer than tested.
 //!
-//! Current tested version: **2.1.263**
+//! Current tested version: **2.1.266**
 //!
 //! Report compatibility issues at: <https://github.com/meawoppl/rust-claude-codes/pulls>
 //!
@@ -168,9 +168,9 @@ pub use io::{
     CodeChangePublishedMessage, CommandInfo, CommandsChangedMessage, CompactBoundaryMessage,
     CompactMetadata, CompactionTrigger, ContextAgent, ContextCategory, ContextMcpTool,
     ContextMemoryFile, ContextOverLimit, ContextSkill, ContextUsage, ControlRequestProgressMessage,
-    ElicitationCompleteMessage, FailedPersistedFile, FeedbackDraftQueuedMessage,
-    FilesPersistedMessage, HookProgressMessage, HookResponseMessage, HookStartedMessage,
-    InformationalMessage, InitMessage, InitPermissionMode, KnownSystemEvent,
+    DevIntentKind, DevIntentMessage, ElicitationCompleteMessage, FailedPersistedFile,
+    FeedbackDraftQueuedMessage, FilesPersistedMessage, HookProgressMessage, HookResponseMessage,
+    HookStartedMessage, InformationalMessage, InitMessage, InitPermissionMode, KnownSystemEvent,
     LocalCommandOutputMessage, McpMeta, McpServerError, MemoryPaths, MemoryRecallItem,
     MemoryRecallMessage, MessageOrigin, MessageRole, MirrorErrorKey, MirrorErrorMessage,
     ModelRefusalFallbackMessage, ModelRefusalNoFallbackMessage, NotificationMessage, OutputStyle,
@@ -200,9 +200,9 @@ pub use io::{
 
 // Usage types
 pub use io::{
-    AssistantUsage, CacheCreationDetails, DeferredToolUse, FastModeDisabledReason, ServerToolUse,
-    SubagentKillCounts, SubagentRefusalCounts, SubagentResult, SubagentSpawnRequests,
-    SubagentStats, SubagentToolStats, SubagentUsageRollup, UsageInfo,
+    AssistantUsage, CacheCreationDetails, DeferredToolUse, FastModeDisabledReason, RunnerExit,
+    RunnerExitPhase, ServerToolUse, SubagentKillCounts, SubagentRefusalCounts, SubagentResult,
+    SubagentSpawnRequests, SubagentStats, SubagentToolStats, SubagentUsageRollup, UsageInfo,
 };
 
 // Typed tool input types
