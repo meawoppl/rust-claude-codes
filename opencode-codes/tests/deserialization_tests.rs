@@ -17,7 +17,9 @@
 //! making the event-stream test a strong forward-compatibility tripwire.
 
 use opencode_codes::protocol_generated::types::{
-    Event, MessageWithParts, NotFoundError, Session, SessionStatus,
+    Event, MessageWithParts, NotFoundError, ProviderConfigModelsValueInterleaved,
+    ProviderConfigModelsValueInterleavedVariant3Field, ProviderConfigOptions,
+    ProviderConfigOptionsChunkTimeout, Session, SessionStatus,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -204,4 +206,53 @@ fn event_stream_every_frame_roundtrips() {
             "fixture regression: event type `{expected}` no longer present in capture"
         );
     }
+}
+
+/// opencode 1.18.30 widened `ProviderConfig.options.chunkTimeout` to accept
+/// `false` (disable) alongside a millisecond count, and
+/// `ProviderConfig.models.*.interleaved` to accept a bare field name or an
+/// object whose `field` is an open string enum. Each shape round-trips
+/// through the generated types.
+#[test]
+fn provider_config_1_18_30_shapes_roundtrip() {
+    let disabled: ProviderConfigOptions = roundtrip(
+        "provider_options_chunk_timeout_false",
+        r#"{"chunkTimeout": false, "headerTimeout": 300000}"#,
+    );
+    assert_eq!(
+        disabled.chunk_timeout,
+        Some(ProviderConfigOptionsChunkTimeout::Variant1(false))
+    );
+
+    let timed: ProviderConfigOptions = roundtrip(
+        "provider_options_chunk_timeout_ms",
+        r#"{"chunkTimeout": 15000}"#,
+    );
+    assert_eq!(
+        timed.chunk_timeout,
+        Some(ProviderConfigOptionsChunkTimeout::Variant0(15000))
+    );
+
+    let by_object: ProviderConfigModelsValueInterleaved =
+        roundtrip("interleaved_object", r#"{"field": "reasoning_text"}"#);
+    let ProviderConfigModelsValueInterleaved::Variant3(inner) = by_object else {
+        panic!("expected the object variant");
+    };
+    assert_eq!(
+        inner.field,
+        ProviderConfigModelsValueInterleavedVariant3Field::ReasoningText
+    );
+
+    let by_name: ProviderConfigModelsValueInterleaved =
+        roundtrip("interleaved_string", r#""reasoning_content""#);
+    assert!(matches!(
+        by_name,
+        ProviderConfigModelsValueInterleaved::Variant1(ref s) if s == "reasoning_content"
+    ));
+
+    let by_flag: ProviderConfigModelsValueInterleaved = roundtrip("interleaved_bool", "true");
+    assert_eq!(
+        by_flag,
+        ProviderConfigModelsValueInterleaved::Variant0(true)
+    );
 }

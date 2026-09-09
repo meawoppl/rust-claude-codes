@@ -4,5 +4,5 @@
 /// also asserted at runtime by the integration tests against the server's
 /// reported version. Kept in lockstep with the README by CI.
 pub fn tested_cli_version() -> &'static str {
-    "1.18.29"
+    "1.18.30"
 }

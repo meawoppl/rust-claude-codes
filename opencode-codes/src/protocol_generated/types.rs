@@ -3699,7 +3699,7 @@ pub struct ModelCapabilities2Input {
 #[serde(untagged)]
 pub enum ModelCapabilities2Interleaved {
     Variant0(bool),
-    Variant1(ProviderConfigModelsValueInterleavedVariant1),
+    Variant1(ProviderConfigModelsValueInterleavedVariant3),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5002,12 +5002,63 @@ pub struct ProviderConfigModelsValueCostContextOver200k {
 #[serde(untagged)]
 pub enum ProviderConfigModelsValueInterleaved {
     Variant0(bool),
-    Variant1(ProviderConfigModelsValueInterleavedVariant1),
+    Variant1(String),
+    Variant2(String),
+    Variant3(ProviderConfigModelsValueInterleavedVariant3),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ProviderConfigModelsValueInterleavedVariant1 {
-    pub field: String,
+pub struct ProviderConfigModelsValueInterleavedVariant3 {
+    pub field: ProviderConfigModelsValueInterleavedVariant3Field,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ProviderConfigModelsValueInterleavedVariant3Field {
+    Reasoning,
+    ReasoningContent,
+    ReasoningText,
+    Unknown(String),
+}
+
+impl ProviderConfigModelsValueInterleavedVariant3Field {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Reasoning => "reasoning",
+            Self::ReasoningContent => "reasoning_content",
+            Self::ReasoningText => "reasoning_text",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl std::fmt::Display for ProviderConfigModelsValueInterleavedVariant3Field {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for ProviderConfigModelsValueInterleavedVariant3Field {
+    fn from(s: &str) -> Self {
+        match s {
+            "reasoning" => Self::Reasoning,
+            "reasoning_content" => Self::ReasoningContent,
+            "reasoning_text" => Self::ReasoningText,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for ProviderConfigModelsValueInterleavedVariant3Field {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ProviderConfigModelsValueInterleavedVariant3Field {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5051,7 +5102,7 @@ pub struct ProviderConfigOptions {
         default,
         skip_serializing_if = "Option::is_none"
     )]
-    pub chunk_timeout: Option<i64>,
+    pub chunk_timeout: Option<ProviderConfigOptionsChunkTimeout>,
     #[serde(
         rename = "enterpriseUrl",
         default,
@@ -5074,7 +5125,16 @@ pub struct ProviderConfigOptions {
     pub timeout: Option<ProviderConfigOptionsTimeout>,
 }
 
-/// Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.
+/// Timeout in milliseconds between streamed SSE chunks for this provider (default: 300000). If no chunk arrives within this window, the request is aborted. Set to false to disable timeout.
+/// Untagged union: serde tries each variant in the order below.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ProviderConfigOptionsChunkTimeout {
+    Variant0(i64),
+    Variant1(bool),
+}
+
+/// Timeout in milliseconds to wait for response headers (default: 300000). Set to false to disable timeout.
 /// Untagged union: serde tries each variant in the order below.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]

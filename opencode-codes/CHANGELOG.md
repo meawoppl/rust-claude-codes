@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.30] - 2026-09-09
+
+### Changed
+
+- Re-baseline the tested pin to opencode **1.18.30** (from 1.18.29). The
+  nightly fingerprint check is clean (162 paths, 472 schemas), and a full
+  JSON diff of the live `GET /doc` document against the committed snapshot
+  shows four config-schema changes, all modeled here:
+  - `ProviderConfig.models.*.interleaved` grew from `true | {field}` to
+    `bool | "reasoning" | "reasoning_content" | "reasoning_text" | string |
+    {field}`; the `field` value is now an open string enum
+    (`ProviderConfigModelsValueInterleavedVariant3Field`) rather than a
+    bare `String`, and the object variant is renamed
+    `ProviderConfigModelsValueInterleavedVariant3` to follow the codegen
+    numbering. `Model.capabilities.interleaved` shares the object variant.
+  - `ProviderConfig.options.chunkTimeout` accepts `false` to disable the
+    timeout (`ProviderConfigOptionsChunkTimeout`, mirroring
+    `headerTimeout`); both timeout doc strings pick up the 300000 ms
+    default.
+  - `POST /global/upgrade` now requires `target`.
+- `scripts/check_opencode_schema_drift.py --update` writes the snapshot in
+  the server's key order (pretty-printed, no re-sorting): the codegen names
+  synthesized types by first occurrence, so sorting keys renamed
+  `ConfigReferencesValue` and similar on a no-op regen. The snapshot is now
+  stored pretty-printed so future drift diffs are reviewable.
+
 ## [1.18.29] - 2026-09-06
 
 ### Changed
