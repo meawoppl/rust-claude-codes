@@ -72,7 +72,7 @@
 //! Apache-2.0 licensed `opencode_rs` reference SDK. No code is copied verbatim;
 //! it is credited here as a design reference in keeping with its license.
 //!
-//! **Tested against:** opencode 1.18.5.
+//! **Tested against:** opencode 1.18.30.
 
 pub mod error;
 pub mod protocol_generated;

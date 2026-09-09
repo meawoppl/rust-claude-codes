@@ -293,7 +293,9 @@ def render_markdown(diff: dict[str, Any], source: str) -> str:
 
 
 def canonical_json(doc: dict[str, Any]) -> str:
-    return json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    # Keep the server's key order: codegen_opencode.py names synthesized types
+    # by first occurrence, so re-sorting keys would rename generated items.
+    return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
 
 
 def write_snapshot(doc: dict[str, Any]) -> None:
