@@ -149,6 +149,81 @@ pub struct ResultMessage {
     /// Provenance of the message/run.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<super::message_types::MessageOrigin>,
+
+    /// Set by the self-hosted runner on the result it synthesizes when the
+    /// session process fails to start or exits abnormally. Absent on normal
+    /// results and on CLIs before 2.1.266.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner_exit: Option<RunnerExit>,
+}
+
+/// How the self-hosted runner's session process terminated, carried on a
+/// synthesized failure [`ResultMessage`] as [`ResultMessage::runner_exit`]
+/// (CLI 2.1.266+).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RunnerExit {
+    /// Which phase the process was in when it exited.
+    pub phase: RunnerExitPhase,
+    /// Process exit code. Absent (or wire `null`) when it exited on a signal
+    /// instead, or when the runner did not capture one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i64>,
+    /// Terminating signal name. Absent (or wire `null`) when it exited with a
+    /// code instead, or when the runner did not capture one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal: Option<String>,
+}
+
+/// Which phase the runner's session process was in when it exited, in
+/// [`RunnerExit::phase`]. Open set — unrecognized values deserialize to
+/// [`RunnerExitPhase::Unknown`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RunnerExitPhase {
+    /// Failed while starting up.
+    Setup,
+    /// Failed once running.
+    Run,
+    /// A phase not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl RunnerExitPhase {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Setup => "setup",
+            Self::Run => "run",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl std::fmt::Display for RunnerExitPhase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for RunnerExitPhase {
+    fn from(s: &str) -> Self {
+        match s {
+            "setup" => Self::Setup,
+            "run" => Self::Run,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for RunnerExitPhase {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for RunnerExitPhase {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
 }
 
 /// Usage and cost for a single model within a session, as found in

@@ -45,6 +45,7 @@ pub enum SystemSubtype {
     VcsStateChanged,
     FeedbackDraftQueued,
     CloudSessionDelta,
+    DevIntent,
     /// A subtype not yet known to this version of the crate.
     Unknown(String),
 }
@@ -84,6 +85,7 @@ impl SystemSubtype {
             Self::VcsStateChanged => "vcs_state_changed",
             Self::FeedbackDraftQueued => "feedback_draft_queued",
             Self::CloudSessionDelta => "cloud_session_delta",
+            Self::DevIntent => "dev_intent",
             Self::Unknown(s) => s.as_str(),
         }
     }
@@ -130,6 +132,7 @@ impl From<&str> for SystemSubtype {
             "vcs_state_changed" => Self::VcsStateChanged,
             "feedback_draft_queued" => Self::FeedbackDraftQueued,
             "cloud_session_delta" => Self::CloudSessionDelta,
+            "dev_intent" => Self::DevIntent,
             other => Self::Unknown(other.to_string()),
         }
     }
@@ -697,6 +700,11 @@ pub struct UserMessage {
     /// type; its text is delivered as written (CLI 2.1.259+).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_composed: Option<bool>,
+    /// Replayed history rather than a live message: the Remote Control
+    /// bridge stamps it on the messages it flushes to the session server,
+    /// which also stamps it on deliveries it replays (CLI 2.1.266+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub historical: Option<bool>,
 }
 
 impl UserMessage {
@@ -1060,6 +1068,19 @@ impl SystemMessage {
         serde_json::from_value(self.data.clone()).ok()
     }
 
+    /// Check if this is a dev_intent message.
+    pub fn is_dev_intent(&self) -> bool {
+        self.subtype == SystemSubtype::DevIntent
+    }
+
+    /// Try to parse as a dev_intent message.
+    pub fn as_dev_intent(&self) -> Option<DevIntentMessage> {
+        if self.subtype != SystemSubtype::DevIntent {
+            return None;
+        }
+        serde_json::from_value(self.data.clone()).ok()
+    }
+
     /// Parse any typed system subtype known to this crate version.
     pub fn as_known_system_event(&self) -> Option<KnownSystemEvent> {
         macro_rules! parse {
@@ -1125,6 +1146,7 @@ impl SystemMessage {
             SystemSubtype::CloudSessionDelta => {
                 parse!(CloudSessionDelta, CloudSessionDeltaMessage)
             }
+            SystemSubtype::DevIntent => parse!(DevIntent, DevIntentMessage),
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1204,6 +1226,7 @@ impl SystemMessage {
             SystemSubtype::CloudSessionDelta => {
                 reserialize(parse_system::<CloudSessionDeltaMessage>(self))
             }
+            SystemSubtype::DevIntent => reserialize(parse_system::<DevIntentMessage>(self)),
             SystemSubtype::Unknown(_) => None,
         }
     }
@@ -1253,6 +1276,7 @@ pub enum KnownSystemEvent {
     VcsStateChanged(VcsStateChangedMessage),
     FeedbackDraftQueued(FeedbackDraftQueuedMessage),
     CloudSessionDelta(CloudSessionDeltaMessage),
+    DevIntent(DevIntentMessage),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1824,6 +1848,12 @@ pub struct InitMessage {
     /// none was found. Absent on other platforms and on CLIs before 2.1.259.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub powershell_path: Option<Option<String>>,
+
+    /// Cold-start telemetry for hosted (CCR) sessions: named startup phases
+    /// and resume-hydration counters. Absent elsewhere. Stored as raw JSON
+    /// (the shape is internal and evolving) (CLI 2.1.266+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub startup_timing: Option<serde_json::Map<String, Value>>,
 }
 
 /// The server-configured session indicator that the terminal renders as a
@@ -1890,6 +1920,11 @@ pub struct CompactBoundaryMessage {
     /// Logical parent across the compaction boundary.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logical_parent_uuid: Option<Option<String>>,
+    /// Replayed history rather than a live message, stamped by the Remote
+    /// Control bridge when it flushes history to the session server
+    /// (CLI 2.1.266+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub historical: Option<bool>,
 }
 
 /// Metadata about context compaction
@@ -2439,6 +2474,75 @@ pub struct CloudSessionDeltaMessage {
     pub extra: serde_json::Map<String, Value>,
 }
 
+/// `system/dev_intent` — the conversation shows a known kind of development
+/// work, for hosts that key tooling on it (Claude Code Desktop opens its iOS
+/// Simulator entry point on `ios_app`). Sent with no other payload at most
+/// once per kind per conversation per process: when the evidence for that
+/// kind first completes, or at startup when a resumed conversation already
+/// has it (possibly before `system/init`). A rewind or compaction never
+/// retracts it and only a `conversation_reset` starts over, so treat each
+/// kind as a sticky fact about the conversation and ignore repeats
+/// (CLI 2.1.266+).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevIntentMessage {
+    /// What kind of development the conversation turned out to be doing.
+    pub kind: DevIntentKind,
+    pub uuid: String,
+    pub session_id: String,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
+}
+
+/// The kind of development a [`DevIntentMessage`] reports. Open set: the CLI
+/// says "more kinds will be added; ignore a kind you do not recognize", so
+/// unrecognized values deserialize to [`DevIntentKind::Unknown`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DevIntentKind {
+    /// Claude wrote or edited a `.swift` file and something it wrote, read, or
+    /// ran is iPhone-specific (a macOS-only app or server-side Swift package
+    /// never qualifies).
+    IosApp,
+    /// A kind not yet known to this version of the crate.
+    Unknown(String),
+}
+
+impl DevIntentKind {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::IosApp => "ios_app",
+            Self::Unknown(s) => s.as_str(),
+        }
+    }
+}
+
+impl fmt::Display for DevIntentKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&str> for DevIntentKind {
+    fn from(s: &str) -> Self {
+        match s {
+            "ios_app" => Self::IosApp,
+            other => Self::Unknown(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for DevIntentKind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for DevIntentKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from(s.as_str()))
+    }
+}
+
 /// `{id, name}` of an original `Batch*` tool_use block, carried in
 /// [`AssistantMessage::batch_tool_uses`].
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -2621,6 +2725,18 @@ pub struct AssistantMessage {
     /// Wrapper-level sibling — never inside `message.content` (CLI 2.1.259+).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wire_tool_inputs: Option<serde_json::Map<String, Value>>,
+    /// What the client-side input normalization read from process state for
+    /// the inputs in [`wire_tool_inputs`](Self::wire_tool_inputs), keyed by
+    /// the same `tool_use` ids. Round-tripped so a replayed history can verify
+    /// each recorded input against the normalized one. Wrapper-level sibling —
+    /// never inside `message.content` (CLI 2.1.266+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire_ingest_context: Option<serde_json::Map<String, Value>>,
+    /// Replayed history rather than a live message, stamped by the Remote
+    /// Control bridge when it flushes history to the session server, which
+    /// also stamps it on deliveries it replays (CLI 2.1.266+).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub historical: Option<bool>,
     /// The originating `system/local_command` row's wire-form content,
     /// carried on the loop-synthesized local-command twin so a bridge/SDK
     /// history replay rebuilds the internal system row instead of dropping
